@@ -1,0 +1,88 @@
+{
+  "$schema": "./schema.json",
+  "version": "1.0.0",
+  "description": "Entity registry for OrbitOS domain model",
+  "entities": [
+    {
+      "id": "ENT001",
+      "name": "User",
+      "file": "ENT001-user.json",
+      "table": "Users",
+      "status": "implemented"
+    },
+    {
+      "id": "ENT002",
+      "name": "Organization",
+      "file": "ENT002-organization.json",
+      "table": "Organizations",
+      "status": "implemented"
+    },
+    {
+      "id": "ENT003",
+      "name": "Role",
+      "file": "ENT003-role.json",
+      "table": "Roles",
+      "status": "implemented"
+    },
+    {
+      "id": "ENT004",
+      "name": "Function",
+      "file": "ENT004-function.json",
+      "table": "Functions",
+      "status": "implemented"
+    },
+    {
+      "id": "ENT005",
+      "name": "OrganizationMembership",
+      "file": "ENT005-organization-membership.json",
+      "table": "OrganizationMemberships",
+      "status": "implemented"
+    },
+    {
+      "id": "ENT006",
+      "name": "UserRole",
+      "file": "ENT006-user-role.json",
+      "table": "UserRoles",
+      "status": "implemented"
+    },
+    {
+      "id": "ENT007",
+      "name": "RoleFunction",
+      "file": "ENT007-role-function.json",
+      "table": "RoleFunctions",
+      "status": "implemented"
+    }
+  ],
+  "base_entity_fields": [
+    {
+      "name": "Id",
+      "type": "Guid",
+      "description": "Primary key"
+    },
+    {
+      "name": "CreatedAt",
+      "type": "DateTime",
+      "description": "Timestamp of creation"
+    },
+    {
+      "name": "UpdatedAt",
+      "type": "DateTime",
+      "description": "Timestamp of last update"
+    },
+    {
+      "name": "CreatedBy",
+      "type": "Guid?",
+      "description": "User who created the record"
+    },
+    {
+      "name": "UpdatedBy",
+      "type": "Guid?",
+      "description": "User who last updated the record"
+    },
+    {
+      "name": "DeletedAt",
+      "type": "DateTime?",
+      "description": "Soft delete timestamp (null if not deleted)"
+    }
+  ]
+}

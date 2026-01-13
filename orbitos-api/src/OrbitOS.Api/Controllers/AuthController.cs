@@ -32,6 +32,12 @@ public class GoogleLoginRequest
     public required string Credential { get; set; }
 }
 
+public class GoogleCodeRequest
+{
+    public required string Code { get; set; }
+    public required string RedirectUri { get; set; }
+}
+
 [ApiController]
 [Route("api/[controller]")]
 public class AuthController : ControllerBase
@@ -97,53 +103,179 @@ public class AuthController : ControllerBase
                 return Unauthorized(new { Message = "Invalid Google token" });
             }
 
-            // Find or create user
-            var user = await _dbContext.Users
-                .FirstOrDefaultAsync(u => u.GoogleId == googleUser.Sub || u.Email.ToLower() == googleUser.Email.ToLower());
-
-            if (user == null)
-            {
-                // Create new user
-                user = new User
-                {
-                    GoogleId = googleUser.Sub,
-                    Email = googleUser.Email,
-                    DisplayName = googleUser.Name,
-                    FirstName = googleUser.GivenName,
-                    LastName = googleUser.FamilyName,
-                    AvatarUrl = googleUser.Picture
-                };
-                _dbContext.Users.Add(user);
-            }
-            else if (string.IsNullOrEmpty(user.GoogleId))
-            {
-                // Link Google account to existing user
-                user.GoogleId = googleUser.Sub;
-                if (string.IsNullOrEmpty(user.AvatarUrl))
-                {
-                    user.AvatarUrl = googleUser.Picture;
-                }
-            }
-
-            user.LastLoginAt = DateTime.UtcNow;
-            await _dbContext.SaveChangesAsync();
-
-            var token = GenerateJwtToken(user.Id.ToString(), user.Email, user.DisplayName);
-            var expiresAt = DateTime.UtcNow.AddDays(7);
-
-            return Ok(new LoginResponse
-            {
-                Token = token,
-                Email = user.Email,
-                DisplayName = user.DisplayName,
-                ExpiresAt = expiresAt
-            });
+            return await ProcessGoogleUser(googleUser);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Google login failed");
             return Unauthorized(new { Message = "Google authentication failed" });
         }
+    }
+
+    [HttpPost("google-code")]
+    public async Task<IActionResult> GoogleLoginWithCode([FromBody] GoogleCodeRequest request)
+    {
+        try
+        {
+            // Exchange authorization code for tokens
+            var googleUser = await ExchangeCodeForUserInfo(request.Code, request.RedirectUri);
+            if (googleUser == null)
+            {
+                return Unauthorized(new { Message = "Failed to exchange authorization code" });
+            }
+
+            return await ProcessGoogleUser(googleUser);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Google code exchange failed");
+            return Unauthorized(new { Message = "Google authentication failed" });
+        }
+    }
+
+    private async Task<IActionResult> ProcessGoogleUser(GoogleUserInfo googleUser)
+    {
+        // Find or create user
+        var user = await _dbContext.Users
+            .FirstOrDefaultAsync(u => u.GoogleId == googleUser.Sub || u.Email.ToLower() == googleUser.Email.ToLower());
+
+        if (user == null)
+        {
+            // Create new user
+            user = new User
+            {
+                GoogleId = googleUser.Sub,
+                Email = googleUser.Email,
+                DisplayName = googleUser.Name,
+                FirstName = googleUser.GivenName,
+                LastName = googleUser.FamilyName,
+                AvatarUrl = googleUser.Picture
+            };
+            _dbContext.Users.Add(user);
+        }
+        else if (string.IsNullOrEmpty(user.GoogleId))
+        {
+            // Link Google account to existing user
+            user.GoogleId = googleUser.Sub;
+            if (string.IsNullOrEmpty(user.AvatarUrl))
+            {
+                user.AvatarUrl = googleUser.Picture;
+            }
+        }
+
+        user.LastLoginAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync();
+
+        var token = GenerateJwtToken(user.Id.ToString(), user.Email, user.DisplayName);
+        var expiresAt = DateTime.UtcNow.AddDays(7);
+
+        return Ok(new LoginResponse
+        {
+            Token = token,
+            Email = user.Email,
+            DisplayName = user.DisplayName,
+            ExpiresAt = expiresAt
+        });
+    }
+
+    private async Task<GoogleUserInfo?> ExchangeCodeForUserInfo(string code, string redirectUri)
+    {
+        var googleClientId = _configuration["Google:ClientId"]
+            ?? "794543200576-ugbq975aqa7s4ie74t7rvqkaskj489hd.apps.googleusercontent.com";
+        var googleClientSecret = _configuration["Google:ClientSecret"]
+            ?? throw new InvalidOperationException("Google:ClientSecret is not configured");
+
+        using var httpClient = new HttpClient();
+
+        // Exchange code for tokens
+        var tokenRequest = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["code"] = code,
+            ["client_id"] = googleClientId,
+            ["client_secret"] = googleClientSecret,
+            ["redirect_uri"] = redirectUri,
+            ["grant_type"] = "authorization_code"
+        });
+
+        var tokenResponse = await httpClient.PostAsync("https://oauth2.googleapis.com/token", tokenRequest);
+        if (!tokenResponse.IsSuccessStatusCode)
+        {
+            var errorContent = await tokenResponse.Content.ReadAsStringAsync();
+            _logger.LogError("Token exchange failed: {Error}", errorContent);
+            return null;
+        }
+
+        var tokenContent = await tokenResponse.Content.ReadAsStringAsync();
+        var tokens = JsonSerializer.Deserialize<GoogleTokenResponse>(tokenContent, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        if (tokens?.AccessToken == null)
+        {
+            return null;
+        }
+
+        // Get user info using access token
+        httpClient.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+
+        var userInfoResponse = await httpClient.GetAsync("https://www.googleapis.com/oauth2/v2/userinfo");
+        if (!userInfoResponse.IsSuccessStatusCode)
+        {
+            return null;
+        }
+
+        var userInfoContent = await userInfoResponse.Content.ReadAsStringAsync();
+        var userInfo = JsonSerializer.Deserialize<GoogleUserInfoV2>(userInfoContent, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        if (userInfo == null)
+        {
+            return null;
+        }
+
+        return new GoogleUserInfo
+        {
+            Sub = userInfo.Id,
+            Email = userInfo.Email,
+            Name = userInfo.Name,
+            Picture = userInfo.Picture,
+            GivenName = userInfo.GivenName,
+            FamilyName = userInfo.FamilyName
+        };
+    }
+
+    private class GoogleTokenResponse
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("access_token")]
+        public string? AccessToken { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("id_token")]
+        public string? IdToken { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("refresh_token")]
+        public string? RefreshToken { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("expires_in")]
+        public int ExpiresIn { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("token_type")]
+        public string? TokenType { get; set; }
+    }
+
+    private class GoogleUserInfoV2
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public string Id { get; set; } = "";
+        [System.Text.Json.Serialization.JsonPropertyName("email")]
+        public string Email { get; set; } = "";
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string Name { get; set; } = "";
+        [System.Text.Json.Serialization.JsonPropertyName("picture")]
+        public string Picture { get; set; } = "";
+        [System.Text.Json.Serialization.JsonPropertyName("given_name")]
+        public string GivenName { get; set; } = "";
+        [System.Text.Json.Serialization.JsonPropertyName("family_name")]
+        public string FamilyName { get; set; } = "";
     }
 
     private async Task<GoogleUserInfo?> VerifyGoogleToken(string credential)

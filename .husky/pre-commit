@@ -1,0 +1,40 @@
+#!/bin/sh
+
+# =============================================================================
+# OrbitOS Pre-Commit Hook
+# =============================================================================
+# Runs before every commit to enforce code quality gates.
+# To bypass in emergencies: git commit --no-verify
+# =============================================================================
+
+echo "Running pre-commit checks..."
+
+# Run lint-staged for incremental linting
+npx lint-staged
+
+# Check for secrets in staged files
+echo "Checking for secrets..."
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
+
+if [ -n "$STAGED_FILES" ]; then
+  # Check for common secret patterns
+  if echo "$STAGED_FILES" | xargs grep -l -E "(password|secret|api_key|client_secret)\s*[:=]\s*['\"][^'\"]{8,}['\"]" 2>/dev/null | grep -v "example\|template\|placeholder"; then
+    echo "ERROR: Potential secrets detected in staged files!"
+    echo "Please remove hardcoded secrets and use environment variables."
+    exit 1
+  fi
+fi
+
+# Validate spec files if any are staged
+SPEC_FILES=$(echo "$STAGED_FILES" | grep "^specs/.*\.json$" || true)
+if [ -n "$SPEC_FILES" ]; then
+  echo "Validating spec files..."
+  for file in $SPEC_FILES; do
+    if ! python3 -m json.tool "$file" > /dev/null 2>&1; then
+      echo "ERROR: Invalid JSON in $file"
+      exit 1
+    fi
+  done
+fi
+
+echo "Pre-commit checks passed!"

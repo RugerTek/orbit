@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useAuth } from '~/composables/useAuth'
 
-const { user, isAuthenticated, isLoading, login, loginWithEmail, loginWithGoogle, logout, initializeAuth } = useAuth()
+const { user, isAuthenticated, isLoading, login, loginWithEmail, loginWithGoogle, loginWithGoogleCode, logout, initializeAuth } = useAuth()
 
 const config = useRuntimeConfig()
 const email = ref('')
@@ -30,12 +30,24 @@ const loadGoogleScript = () => {
 const initializeGoogleSignIn = () => {
   if (typeof google === 'undefined') return
 
+  // Initialize for One Tap (may not work on localhost due to FedCM)
   google.accounts.id.initialize({
     client_id: config.public.googleClientId,
     callback: handleGoogleCallback,
     auto_select: false,
+    use_fedcm_for_prompt: false,
+  })
+
+  // Also initialize OAuth2 client for popup flow (more reliable on localhost)
+  googleOAuth2Client.value = google.accounts.oauth2.initCodeClient({
+    client_id: config.public.googleClientId,
+    scope: 'email profile openid',
+    ux_mode: 'popup',
+    callback: handleOAuth2Response,
   })
 }
+
+const googleOAuth2Client = ref<{ requestCode: () => void } | null>(null)
 
 const handleGoogleCallback = async (response: { credential: string }) => {
   loginError.value = ''
@@ -54,8 +66,30 @@ const handleGoogleCallback = async (response: { credential: string }) => {
   }
 }
 
+const handleOAuth2Response = async (response: { code: string }) => {
+  loginError.value = ''
+  isGoogleLoading.value = true
+  try {
+    // Exchange auth code for token on backend
+    await loginWithGoogleCode(response.code)
+  } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'data' in error) {
+      const errData = error as { data?: { Message?: string } }
+      loginError.value = errData.data?.Message || 'Google sign-in failed'
+    } else {
+      loginError.value = 'Google sign-in failed'
+    }
+  } finally {
+    isGoogleLoading.value = false
+  }
+}
+
 const triggerGoogleSignIn = () => {
-  if (typeof google !== 'undefined') {
+  if (googleOAuth2Client.value) {
+    // Use OAuth2 popup flow (works better on localhost)
+    googleOAuth2Client.value.requestCode()
+  } else if (typeof google !== 'undefined') {
+    // Fallback to One Tap
     google.accounts.id.prompt()
   }
 }
@@ -94,9 +128,12 @@ const getUserEmail = computed(() => {
 declare const google: {
   accounts: {
     id: {
-      initialize: (config: { client_id: string; callback: (response: { credential: string }) => void; auto_select: boolean }) => void
+      initialize: (config: { client_id: string; callback: (response: { credential: string }) => void; auto_select: boolean; use_fedcm_for_prompt?: boolean }) => void
       prompt: () => void
       renderButton: (element: HTMLElement, options: Record<string, unknown>) => void
+    }
+    oauth2: {
+      initCodeClient: (config: { client_id: string; scope: string; ux_mode: string; callback: (response: { code: string }) => void }) => { requestCode: () => void }
     }
   }
 }
@@ -147,15 +184,19 @@ declare const google: {
 
         <div class="space-y-3">
           <NuxtLink
-            to="/dashboard"
+            to="/admin"
             class="group relative flex items-center justify-center w-full py-4 px-6 bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl font-semibold text-white shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all duration-300 hover:scale-[1.02]"
           >
-            <span>Go to Dashboard</span>
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <span>Super Admin Panel</span>
             <svg class="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
             </svg>
           </NuxtLink>
-
+        
           <button
             @click="logout"
             class="w-full py-3 px-6 bg-white/5 border border-white/10 rounded-2xl font-medium text-white/70 hover:bg-white/10 hover:text-white transition-all duration-300"

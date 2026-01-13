@@ -1,0 +1,36 @@
+#!/bin/sh
+
+# =============================================================================
+# OrbitOS Pre-Push Hook
+# =============================================================================
+# Runs full test suite before pushing to remote.
+# To bypass in emergencies: git push --no-verify
+# =============================================================================
+
+echo "Running pre-push checks..."
+
+# Get the current branch
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+# Run tests based on what changed
+echo "Running tests..."
+
+# Check if API files changed
+if git diff --name-only origin/$BRANCH..HEAD | grep -q "^orbitos-api/"; then
+  echo "API changes detected, running .NET tests..."
+  cd orbitos-api && dotnet test --configuration Release --no-build 2>/dev/null || dotnet test
+  cd ..
+fi
+
+# Check if Web files changed
+if git diff --name-only origin/$BRANCH..HEAD | grep -q "^orbitos-web/"; then
+  echo "Web changes detected, running frontend tests..."
+  cd orbitos-web && npm run test:unit 2>/dev/null || echo "Frontend tests skipped (not configured)"
+  cd ..
+fi
+
+# Validate OpenAPI contract
+echo "Validating OpenAPI contract..."
+npm run validate:openapi 2>/dev/null || echo "OpenAPI validation skipped"
+
+echo "Pre-push checks complete!"

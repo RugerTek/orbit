@@ -1,0 +1,137 @@
+{
+  "$schema": "./schema.json",
+  "id": "ENT002",
+  "name": "Organization",
+  "description": "Tenant container for multi-tenant isolation. All business data is scoped to an organization.",
+  "table": "Organizations",
+  "status": "implemented",
+  "created_at": "2026-01-13",
+  "updated_at": "2026-01-13",
+
+  "fields": [
+    {
+      "name": "Name",
+      "type": "string",
+      "nullable": false,
+      "max_length": 255,
+      "description": "Organization display name"
+    },
+    {
+      "name": "Slug",
+      "type": "string",
+      "nullable": false,
+      "max_length": 100,
+      "description": "URL-friendly unique identifier"
+    },
+    {
+      "name": "Description",
+      "type": "string",
+      "nullable": true,
+      "max_length": 1000,
+      "description": "Organization description"
+    },
+    {
+      "name": "LogoUrl",
+      "type": "string",
+      "nullable": true,
+      "max_length": 2048,
+      "description": "URL to organization logo"
+    },
+    {
+      "name": "AzureAdTenantId",
+      "type": "string",
+      "nullable": true,
+      "max_length": 255,
+      "description": "Azure AD tenant ID for SSO integration"
+    }
+  ],
+
+  "validation_rules": [
+    {
+      "id": "R-ORG-001",
+      "field": "Slug",
+      "rule": "Must be unique across all organizations",
+      "error_code": "SLUG_EXISTS",
+      "error_message": "An organization with this slug already exists"
+    },
+    {
+      "id": "R-ORG-002",
+      "field": "Slug",
+      "rule": "Must be URL-safe (lowercase, alphanumeric, hyphens only)",
+      "error_code": "SLUG_INVALID",
+      "error_message": "Slug must contain only lowercase letters, numbers, and hyphens"
+    },
+    {
+      "id": "R-ORG-003",
+      "field": "Name",
+      "rule": "Required, 1-255 characters",
+      "error_code": "NAME_REQUIRED",
+      "error_message": "Organization name is required"
+    }
+  ],
+
+  "relationships": [
+    {
+      "type": "one-to-many",
+      "entity": "ENT005",
+      "inverse_key": "OrganizationId",
+      "navigation": "Memberships",
+      "description": "Users who are members of this organization"
+    },
+    {
+      "type": "one-to-many",
+      "entity": "ENT003",
+      "inverse_key": "OrganizationId",
+      "navigation": "Roles",
+      "description": "Roles defined for this organization"
+    },
+    {
+      "type": "one-to-many",
+      "entity": "ENT004",
+      "inverse_key": "OrganizationId",
+      "navigation": "Functions",
+      "description": "Functions (permissions) defined for this organization"
+    }
+  ],
+
+  "indexes": [
+    {
+      "name": "IX_Organizations_Slug",
+      "columns": ["Slug"],
+      "unique": true
+    }
+  ],
+
+  "api_representation": {
+    "dto_name": "OrganizationDto",
+    "include_fields": ["Id", "Name", "Slug", "Description", "LogoUrl", "AzureAdTenantId", "CreatedAt", "UpdatedAt"],
+    "computed_fields": [
+      {
+        "name": "MemberCount",
+        "type": "int",
+        "computation": "Count of Memberships"
+      },
+      {
+        "name": "RoleCount",
+        "type": "int",
+        "computation": "Count of Roles"
+      },
+      {
+        "name": "FunctionCount",
+        "type": "int",
+        "computation": "Count of Functions"
+      }
+    ]
+  },
+
+  "multi_tenancy": {
+    "is_tenant_root": true,
+    "scoping_behavior": "All child entities must include OrganizationId and be filtered by it"
+  },
+
+  "code_location": {
+    "entity": "orbitos-api/src/OrbitOS.Domain/Entities/Organization.cs",
+    "dto": "orbitos-api/src/OrbitOS.Api/Controllers/SuperAdminController.cs",
+    "frontend_type": "orbitos-web/app/composables/useSuperAdmin.ts"
+  }
+}

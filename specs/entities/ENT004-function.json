@@ -1,0 +1,114 @@
+{
+  "$schema": "./schema.json",
+  "id": "ENT004",
+  "name": "Function",
+  "description": "Granular permission that can be assigned to roles",
+  "table": "Functions",
+  "status": "implemented",
+  "created_at": "2026-01-13",
+  "updated_at": "2026-01-13",
+
+  "fields": [
+    {
+      "name": "OrganizationId",
+      "type": "Guid",
+      "nullable": false,
+      "references": "ENT002",
+      "description": "Organization this function belongs to"
+    },
+    {
+      "name": "Name",
+      "type": "string",
+      "nullable": false,
+      "max_length": 100,
+      "description": "Function name (e.g., users.create, users.delete)"
+    },
+    {
+      "name": "Description",
+      "type": "string",
+      "nullable": true,
+      "max_length": 500,
+      "description": "What this permission allows"
+    },
+    {
+      "name": "Category",
+      "type": "string",
+      "nullable": true,
+      "max_length": 50,
+      "description": "Category for grouping (e.g., Users, Organizations, Reports)"
+    }
+  ],
+
+  "validation_rules": [
+    {
+      "id": "R-FUN-001",
+      "field": "Name",
+      "rule": "Must be unique within the organization",
+      "error_code": "FUNCTION_NAME_EXISTS",
+      "error_message": "A function with this name already exists in this organization"
+    },
+    {
+      "id": "R-FUN-002",
+      "field": "Name",
+      "rule": "Must follow naming convention: category.action (e.g., users.create)",
+      "error_code": "FUNCTION_NAME_INVALID",
+      "error_message": "Function name must be in format: category.action"
+    }
+  ],
+
+  "relationships": [
+    {
+      "type": "many-to-one",
+      "entity": "ENT002",
+      "foreign_key": "OrganizationId",
+      "navigation": "Organization"
+    },
+    {
+      "type": "one-to-many",
+      "entity": "ENT007",
+      "inverse_key": "FunctionId",
+      "navigation": "RoleFunctions",
+      "description": "Roles that include this function"
+    }
+  ],
+
+  "indexes": [
+    {
+      "name": "IX_Functions_OrganizationId_Name",
+      "columns": ["OrganizationId", "Name"],
+      "unique": true
+    },
+    {
+      "name": "IX_Functions_Category",
+      "columns": ["Category"]
+    }
+  ],
+
+  "api_representation": {
+    "dto_name": "FunctionDto",
+    "include_fields": ["Id", "OrganizationId", "Name", "Description", "Category", "CreatedAt", "UpdatedAt"],
+    "computed_fields": [
+      {
+        "name": "OrganizationName",
+        "type": "string",
+        "computation": "Organization.Name"
+      },
+      {
+        "name": "RoleCount",
+        "type": "int",
+        "computation": "Count of RoleFunctions"
+      }
+    ]
+  },
+
+  "multi_tenancy": {
+    "is_tenant_root": false,
+    "scope_field": "OrganizationId"
+  },
+
+  "code_location": {
+    "entity": "orbitos-api/src/OrbitOS.Domain/Entities/Function.cs",
+    "dto": "orbitos-api/src/OrbitOS.Api/Controllers/SuperAdminController.cs",
+    "frontend_type": "orbitos-web/app/composables/useSuperAdmin.ts"
+  }
+}

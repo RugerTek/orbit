@@ -12,6 +12,8 @@
     "lint": "eslint .",
     "typecheck": "nuxt typecheck",
     "test": "vitest",
+    "test:unit": "vitest run",
+    "test:unit:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:install": "playwright install --with-deps"
@@ -29,6 +31,7 @@
     "@playwright/test": "^1.49.0",
     "@vue/test-utils": "^2.4.0",
     "typescript": "^5.7.0",
-    "vitest": "^2.1.0"
+    "vitest": "^2.1.0",
+    "@vitest/coverage-v8": "^2.1.0"
   }
 }

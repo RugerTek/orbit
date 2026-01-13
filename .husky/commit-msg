@@ -1,0 +1,11 @@
+#!/bin/sh
+
+# =============================================================================
+# OrbitOS Commit Message Hook
+# =============================================================================
+# Enforces conventional commit messages.
+# Format: type(scope): description
+# Types: feat, fix, docs, style, refactor, test, chore, ci, perf, build
+# =============================================================================
+
+npx --no -- commitlint --edit "$1"

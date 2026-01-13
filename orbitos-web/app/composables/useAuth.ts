@@ -126,6 +126,33 @@ export const useAuth = () => {
     }
   }
 
+  const loginWithGoogleCode = async (code: string): Promise<void> => {
+    try {
+      const response = await $fetch<{ token: string; email: string; displayName: string }>(`${config.public.apiBaseUrl}/api/Auth/google-code`, {
+        method: 'POST',
+        body: { code, redirectUri: window.location.origin }
+      })
+
+      const localUser: LocalUser = {
+        email: response.email,
+        displayName: response.displayName,
+        token: response.token
+      }
+
+      user.value = localUser
+      authToken.value = response.token
+
+      // Store in localStorage
+      if (import.meta.client) {
+        localStorage.setItem('orbitos-token', response.token)
+        localStorage.setItem('orbitos-user', JSON.stringify(localUser))
+      }
+    } catch (error: unknown) {
+      console.error('Google code login error:', error)
+      throw error
+    }
+  }
+
   const login = async (): Promise<void> => {
     try {
       const instance = await getMsalInstance()
@@ -204,6 +231,7 @@ export const useAuth = () => {
     login,
     loginWithEmail,
     loginWithGoogle,
+    loginWithGoogleCode,
     logout,
     getAccessToken,
   }

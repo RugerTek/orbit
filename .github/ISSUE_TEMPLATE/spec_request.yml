@@ -1,0 +1,120 @@
+name: Specification Request
+description: Request a new spec file before implementation
+title: "[Spec]: "
+labels: ["spec", "documentation"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Specification Request
+        Request creation of a feature or entity specification.
+        Specs are required before implementation can begin.
+
+  - type: dropdown
+    id: spec_type
+    attributes:
+      label: Spec Type
+      description: What type of specification is needed?
+      options:
+        - Feature (F###)
+        - Entity (ENT###)
+        - Architecture Decision (ADR###)
+    validations:
+      required: true
+
+  - type: input
+    id: proposed_name
+    attributes:
+      label: Proposed Name
+      description: "What should this spec be called?"
+      placeholder: "user-authentication, organization, clean-architecture"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What should this spec cover?
+      placeholder: "This spec should define..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: requirements
+    attributes:
+      label: Key Requirements
+      description: What are the main requirements?
+      placeholder: |
+        - Requirement 1
+        - Requirement 2
+        - Requirement 3
+    validations:
+      required: true
+
+  - type: textarea
+    id: entities
+    attributes:
+      label: Related Entities
+      description: What data entities are involved?
+      placeholder: |
+        - User (ENT001)
+        - Organization (ENT002)
+    validations:
+      required: false
+
+  - type: textarea
+    id: api_endpoints
+    attributes:
+      label: API Endpoints Needed
+      description: What API endpoints will be required?
+      placeholder: |
+        - POST /api/auth/login
+        - GET /api/users
+    validations:
+      required: false
+
+  - type: textarea
+    id: ui_screens
+    attributes:
+      label: UI Screens Needed
+      description: What user interface screens are required?
+      placeholder: |
+        - Login page
+        - User list
+    validations:
+      required: false
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How urgent is this spec?
+      options:
+        - P0 - Blocking implementation
+        - P1 - High priority
+        - P2 - Medium priority
+        - P3 - Future planning
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Any other relevant information
+      placeholder: "Business context, technical constraints, etc."
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission Checklist
+      options:
+        - label: I have checked specs/ directory for existing specs
+          required: true
+        - label: I understand specs must be approved before implementation
+          required: true

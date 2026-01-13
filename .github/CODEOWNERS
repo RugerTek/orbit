@@ -1,0 +1,68 @@
+# =============================================================================
+# OrbitOS CODEOWNERS
+# =============================================================================
+# This file defines code ownership for automatic review requests.
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Default owners (all files)
+# -----------------------------------------------------------------------------
+* @orbitos/core-team
+
+# -----------------------------------------------------------------------------
+# Specifications (require spec review)
+# -----------------------------------------------------------------------------
+/specs/ @orbitos/architects @orbitos/core-team
+
+# -----------------------------------------------------------------------------
+# API / Backend
+# -----------------------------------------------------------------------------
+/orbitos-api/ @orbitos/backend-team
+/orbitos-api/src/OrbitOS.Domain/ @orbitos/architects
+/orbitos-api/src/OrbitOS.Infrastructure/Auth/ @orbitos/security-team
+
+# -----------------------------------------------------------------------------
+# Web Frontend
+# -----------------------------------------------------------------------------
+/orbitos-web/ @orbitos/frontend-team
+/orbitos-web/app/middleware/ @orbitos/security-team
+
+# -----------------------------------------------------------------------------
+# Mobile
+# -----------------------------------------------------------------------------
+/orbitos-mobile/ @orbitos/mobile-team
+
+# -----------------------------------------------------------------------------
+# Contracts (API contracts require cross-team review)
+# -----------------------------------------------------------------------------
+/contracts/ @orbitos/backend-team @orbitos/frontend-team @orbitos/architects
+
+# -----------------------------------------------------------------------------
+# Infrastructure & CI/CD
+# -----------------------------------------------------------------------------
+/.github/ @orbitos/devops-team @orbitos/security-team
+/docker/ @orbitos/devops-team
+/.husky/ @orbitos/devops-team
+
+# -----------------------------------------------------------------------------
+# Security-sensitive files
+# -----------------------------------------------------------------------------
+**/appsettings*.json @orbitos/security-team
+**/.env* @orbitos/security-team
+**/auth/ @orbitos/security-team
+**/Auth/ @orbitos/security-team
+**/authentication/ @orbitos/security-team
+**/authorization/ @orbitos/security-team
+
+# -----------------------------------------------------------------------------
+# Architecture Decisions
+# -----------------------------------------------------------------------------
+/specs/decisions/ @orbitos/architects @orbitos/core-team
+/CLAUDE.md @orbitos/architects @orbitos/core-team
+
+# -----------------------------------------------------------------------------
+# Documentation
+# -----------------------------------------------------------------------------
+*.md @orbitos/core-team
+/docs/ @orbitos/core-team

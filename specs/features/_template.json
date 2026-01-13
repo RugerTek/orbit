@@ -1,0 +1,66 @@
+{
+  "$schema": "./schema.json",
+  "id": "F000",
+  "name": "Feature Name",
+  "description": "Brief description of the feature",
+  "status": "draft",
+  "priority": "should-have",
+  "created_at": "2026-01-13",
+  "updated_at": "2026-01-13",
+  "owner": "team-member-name",
+
+  "capabilities": [
+    {
+      "id": "F000-C01",
+      "description": "As a [role], I want to [action] so that [benefit]",
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "Given [context], when [action], then [result]",
+        "Given [context], when [action], then [result]"
+      ]
+    }
+  ],
+
+  "entities": [
+    "ENT001"
+  ],
+
+  "api_endpoints": [
+    {
+      "method": "POST",
+      "path": "/api/resource",
+      "description": "Create a new resource",
+      "request_body": "CreateResourceDto",
+      "response": "ResourceDto"
+    }
+  ],
+
+  "ui_screens": [
+    {
+      "id": "SCR001",
+      "name": "Screen Name",
+      "description": "What this screen does"
+    }
+  ],
+
+  "security_requirements": [
+    "Requires authentication",
+    "Requires specific role/permission"
+  ],
+
+  "performance_requirements": [
+    "Response time < 200ms for P95",
+    "Support 100 concurrent users"
+  ],
+
+  "dependencies": {
+    "features": [],
+    "external_services": []
+  },
+
+  "test_coverage": {
+    "unit_tests": [],
+    "integration_tests": [],
+    "e2e_tests": []
+  }
+}

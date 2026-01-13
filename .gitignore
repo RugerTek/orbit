@@ -65,8 +65,20 @@ pubspec.lock
 !.env.example
 *.pem
 *.key
+*.pfx
+*.p12
 secrets/
 appsettings.*.local.json
+appsettings.secrets.json
+**/credentials.json
+**/service-account*.json
+
+# -----------------------------------------------------------------------------
+# Logs
+# -----------------------------------------------------------------------------
+.logs/
+logs/
+*.log
 
 # -----------------------------------------------------------------------------
 # Testing & Coverage

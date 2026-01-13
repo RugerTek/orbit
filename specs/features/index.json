@@ -1,0 +1,34 @@
+{
+  "$schema": "./schema.json",
+  "version": "1.0.0",
+  "description": "Feature registry for OrbitOS",
+  "features": [
+    {
+      "id": "F001",
+      "name": "Authentication",
+      "file": "F001-authentication.json",
+      "status": "implemented",
+      "priority": "must-have"
+    },
+    {
+      "id": "F002",
+      "name": "Super Admin Panel",
+      "file": "F002-super-admin.json",
+      "status": "implemented",
+      "priority": "must-have"
+    }
+  ],
+  "statuses": {
+    "draft": "Specification in progress, not ready for implementation",
+    "approved": "Specification approved, ready for implementation",
+    "in-progress": "Implementation has started",
+    "implemented": "Feature fully implemented and tested",
+    "deprecated": "Feature is deprecated and scheduled for removal"
+  },
+  "priorities": {
+    "must-have": "Core functionality, required for MVP",
+    "should-have": "Important but not critical for MVP",
+    "could-have": "Nice to have, implement if time permits",
+    "wont-have": "Out of scope for current release"
+  }
+}

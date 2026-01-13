@@ -1,0 +1,92 @@
+{
+  "$schema": "./schema.json",
+  "id": "ENT000",
+  "name": "EntityName",
+  "description": "Description of what this entity represents",
+  "table": "TableName",
+  "status": "draft",
+  "created_at": "2026-01-13",
+  "updated_at": "2026-01-13",
+
+  "fields": [
+    {
+      "name": "FieldName",
+      "type": "string",
+      "nullable": false,
+      "max_length": 255,
+      "description": "Description of field purpose"
+    },
+    {
+      "name": "OptionalField",
+      "type": "string",
+      "nullable": true,
+      "description": "Optional field example"
+    },
+    {
+      "name": "EnumField",
+      "type": "enum",
+      "enum_values": ["Value1", "Value2", "Value3"],
+      "nullable": false,
+      "description": "Enumeration field example"
+    },
+    {
+      "name": "ForeignKeyField",
+      "type": "Guid",
+      "nullable": false,
+      "references": "ENT001",
+      "description": "Foreign key to another entity"
+    }
+  ],
+
+  "validation_rules": [
+    {
+      "id": "R-ENT000-001",
+      "field": "FieldName",
+      "rule": "Required, max 255 characters",
+      "error_code": "FIELD_INVALID",
+      "error_message": "Field must be between 1 and 255 characters"
+    }
+  ],
+
+  "relationships": [
+    {
+      "type": "many-to-one",
+      "entity": "ENT001",
+      "foreign_key": "ForeignKeyField",
+      "navigation": "RelatedEntity"
+    },
+    {
+      "type": "one-to-many",
+      "entity": "ENT002",
+      "inverse_key": "ThisEntityId",
+      "navigation": "RelatedEntities"
+    }
+  ],
+
+  "indexes": [
+    {
+      "name": "IX_EntityName_FieldName",
+      "columns": ["FieldName"],
+      "unique": true
+    }
+  ],
+
+  "api_representation": {
+    "dto_name": "EntityNameDto",
+    "include_fields": ["Id", "FieldName", "CreatedAt"],
+    "computed_fields": [
+      {
+        "name": "DisplayName",
+        "type": "string",
+        "computation": "FieldName formatted"
+      }
+    ]
+  },
+
+  "audit_requirements": {
+    "log_create": true,
+    "log_update": true,
+    "log_delete": true,
+    "sensitive_fields": []
+  }
+}

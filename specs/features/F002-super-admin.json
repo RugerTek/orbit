@@ -1,0 +1,187 @@
+{
+  "$schema": "./schema.json",
+  "id": "F002",
+  "name": "Super Admin Panel",
+  "description": "Administrative interface for managing users, organizations, roles, and functions",
+  "status": "implemented",
+  "priority": "must-have",
+  "created_at": "2026-01-13",
+  "updated_at": "2026-01-13",
+  "owner": "core-team",
+
+  "capabilities": [
+    {
+      "id": "F002-C01",
+      "description": "As a super admin, I want to view system dashboard so that I can see overall statistics",
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "Given authenticated admin, when accessing /admin, then dashboard shows total users count",
+        "Given authenticated admin, when accessing /admin, then dashboard shows total organizations count",
+        "Given authenticated admin, when accessing /admin, then recent activity is displayed"
+      ]
+    },
+    {
+      "id": "F002-C02",
+      "description": "As a super admin, I want to manage users so that I can create, edit, and delete user accounts",
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "Given admin on users page, when clicking Add User, then create form appears",
+        "Given valid user data, when submitting create form, then user is created",
+        "Given existing user, when clicking edit, then user data can be modified",
+        "Given existing user, when clicking delete, then user is soft-deleted"
+      ]
+    },
+    {
+      "id": "F002-C03",
+      "description": "As a super admin, I want to manage organizations so that I can configure multi-tenant setup",
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "Given admin on orgs page, when clicking Add Organization, then create form appears",
+        "Given valid org data, when submitting, then organization is created with unique slug",
+        "Given existing org, when editing, then name and settings can be modified"
+      ]
+    },
+    {
+      "id": "F002-C04",
+      "description": "As a super admin, I want to manage roles so that I can define permission sets per organization",
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "Given admin on roles page, when selecting organization filter, then only that org's roles show",
+        "Given valid role data, when creating role, then it's associated with selected organization",
+        "Given existing role, when editing, then description and permissions can be modified"
+      ]
+    },
+    {
+      "id": "F002-C05",
+      "description": "As a super admin, I want to manage functions so that I can define granular permissions",
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "Given admin on functions page, when selecting organization filter, then only that org's functions show",
+        "Given valid function data, when creating, then function is assigned to organization",
+        "Given existing function, when editing, then category and description can be modified"
+      ]
+    }
+  ],
+
+  "entities": [
+    "ENT001",
+    "ENT002",
+    "ENT003",
+    "ENT004"
+  ],
+
+  "api_endpoints": [
+    {
+      "method": "GET",
+      "path": "/api/superadmin/dashboard",
+      "description": "Get dashboard statistics",
+      "response": "DashboardStatsDto"
+    },
+    {
+      "method": "GET",
+      "path": "/api/superadmin/users",
+      "description": "List all users with optional search",
+      "response": "UserDto[]"
+    },
+    {
+      "method": "POST",
+      "path": "/api/superadmin/users",
+      "description": "Create new user",
+      "request_body": "CreateUserDto",
+      "response": "UserDto"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/superadmin/users/{id}",
+      "description": "Update existing user",
+      "request_body": "UpdateUserDto",
+      "response": "UserDto"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/superadmin/users/{id}",
+      "description": "Soft delete user",
+      "response": "void"
+    },
+    {
+      "method": "GET",
+      "path": "/api/superadmin/organizations",
+      "description": "List all organizations",
+      "response": "OrganizationDto[]"
+    },
+    {
+      "method": "POST",
+      "path": "/api/superadmin/organizations",
+      "description": "Create organization",
+      "request_body": "CreateOrganizationDto",
+      "response": "OrganizationDto"
+    },
+    {
+      "method": "GET",
+      "path": "/api/superadmin/roles",
+      "description": "List roles with optional org filter",
+      "response": "RoleDto[]"
+    },
+    {
+      "method": "GET",
+      "path": "/api/superadmin/functions",
+      "description": "List functions with optional org filter",
+      "response": "FunctionDto[]"
+    }
+  ],
+
+  "ui_screens": [
+    {
+      "id": "SCR002",
+      "name": "Admin Dashboard",
+      "path": "/admin",
+      "file": "orbitos-web/app/pages/admin/index.vue"
+    },
+    {
+      "id": "SCR003",
+      "name": "Users Management",
+      "path": "/admin/users",
+      "file": "orbitos-web/app/pages/admin/users.vue"
+    },
+    {
+      "id": "SCR004",
+      "name": "Organizations Management",
+      "path": "/admin/organizations",
+      "file": "orbitos-web/app/pages/admin/organizations.vue"
+    },
+    {
+      "id": "SCR005",
+      "name": "Roles Management",
+      "path": "/admin/roles",
+      "file": "orbitos-web/app/pages/admin/roles.vue"
+    },
+    {
+      "id": "SCR006",
+      "name": "Functions Management",
+      "path": "/admin/functions",
+      "file": "orbitos-web/app/pages/admin/functions.vue"
+    }
+  ],
+
+  "security_requirements": [
+    "Only super admin role can access these endpoints",
+    "All operations must be audit logged",
+    "Soft delete only - no hard deletes"
+  ],
+
+  "performance_requirements": [
+    "List endpoints < 500ms for up to 1000 items",
+    "Dashboard stats < 200ms"
+  ],
+
+  "dependencies": {
+    "features": ["F001"],
+    "external_services": []
+  },
+
+  "test_coverage": {
+    "unit_tests": ["SuperAdminController CRUD operations"],
+    "integration_tests": ["User CRUD", "Organization CRUD", "Role CRUD", "Function CRUD"],
+    "e2e_tests": ["super-admin.spec.ts - 40 tests"]
+  }
+}

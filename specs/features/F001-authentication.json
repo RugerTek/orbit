@@ -1,0 +1,104 @@
+{
+  "$schema": "./schema.json",
+  "id": "F001",
+  "name": "Authentication",
+  "description": "User authentication via email/password and Google OAuth with JWT token management",
+  "status": "implemented",
+  "priority": "must-have",
+  "created_at": "2026-01-13",
+  "updated_at": "2026-01-13",
+  "owner": "core-team",
+
+  "capabilities": [
+    {
+      "id": "F001-C01",
+      "description": "As a user, I want to sign in with my email and password so that I can access my account",
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "Given valid credentials, when user submits login form, then JWT token is returned",
+        "Given invalid credentials, when user submits login form, then 401 error is returned",
+        "Given non-existent email, when user submits login form, then 401 error is returned"
+      ]
+    },
+    {
+      "id": "F001-C02",
+      "description": "As a user, I want to sign in with Google so that I can use SSO",
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "Given valid Google token, when user clicks Google sign-in, then account is created/linked",
+        "Given invalid Google token, when user clicks Google sign-in, then error is shown",
+        "Given existing email with Google, when user signs in, then existing account is used"
+      ]
+    },
+    {
+      "id": "F001-C03",
+      "description": "As a user, I want my session to persist so that I don't have to login repeatedly",
+      "priority": "should-have",
+      "acceptance_criteria": [
+        "Given valid JWT, when user refreshes page, then session persists",
+        "Given expired JWT, when user makes request, then 401 is returned"
+      ]
+    }
+  ],
+
+  "entities": [
+    "ENT001"
+  ],
+
+  "api_endpoints": [
+    {
+      "method": "POST",
+      "path": "/api/auth/login",
+      "description": "Authenticate with email/password",
+      "request_body": "LoginRequest",
+      "response": "AuthResponse"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/google",
+      "description": "Authenticate with Google ID token",
+      "request_body": "GoogleLoginRequest",
+      "response": "AuthResponse"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/google-code",
+      "description": "Authenticate with Google authorization code",
+      "request_body": "GoogleCodeRequest",
+      "response": "AuthResponse"
+    }
+  ],
+
+  "ui_screens": [
+    {
+      "id": "SCR001",
+      "name": "Login Page",
+      "description": "Landing page with Google SSO and email/password options",
+      "path": "/",
+      "file": "orbitos-web/app/pages/index.vue"
+    }
+  ],
+
+  "security_requirements": [
+    "Passwords must be hashed with bcrypt or PBKDF2",
+    "JWT tokens must use secure signing key from environment",
+    "Google tokens must be verified with Google API",
+    "Rate limiting on login endpoints (prevent brute force)"
+  ],
+
+  "performance_requirements": [
+    "Login response time < 500ms for P95",
+    "Google OAuth flow < 2000ms including external calls"
+  ],
+
+  "dependencies": {
+    "features": [],
+    "external_services": ["Google OAuth API"]
+  },
+
+  "test_coverage": {
+    "unit_tests": ["AuthController password verification"],
+    "integration_tests": ["Login flow", "Google OAuth flow"],
+    "e2e_tests": ["Login page renders", "Google button visible"]
+  }
+}

@@ -1,0 +1,182 @@
+{
+  "$schema": "./schema.json",
+  "id": "ENT001",
+  "name": "User",
+  "description": "Global identity for authentication and multi-organization access",
+  "table": "Users",
+  "status": "implemented",
+  "created_at": "2026-01-13",
+  "updated_at": "2026-01-13",
+
+  "fields": [
+    {
+      "name": "Email",
+      "type": "string",
+      "nullable": false,
+      "max_length": 255,
+      "description": "Primary email address (globally unique)"
+    },
+    {
+      "name": "DisplayName",
+      "type": "string",
+      "nullable": false,
+      "max_length": 255,
+      "description": "User's display name"
+    },
+    {
+      "name": "FirstName",
+      "type": "string",
+      "nullable": true,
+      "max_length": 100,
+      "description": "User's first name"
+    },
+    {
+      "name": "LastName",
+      "type": "string",
+      "nullable": true,
+      "max_length": 100,
+      "description": "User's last name"
+    },
+    {
+      "name": "AvatarUrl",
+      "type": "string",
+      "nullable": true,
+      "max_length": 2048,
+      "description": "URL to user's avatar image"
+    },
+    {
+      "name": "PasswordHash",
+      "type": "string",
+      "nullable": true,
+      "description": "Hashed password for email/password auth"
+    },
+    {
+      "name": "GoogleId",
+      "type": "string",
+      "nullable": true,
+      "max_length": 255,
+      "description": "Google OAuth subject ID"
+    },
+    {
+      "name": "AzureAdObjectId",
+      "type": "string",
+      "nullable": true,
+      "max_length": 255,
+      "description": "Azure AD/Entra ID object ID"
+    },
+    {
+      "name": "LastLoginAt",
+      "type": "DateTime",
+      "nullable": true,
+      "description": "Timestamp of last successful login"
+    }
+  ],
+
+  "validation_rules": [
+    {
+      "id": "R-USR-001",
+      "field": "Email",
+      "rule": "Must be unique across all users (global constraint)",
+      "error_code": "EMAIL_EXISTS",
+      "error_message": "A user with this email already exists"
+    },
+    {
+      "id": "R-USR-002",
+      "field": "Email",
+      "rule": "Must be valid email format",
+      "error_code": "EMAIL_INVALID",
+      "error_message": "Please enter a valid email address"
+    },
+    {
+      "id": "R-USR-003",
+      "rule": "User must have at least one authentication method (password, Google, or Azure AD)",
+      "error_code": "NO_AUTH_METHOD",
+      "error_message": "User must have a way to authenticate"
+    },
+    {
+      "id": "R-USR-004",
+      "field": "DisplayName",
+      "rule": "Required, 1-255 characters",
+      "error_code": "DISPLAY_NAME_INVALID",
+      "error_message": "Display name is required"
+    }
+  ],
+
+  "relationships": [
+    {
+      "type": "one-to-many",
+      "entity": "ENT005",
+      "inverse_key": "UserId",
+      "navigation": "OrganizationMemberships",
+      "description": "Organizations this user belongs to"
+    },
+    {
+      "type": "one-to-many",
+      "entity": "ENT006",
+      "inverse_key": "UserId",
+      "navigation": "UserRoles",
+      "description": "Roles assigned to this user"
+    }
+  ],
+
+  "indexes": [
+    {
+      "name": "IX_Users_Email",
+      "columns": ["Email"],
+      "unique": true
+    },
+    {
+      "name": "IX_Users_GoogleId",
+      "columns": ["GoogleId"],
+      "unique": true,
+      "filter": "GoogleId IS NOT NULL"
+    },
+    {
+      "name": "IX_Users_AzureAdObjectId",
+      "columns": ["AzureAdObjectId"],
+      "unique": true,
+      "filter": "AzureAdObjectId IS NOT NULL"
+    }
+  ],
+
+  "api_representation": {
+    "dto_name": "UserDto",
+    "include_fields": ["Id", "Email", "DisplayName", "FirstName", "LastName", "AvatarUrl", "LastLoginAt", "CreatedAt", "UpdatedAt"],
+    "exclude_fields": ["PasswordHash"],
+    "computed_fields": [
+      {
+        "name": "HasPassword",
+        "type": "bool",
+        "computation": "PasswordHash != null"
+      },
+      {
+        "name": "HasGoogleId",
+        "type": "bool",
+        "computation": "GoogleId != null"
+      },
+      {
+        "name": "HasAzureAdId",
+        "type": "bool",
+        "computation": "AzureAdObjectId != null"
+      },
+      {
+        "name": "OrganizationCount",
+        "type": "int",
+        "computation": "Count of OrganizationMemberships"
+      }
+    ]
+  },
+
+  "audit_requirements": {
+    "log_create": true,
+    "log_update": true,
+    "log_delete": true,
+    "sensitive_fields": ["PasswordHash", "GoogleId", "AzureAdObjectId"]
+  },
+
+  "code_location": {
+    "entity": "orbitos-api/src/OrbitOS.Domain/Entities/User.cs",
+    "dto": "orbitos-api/src/OrbitOS.Api/Controllers/SuperAdminController.cs",
+    "frontend_type": "orbitos-web/app/composables/useSuperAdmin.ts"
+  }
+}

@@ -4,6 +4,7 @@
   "description": "OrbitOS Monorepo Workspace - AI Development Ready",
   "private": true,
   "scripts": {
+    "prepare": "husky",
     "setup": "./scripts/setup-workspace.sh",
     "start": "./scripts/start-all.sh",
     "stop": "./scripts/stop-all.sh",
@@ -12,7 +13,11 @@
     "test": "./scripts/test-all.sh",
     "validate": "./scripts/validate-all.sh",
     "validate:openapi": "npx @redocly/cli lint contracts/openapi.yaml",
+    "validate:specs": "node scripts/validate-specs.js",
     "generate:types": "npx openapi-typescript contracts/openapi.yaml -o orbitos-web/app/types/api.ts",
+    "lint": "npm run lint:web",
+    "lint:web": "cd orbitos-web && npm run lint",
+    "lint:staged": "lint-staged",
     "db:start": "docker start orbitos-postgres orbitos-redis",
     "db:stop": "docker stop orbitos-postgres orbitos-redis",
     "api:start": "cd orbitos-api && dotnet run",
@@ -23,8 +28,23 @@
     "mobile:test": "cd orbitos-mobile && flutter test"
   },
   "devDependencies": {
+    "@commitlint/cli": "^19.0.0",
+    "@commitlint/config-conventional": "^19.0.0",
     "@redocly/cli": "^1.25.0",
+    "husky": "^9.0.0",
+    "lint-staged": "^15.0.0",
     "openapi-typescript": "^7.0.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,vue}": [
+      "eslint --fix"
+    ],
+    "*.{json,md,yaml,yml}": [
+      "prettier --write"
+    ],
+    "specs/**/*.json": [
+      "node scripts/validate-specs.js"
+    ]
   },
   "engines": {
     "node": ">=20.0.0"

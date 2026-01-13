@@ -1,0 +1,129 @@
+{
+  "$schema": "./schema.json",
+  "id": "ENT003",
+  "name": "Role",
+  "description": "Permission group that can be assigned to users within an organization",
+  "table": "Roles",
+  "status": "implemented",
+  "created_at": "2026-01-13",
+  "updated_at": "2026-01-13",
+
+  "fields": [
+    {
+      "name": "OrganizationId",
+      "type": "Guid",
+      "nullable": false,
+      "references": "ENT002",
+      "description": "Organization this role belongs to"
+    },
+    {
+      "name": "Name",
+      "type": "string",
+      "nullable": false,
+      "max_length": 100,
+      "description": "Role name (unique within organization)"
+    },
+    {
+      "name": "Description",
+      "type": "string",
+      "nullable": true,
+      "max_length": 500,
+      "description": "Role description"
+    },
+    {
+      "name": "Purpose",
+      "type": "string",
+      "nullable": true,
+      "max_length": 500,
+      "description": "Business purpose of this role"
+    },
+    {
+      "name": "Department",
+      "type": "string",
+      "nullable": true,
+      "max_length": 100,
+      "description": "Department this role typically belongs to"
+    }
+  ],
+
+  "validation_rules": [
+    {
+      "id": "R-ROL-001",
+      "field": "Name",
+      "rule": "Must be unique within the organization",
+      "error_code": "ROLE_NAME_EXISTS",
+      "error_message": "A role with this name already exists in this organization"
+    },
+    {
+      "id": "R-ROL-002",
+      "field": "Name",
+      "rule": "Required, 1-100 characters",
+      "error_code": "ROLE_NAME_REQUIRED",
+      "error_message": "Role name is required"
+    }
+  ],
+
+  "relationships": [
+    {
+      "type": "many-to-one",
+      "entity": "ENT002",
+      "foreign_key": "OrganizationId",
+      "navigation": "Organization"
+    },
+    {
+      "type": "one-to-many",
+      "entity": "ENT006",
+      "inverse_key": "RoleId",
+      "navigation": "UserRoles",
+      "description": "Users assigned to this role"
+    },
+    {
+      "type": "one-to-many",
+      "entity": "ENT007",
+      "inverse_key": "RoleId",
+      "navigation": "RoleFunctions",
+      "description": "Functions (permissions) granted by this role"
+    }
+  ],
+
+  "indexes": [
+    {
+      "name": "IX_Roles_OrganizationId_Name",
+      "columns": ["OrganizationId", "Name"],
+      "unique": true
+    }
+  ],
+
+  "api_representation": {
+    "dto_name": "RoleDto",
+    "include_fields": ["Id", "OrganizationId", "Name", "Description", "Purpose", "Department", "CreatedAt", "UpdatedAt"],
+    "computed_fields": [
+      {
+        "name": "OrganizationName",
+        "type": "string",
+        "computation": "Organization.Name"
+      },
+      {
+        "name": "FunctionCount",
+        "type": "int",
+        "computation": "Count of RoleFunctions"
+      },
+      {
+        "name": "UserCount",
+        "type": "int",
+        "computation": "Count of UserRoles"
+      }
+    ]
+  },
+
+  "multi_tenancy": {
+    "is_tenant_root": false,
+    "scope_field": "OrganizationId"
+  },
+
+  "code_location": {
+    "entity": "orbitos-api/src/OrbitOS.Domain/Entities/Role.cs",
+    "dto": "orbitos-api/src/OrbitOS.Api/Controllers/SuperAdminController.cs",
+    "frontend_type": "orbitos-web/app/composables/useSuperAdmin.ts"
+  }
+}

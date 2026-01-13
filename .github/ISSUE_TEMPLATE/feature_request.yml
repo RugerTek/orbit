@@ -1,0 +1,103 @@
+name: Feature Request
+description: Propose a new feature for OrbitOS
+title: "[Feature]: "
+labels: ["enhancement", "needs-spec"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Feature Request
+        Before submitting, check if a spec already exists in `specs/features/`.
+
+  - type: input
+    id: spec_id
+    attributes:
+      label: Spec ID (if exists)
+      description: "Reference existing spec file (e.g., F001)"
+      placeholder: "F###"
+    validations:
+      required: false
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Feature Description
+      description: Clear, concise description of the feature
+      placeholder: "As a [user type], I want [capability] so that [benefit]"
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance Criteria
+      description: What must be true for this feature to be complete?
+      placeholder: |
+        - [ ] Criterion 1
+        - [ ] Criterion 2
+        - [ ] Criterion 3
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature?
+      options:
+        - P0 - Critical (blocks release)
+        - P1 - High (core functionality)
+        - P2 - Medium (important but not blocking)
+        - P3 - Low (nice to have)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part of OrbitOS does this affect?
+      options:
+        - API (orbitos-api)
+        - Web (orbitos-web)
+        - Mobile (orbitos-mobile)
+        - Contracts
+        - Specs
+        - Infrastructure
+        - Multiple
+    validations:
+      required: true
+
+  - type: textarea
+    id: technical_notes
+    attributes:
+      label: Technical Notes
+      description: Any implementation considerations or constraints
+      placeholder: "API endpoints needed, database changes, etc."
+    validations:
+      required: false
+
+  - type: textarea
+    id: related
+    attributes:
+      label: Related Issues/Specs
+      description: Link related issues or spec files
+      placeholder: |
+        - Depends on: #123
+        - Related: F001-authentication
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission Checklist
+      options:
+        - label: I have searched existing issues to avoid duplicates
+          required: true
+        - label: I have checked specs/features/ for existing specs
+          required: true
+        - label: I understand a spec file may be required before implementation
+          required: true
