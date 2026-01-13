@@ -1,0 +1,48 @@
+{
+  "$schema": "../_meta/schema/index.schema.json",
+  "name": "Non-Functional Requirements",
+  "description": "Quality attributes and system constraints that apply across all features",
+  "version": "1.0.0",
+  "categories": [
+    {
+      "id": "NFR-SEC",
+      "name": "Security",
+      "file": "NFR-SEC-security.json",
+      "description": "Authentication, authorization, data protection, and compliance"
+    },
+    {
+      "id": "NFR-PER",
+      "name": "Performance",
+      "file": "NFR-PER-performance.json",
+      "description": "Response times, throughput, and efficiency requirements"
+    },
+    {
+      "id": "NFR-SCA",
+      "name": "Scalability",
+      "file": "NFR-SCA-scalability.json",
+      "description": "Growth capacity and performance under load"
+    },
+    {
+      "id": "NFR-REL",
+      "name": "Reliability",
+      "file": "NFR-REL-reliability.json",
+      "description": "Uptime, fault tolerance, and recovery requirements"
+    },
+    {
+      "id": "NFR-USA",
+      "name": "Usability",
+      "file": "NFR-USA-usability.json",
+      "description": "User experience, accessibility, and learnability"
+    },
+    {
+      "id": "NFR-MNT",
+      "name": "Maintainability",
+      "file": "NFR-MNT-maintainability.json",
+      "description": "Code quality, observability, and operational requirements"
+    }
+  ],
+  "meta": {
+    "created_at": "2025-01-13T00:00:00Z",
+    "updated_at": "2025-01-13T00:00:00Z"
+  }
+}

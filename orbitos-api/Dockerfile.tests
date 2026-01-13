@@ -1,0 +1,26 @@
+# =============================================================================
+# OrbitOS API Test Runner Dockerfile
+# =============================================================================
+# Runs .NET integration tests with code coverage
+# =============================================================================
+
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS test
+WORKDIR /src
+
+# Copy everything
+COPY . .
+
+# Restore dependencies
+RUN dotnet restore
+
+# Build
+RUN dotnet build -c Release
+
+# Set working directory to test project
+WORKDIR /src/tests/OrbitOS.Api.Tests
+
+# Default command runs tests with coverage
+ENTRYPOINT ["dotnet", "test", "--no-build", "-c", "Release", \
+  "--logger", "trx;LogFileName=test-results.trx", \
+  "--collect:XPlat Code Coverage", \
+  "--results-directory", "/app/TestResults"]

@@ -1,0 +1,130 @@
+# =============================================================================
+# OrbitOS Test Environment Docker Compose
+# =============================================================================
+# Full stack test environment with PostgreSQL, API, and Web.
+# Used for E2E tests and CI/CD pipelines.
+#
+# Usage:
+#   docker compose -f docker-compose.test.yml up --build
+#   docker compose -f docker-compose.test.yml down -v
+# =============================================================================
+
+services:
+  # ===========================================================================
+  # Database
+  # ===========================================================================
+  postgres-test:
+    image: postgres:15-alpine
+    container_name: orbitos-postgres-test
+    environment:
+      POSTGRES_USER: orbitos_test
+      POSTGRES_PASSWORD: orbitos_test_pass
+      POSTGRES_DB: orbitos_test
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orbitos_test -d orbitos_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - orbitos-test-network
+
+  # ===========================================================================
+  # API Backend
+  # ===========================================================================
+  api-test:
+    build:
+      context: ./orbitos-api
+      dockerfile: Dockerfile
+    container_name: orbitos-api-test
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Testing
+      - ASPNETCORE_URLS=http://+:5027
+      - ConnectionStrings__DefaultConnection=Host=postgres-test;Database=orbitos_test;Username=orbitos_test;Password=orbitos_test_pass
+      - Jwt__Key=test-jwt-key-for-testing-purposes-only-32chars
+      - Jwt__Issuer=orbitos-test
+      - Jwt__Audience=orbitos-test-audience
+    ports:
+      - "5027:5027"
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5027/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - orbitos-test-network
+
+  # ===========================================================================
+  # Web Frontend
+  # ===========================================================================
+  web-test:
+    build:
+      context: ./orbitos-web
+      dockerfile: Dockerfile
+      args:
+        - NUXT_PUBLIC_API_BASE_URL=http://api-test:5027
+    container_name: orbitos-web-test
+    environment:
+      - NODE_ENV=production
+      - NUXT_PUBLIC_API_BASE_URL=http://api-test:5027
+    ports:
+      - "3000:3000"
+    depends_on:
+      api-test:
+        condition: service_healthy
+    networks:
+      - orbitos-test-network
+
+  # ===========================================================================
+  # E2E Test Runner (Playwright)
+  # ===========================================================================
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.49.0-jammy
+    container_name: orbitos-playwright
+    working_dir: /app
+    volumes:
+      - ./orbitos-web:/app
+      - ./orbitos-web/test-results:/app/test-results
+    environment:
+      - CI=true
+      - BASE_URL=http://web-test:3000
+      - API_BASE_URL=http://api-test:5027
+    command: npx playwright test --reporter=html
+    depends_on:
+      - web-test
+    networks:
+      - orbitos-test-network
+
+  # ===========================================================================
+  # API Integration Test Runner
+  # ===========================================================================
+  api-tests:
+    build:
+      context: ./orbitos-api
+      dockerfile: Dockerfile.tests
+    container_name: orbitos-api-tests
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Testing
+      - ConnectionStrings__DefaultConnection=Host=postgres-test;Database=orbitos_test;Username=orbitos_test;Password=orbitos_test_pass
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+    volumes:
+      - ./orbitos-api/TestResults:/app/TestResults
+    command: dotnet test --logger "trx;LogFileName=test-results.trx" --collect:"XPlat Code Coverage"
+    networks:
+      - orbitos-test-network
+
+networks:
+  orbitos-test-network:
+    driver: bridge
+
+volumes:
+  postgres_test_data:
