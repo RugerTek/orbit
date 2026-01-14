@@ -60,13 +60,13 @@ jobs:
         with:
           filename: orbitos-api/TestResults/**/coverage.cobertura.xml
           badge: true
-          fail_below_min: false  # Warning only for now, enable once coverage improves
+          fail_below_min: false  # Set to true once coverage reaches 60%
           format: markdown
           hide_branch_rate: false
           hide_complexity: false
           indicators: true
           output: both
-          thresholds: '20 60'  # Lowered temporarily until more tests added
+          thresholds: '60 80'  # Target: 60% minimum, 80% goal (currently at ~23%)
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
@@ -99,13 +99,16 @@ jobs:
         run: npm ci --legacy-peer-deps
 
       - name: Type check
-        run: npm run typecheck || true  # TODO: Enable strict type checking
+        run: npm run typecheck
+        continue-on-error: true  # Track failures but don't block yet
 
       - name: Lint
-        run: npm run lint || true  # TODO: Enable strict linting
+        run: npm run lint
+        continue-on-error: true  # Track failures but don't block yet
 
       - name: Run unit tests with coverage
-        run: npm run test:unit:coverage || echo "::warning::Unit tests failed or not configured"
+        run: npm run test:unit:coverage
+        continue-on-error: true  # Track failures but don't block yet
 
       - name: Build
         run: npm run build
@@ -136,7 +139,8 @@ jobs:
       - name: Validate OpenAPI spec
         run: |
           npm install -g @redocly/cli
-          redocly lint contracts/openapi.yaml || true  # TODO: Enable strict validation
+          redocly lint contracts/openapi.yaml
+        continue-on-error: true  # Track failures but don't block yet
 
   # ===========================================================================
   # Security Scanning
@@ -238,7 +242,8 @@ jobs:
 
       - name: Run Playwright tests
         working-directory: orbitos-web
-        run: npx playwright test --project=chromium || true  # TODO: Enable strict E2E
+        run: npx playwright test --project=chromium
+        continue-on-error: true  # Track failures but don't block yet
         env:
           CI: true
 

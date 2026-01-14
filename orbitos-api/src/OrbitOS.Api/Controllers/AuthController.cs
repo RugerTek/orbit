@@ -181,9 +181,9 @@ public class AuthController : ControllerBase
     private async Task<GoogleUserInfo?> ExchangeCodeForUserInfo(string code, string redirectUri)
     {
         var googleClientId = _configuration["Google:ClientId"]
-            ?? "794543200576-ugbq975aqa7s4ie74t7rvqkaskj489hd.apps.googleusercontent.com";
+            ?? throw new InvalidOperationException("Google:ClientId is not configured. Set the Google:ClientId configuration value.");
         var googleClientSecret = _configuration["Google:ClientSecret"]
-            ?? throw new InvalidOperationException("Google:ClientSecret is not configured");
+            ?? throw new InvalidOperationException("Google:ClientSecret is not configured. Set the Google:ClientSecret configuration value.");
 
         using var httpClient = new HttpClient();
 
@@ -281,7 +281,7 @@ public class AuthController : ControllerBase
     private async Task<GoogleUserInfo?> VerifyGoogleToken(string credential)
     {
         var googleClientId = _configuration["Google:ClientId"]
-            ?? "794543200576-ugbq975aqa7s4ie74t7rvqkaskj489hd.apps.googleusercontent.com";
+            ?? throw new InvalidOperationException("Google:ClientId is not configured. Set the Google:ClientId configuration value.");
 
         using var httpClient = new HttpClient();
         var response = await httpClient.GetAsync($"https://oauth2.googleapis.com/tokeninfo?id_token={credential}");
@@ -319,7 +319,8 @@ public class AuthController : ControllerBase
 
     private string GenerateJwtToken(string userId, string email, string displayName)
     {
-        var key = _configuration["Jwt:Key"] ?? "OrbitOS-Development-Secret-Key-Min-32-Chars!!";
+        var key = _configuration["Jwt:Key"]
+            ?? throw new InvalidOperationException("Jwt:Key is not configured. Set a secure JWT signing key (minimum 32 characters).");
         var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));
         var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 

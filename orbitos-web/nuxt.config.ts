@@ -15,7 +15,7 @@ export default defineNuxtConfig({
       msalRedirectUri: process.env.NUXT_PUBLIC_MSAL_REDIRECT_URI || 'http://localhost:3000',
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || 'http://localhost:5027',
       apiScopes: process.env.NUXT_PUBLIC_API_SCOPES || '',
-      googleClientId: process.env.NUXT_PUBLIC_GOOGLE_CLIENT_ID || '794543200576-ugbq975aqa7s4ie74t7rvqkaskj489hd.apps.googleusercontent.com',
+      googleClientId: process.env.NUXT_PUBLIC_GOOGLE_CLIENT_ID || '',  // Required: Set NUXT_PUBLIC_GOOGLE_CLIENT_ID env var
     }
   },
 
