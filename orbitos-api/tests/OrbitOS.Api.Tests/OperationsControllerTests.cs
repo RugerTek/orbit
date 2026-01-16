@@ -170,7 +170,7 @@ public class OperationsControllerTests : IClassFixture<OperationsTestFactory>
     public async Task ResourceSubtypes_GetAll_ReturnsList()
     {
         // Act
-        var response = await _client.GetAsync($"/api/organizations/{OrgId}/operations/resource-subtypes");
+        var response = await _client.GetAsync($"/api/organizations/{OrgId}/operations/resources/subtypes");
 
         // Assert
         response.IsSuccessStatusCode.Should().BeTrue($"Expected success but got {response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
