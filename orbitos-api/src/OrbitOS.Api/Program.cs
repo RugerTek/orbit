@@ -7,17 +7,44 @@ using OrbitOS.Infrastructure.Data;
 using OrbitOS.Api.Services;
 using DotNetEnv;
 
-// Load environment variables from .env in current/parent dirs for tooling runs
-Env.TraversePath().Load();
+// Load environment variables from .env in current/parent dirs for local development
+try { Env.TraversePath().Load(); } catch { /* .env file not found - OK in production */ }
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add environment variables to configuration
 builder.Configuration.AddEnvironmentVariables();
 
-// Add Microsoft Identity Platform authentication
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAd"));
+// Add authentication - use AzureAd if configured, otherwise use JWT bearer
+var azureAdSection = builder.Configuration.GetSection("AzureAd");
+if (azureAdSection.Exists() && !string.IsNullOrEmpty(azureAdSection["ClientId"]))
+{
+    builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddMicrosoftIdentityWebApi(azureAdSection);
+}
+else
+{
+    // Use simple JWT bearer authentication for local/custom JWT tokens
+    builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer(options =>
+        {
+            var jwtKey = builder.Configuration["Jwt:Key"];
+            if (!string.IsNullOrEmpty(jwtKey))
+            {
+                options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? "OrbitOS",
+                    ValidAudience = builder.Configuration["Jwt:Audience"] ?? "OrbitOS",
+                    IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(
+                        System.Text.Encoding.UTF8.GetBytes(jwtKey))
+                };
+            }
+        });
+}
 
 // Add authorization
 builder.Services.AddAuthorization();
