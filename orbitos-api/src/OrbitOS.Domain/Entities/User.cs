@@ -16,5 +16,7 @@ public class User : BaseEntity
 
     // Navigation properties
     public ICollection<OrganizationMembership> OrganizationMemberships { get; set; } = new List<OrganizationMembership>();
-    public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
+    public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>(); // Deprecated - use UserSystemRoles
+    public ICollection<UserSystemRole> UserSystemRoles { get; set; } = new List<UserSystemRole>();
+    public ICollection<Resource> LinkedResources { get; set; } = new List<Resource>(); // Person resources linked to this user
 }

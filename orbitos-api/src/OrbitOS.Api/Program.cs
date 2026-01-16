@@ -4,6 +4,7 @@ using Microsoft.Identity.Web;
 using OrbitOS.Application.Interfaces;
 using OrbitOS.Infrastructure;
 using OrbitOS.Infrastructure.Data;
+using OrbitOS.Api.Services;
 using DotNetEnv;
 
 // Load environment variables from .env in current/parent dirs for tooling runs
@@ -23,6 +24,12 @@ builder.Services.AddAuthorization();
 
 // Add infrastructure services (DbContext, CurrentUserService, etc.)
 builder.Services.AddInfrastructure(builder.Configuration);
+
+// Add HttpClient for AI services
+builder.Services.AddHttpClient("Anthropic");
+
+// Add AI services
+builder.Services.AddScoped<IAiChatService, AiChatService>();
 
 // Add services to the container.
 builder.Services.AddControllers();

@@ -1,0 +1,335 @@
+{
+  "$schema": "./schema.json",
+  "id": "ENT012",
+  "name": "CanvasBlock",
+  "description": "A block within a Business Model Canvas representing one of the 9 standard BMC sections. Blocks aggregate references to operational entities and provide canvas-specific context.",
+  "table": "CanvasBlocks",
+  "status": "draft",
+  "created_at": "2026-01-15",
+  "updated_at": "2026-01-15",
+
+  "fields": [
+    {
+      "name": "OrganizationId",
+      "type": "Guid",
+      "nullable": false,
+      "references": "ENT002",
+      "description": "Organization that owns this block"
+    },
+    {
+      "name": "CanvasId",
+      "type": "Guid",
+      "nullable": false,
+      "references": "ENT011",
+      "description": "Canvas this block belongs to"
+    },
+    {
+      "name": "BlockType",
+      "type": "enum",
+      "nullable": false,
+      "enum_values": [
+        "KeyPartners",
+        "KeyActivities",
+        "KeyResources",
+        "ValuePropositions",
+        "CustomerRelationships",
+        "Channels",
+        "CustomerSegments",
+        "CostStructure",
+        "RevenueStreams"
+      ],
+      "description": "The Business Model Canvas section this block represents"
+    },
+    {
+      "name": "Position",
+      "type": "json",
+      "nullable": false,
+      "description": "Visual position in the canvas grid",
+      "json_schema": {
+        "type": "object",
+        "required": ["row", "col"],
+        "properties": {
+          "row": { "type": "integer", "minimum": 0 },
+          "col": { "type": "integer", "minimum": 0 },
+          "rowSpan": { "type": "integer", "minimum": 1, "default": 1 },
+          "colSpan": { "type": "integer", "minimum": 1, "default": 1 }
+        }
+      }
+    },
+    {
+      "name": "Title",
+      "type": "string",
+      "nullable": true,
+      "max_length": 100,
+      "description": "Custom title override (defaults to BlockType display name)"
+    },
+    {
+      "name": "SummaryNote",
+      "type": "string",
+      "nullable": true,
+      "max_length": 2000,
+      "description": "Canvas-specific summary or strategic note for this block"
+    },
+    {
+      "name": "SortOrder",
+      "type": "int",
+      "nullable": false,
+      "default": 0,
+      "description": "Display order within the canvas"
+    },
+    {
+      "name": "AiInsights",
+      "type": "json",
+      "nullable": true,
+      "description": "AI-generated insights for this block",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "last_analyzed_at": { "type": "string", "format": "date-time" },
+          "completeness_score": { "type": "number", "minimum": 0, "maximum": 1 },
+          "suggestions": { "type": "array", "items": { "type": "string" } },
+          "warnings": { "type": "array", "items": { "type": "string" } },
+          "related_blocks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "block_type": { "type": "string" },
+                "relationship": { "type": "string" },
+                "strength": { "type": "number" }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+
+  "validation_rules": [
+    {
+      "id": "R-CBK-001",
+      "fields": ["CanvasId", "BlockType"],
+      "rule": "Each BlockType can only appear once per canvas",
+      "error_code": "BLOCK_TYPE_EXISTS",
+      "error_message": "This block type already exists in this canvas"
+    },
+    {
+      "id": "R-CBK-002",
+      "field": "CanvasId",
+      "rule": "Canvas must belong to the same organization",
+      "error_code": "BLOCK_CANVAS_ORG_MISMATCH",
+      "error_message": "Canvas does not belong to this organization"
+    },
+    {
+      "id": "R-CBK-003",
+      "field": "Position",
+      "rule": "Position must not overlap with other blocks in the same canvas",
+      "error_code": "BLOCK_POSITION_OVERLAP",
+      "error_message": "Block position overlaps with another block"
+    }
+  ],
+
+  "relationships": [
+    {
+      "type": "many-to-one",
+      "entity": "ENT002",
+      "foreign_key": "OrganizationId",
+      "navigation": "Organization",
+      "description": "Organization that owns this block"
+    },
+    {
+      "type": "many-to-one",
+      "entity": "ENT011",
+      "foreign_key": "CanvasId",
+      "navigation": "Canvas",
+      "description": "Canvas this block belongs to"
+    },
+    {
+      "type": "one-to-many",
+      "entity": "ENT013",
+      "inverse_key": "CanvasBlockId",
+      "navigation": "References",
+      "description": "Entity references within this block"
+    }
+  ],
+
+  "indexes": [
+    {
+      "name": "IX_CanvasBlocks_CanvasId_BlockType",
+      "columns": ["CanvasId", "BlockType"],
+      "unique": true
+    },
+    {
+      "name": "IX_CanvasBlocks_OrganizationId_CanvasId",
+      "columns": ["OrganizationId", "CanvasId"],
+      "unique": false
+    },
+    {
+      "name": "IX_CanvasBlocks_CanvasId_SortOrder",
+      "columns": ["CanvasId", "SortOrder"],
+      "unique": false
+    }
+  ],
+
+  "api_representation": {
+    "dto_name": "CanvasBlockDto",
+    "include_fields": ["Id", "OrganizationId", "CanvasId", "BlockType", "Position", "Title", "SummaryNote", "SortOrder", "AiInsights", "CreatedAt", "UpdatedAt"],
+    "computed_fields": [
+      {
+        "name": "ReferenceCount",
+        "type": "int",
+        "computation": "Count of References"
+      },
+      {
+        "name": "DisplayTitle",
+        "type": "string",
+        "computation": "Title if set, otherwise BlockType display name"
+      }
+    ]
+  },
+
+  "audit_requirements": {
+    "log_create": true,
+    "log_update": true,
+    "log_delete": true,
+    "sensitive_fields": []
+  },
+
+  "multi_tenancy": {
+    "is_tenant_root": false,
+    "scope_field": "OrganizationId",
+    "scoping_behavior": "All queries must be filtered by OrganizationId"
+  },
+
+  "block_type_metadata": {
+    "description": "Metadata about each block type for UI rendering and AI analysis",
+    "types": {
+      "KeyPartners": {
+        "display_name": "Key Partners",
+        "description": "The network of suppliers and partners that make the business model work",
+        "primary_entity_types": ["Resource"],
+        "entity_filters": { "Resource": { "Type": "Partner" } },
+        "questions": [
+          "Who are our key partners?",
+          "Who are our key suppliers?",
+          "Which key resources are we acquiring from partners?",
+          "Which key activities do partners perform?"
+        ],
+        "grid_position": { "row": 0, "col": 0, "rowSpan": 2 }
+      },
+      "KeyActivities": {
+        "display_name": "Key Activities",
+        "description": "The most important things a company must do to make its business model work",
+        "primary_entity_types": ["Activity", "Process"],
+        "questions": [
+          "What key activities do our value propositions require?",
+          "Our distribution channels?",
+          "Customer relationships?",
+          "Revenue streams?"
+        ],
+        "grid_position": { "row": 0, "col": 1 }
+      },
+      "KeyResources": {
+        "display_name": "Key Resources",
+        "description": "The most important assets required to make a business model work",
+        "primary_entity_types": ["Resource"],
+        "entity_filters": { "Resource": { "Type": ["People", "Asset", "Technology", "Financial"] } },
+        "questions": [
+          "What key resources do our value propositions require?",
+          "Our distribution channels?",
+          "Customer relationships?",
+          "Revenue streams?"
+        ],
+        "grid_position": { "row": 1, "col": 1 }
+      },
+      "ValuePropositions": {
+        "display_name": "Value Propositions",
+        "description": "The bundle of products and services that create value for a specific customer segment",
+        "primary_entity_types": ["Product"],
+        "questions": [
+          "What value do we deliver to the customer?",
+          "Which customer problems are we helping to solve?",
+          "What bundles of products and services are we offering?",
+          "Which customer needs are we satisfying?"
+        ],
+        "grid_position": { "row": 0, "col": 2, "rowSpan": 2 }
+      },
+      "CustomerRelationships": {
+        "display_name": "Customer Relationships",
+        "description": "The types of relationships a company establishes with specific customer segments",
+        "primary_entity_types": ["Process"],
+        "questions": [
+          "What type of relationship does each segment expect?",
+          "Which ones have we established?",
+          "How are they integrated with the rest of our business model?",
+          "How costly are they?"
+        ],
+        "grid_position": { "row": 0, "col": 3 }
+      },
+      "Channels": {
+        "display_name": "Channels",
+        "description": "How a company communicates with and reaches its customer segments",
+        "primary_entity_types": ["Resource"],
+        "entity_filters": { "Resource": { "Type": "Channel" } },
+        "questions": [
+          "Through which channels do our customers want to be reached?",
+          "How are we reaching them now?",
+          "How are our channels integrated?",
+          "Which ones work best and are most cost-efficient?"
+        ],
+        "grid_position": { "row": 1, "col": 3 }
+      },
+      "CustomerSegments": {
+        "display_name": "Customer Segments",
+        "description": "The different groups of people or organizations an enterprise aims to reach and serve",
+        "primary_entity_types": ["Segment"],
+        "questions": [
+          "For whom are we creating value?",
+          "Who are our most important customers?",
+          "What are the customer archetypes?"
+        ],
+        "grid_position": { "row": 0, "col": 4, "rowSpan": 2 }
+      },
+      "CostStructure": {
+        "display_name": "Cost Structure",
+        "description": "All costs incurred to operate a business model",
+        "primary_entity_types": ["Resource", "Activity", "Process"],
+        "questions": [
+          "What are the most important costs inherent in our business model?",
+          "Which key resources are most expensive?",
+          "Which key activities are most expensive?"
+        ],
+        "grid_position": { "row": 2, "col": 0, "colSpan": 2 }
+      },
+      "RevenueStreams": {
+        "display_name": "Revenue Streams",
+        "description": "The cash a company generates from each customer segment",
+        "primary_entity_types": ["Product"],
+        "questions": [
+          "For what value are our customers really willing to pay?",
+          "For what do they currently pay?",
+          "How are they currently paying?",
+          "How would they prefer to pay?"
+        ],
+        "grid_position": { "row": 2, "col": 2, "colSpan": 3 }
+      }
+    }
+  },
+
+  "ai_capabilities": {
+    "description": "AI can analyze blocks to identify gaps, suggest improvements, and find relationships",
+    "analyzable_fields": ["BlockType", "SummaryNote", "AiInsights"],
+    "cross_entity_analysis": [
+      "Identify blocks with few or no references",
+      "Analyze consistency between related blocks",
+      "Suggest missing elements based on block type",
+      "Compare blocks across canvases"
+    ]
+  },
+
+  "code_location": {
+    "entity": "orbitos-api/src/OrbitOS.Domain/Entities/CanvasBlock.cs",
+    "dto": "orbitos-api/src/OrbitOS.Api/Controllers/CanvasesController.cs",
+    "frontend_type": "orbitos-web/app/types/entities/canvas-block.ts"
+  }
+}

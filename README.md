@@ -140,6 +140,84 @@ The project enforces:
 - **ESLint** for code style
 - **Security scanning** via GitHub Actions
 
+## Hard Gates - Feature Readiness
+
+**IMPORTANT:** No feature can be marked as "ready" unless ALL of the following gates pass:
+
+### The 4 Hard Gates
+
+| Gate | Description | What Gets Checked |
+|------|-------------|-------------------|
+| **1. AI Documentation** | Spec files maintained for AI context | Feature specs complete, entity specs exist, OpenAPI updated |
+| **2. User Manual** | Auto-generated user docs | Feature guides exist, concept explanations, field help tooltips |
+| **3. Testing** | Required test coverage met | Unit tests (80%), integration tests, E2E tests for critical paths |
+| **4. Code Quality** | No lint/type errors | TypeScript strict, ESLint clean, security scan passed |
+
+### How It Works
+
+```
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│  specs/         │────▶│  CI Pipeline     │────▶│  User Manual    │
+│  (AI maintains) │     │  (validates)     │     │  (auto-gen)     │
+└─────────────────┘     └──────────────────┘     └─────────────────┘
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │  FEATURE READY?      │
+                    │  Only if ALL gates   │
+                    │  pass                │
+                    └──────────────────────┘
+```
+
+### Running the Gates Locally
+
+```bash
+# Generate user manual from specs
+node scripts/generate-user-manual.js
+
+# Validate feature readiness (all 4 gates)
+node scripts/validate-feature-readiness.js
+```
+
+### What Blocks a Merge
+
+The CI will **fail** if any of these are missing:
+
+1. **Missing spec fields** - Feature specs must have: `id`, `name`, `description`, `status`, `capabilities`, `entities`, `api_endpoints`, `test_coverage`
+2. **Missing entity references** - All entities referenced in features must exist
+3. **Missing user manual** - Every feature must have generated documentation
+4. **Failing tests** - Test suites must pass
+5. **Security issues** - Vulnerable dependencies or secrets in code
+
+### Feature Spec Requirements
+
+Every feature spec (`specs/features/F###-*.json`) must include:
+
+```json
+{
+  "id": "F001",
+  "name": "Feature Name",
+  "description": "What this feature does",
+  "status": "implemented",
+  "capabilities": [
+    {
+      "id": "F001-C01",
+      "description": "User story",
+      "acceptance_criteria": ["Given..., when..., then..."]
+    }
+  ],
+  "entities": ["ENT001"],
+  "api_endpoints": [...],
+  "ui_screens": [...],
+  "security_requirements": [...],
+  "test_coverage": {
+    "unit_tests": ["..."],
+    "integration_tests": ["..."],
+    "e2e_tests": ["..."]
+  }
+}
+```
+
 ### Git Workflow
 
 See [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md) for branching conventions and commit message standards.

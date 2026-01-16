@@ -1,0 +1,269 @@
+{
+  "$schema": "./schema.json",
+  "id": "ENT009",
+  "name": "Segment",
+  "description": "A customer segment representing a distinct group of customers with shared characteristics, needs, and behaviors. Segments are the foundation for targeting, positioning, and go-to-market strategies.",
+  "table": "Segments",
+  "status": "draft",
+  "created_at": "2026-01-15",
+  "updated_at": "2026-01-15",
+
+  "fields": [
+    {
+      "name": "OrganizationId",
+      "type": "Guid",
+      "nullable": false,
+      "references": "ENT002",
+      "description": "Organization that owns this segment"
+    },
+    {
+      "name": "Name",
+      "type": "string",
+      "nullable": false,
+      "max_length": 255,
+      "description": "Segment display name (e.g., 'B2B Enterprise', 'SMB Tech Startups')"
+    },
+    {
+      "name": "Slug",
+      "type": "string",
+      "nullable": false,
+      "max_length": 100,
+      "description": "URL-friendly unique identifier within organization"
+    },
+    {
+      "name": "Description",
+      "type": "string",
+      "nullable": true,
+      "max_length": 2000,
+      "description": "Detailed description of the segment"
+    },
+    {
+      "name": "Type",
+      "type": "enum",
+      "nullable": false,
+      "enum_values": ["B2B", "B2C", "B2B2C", "B2G", "Internal"],
+      "description": "Business model type for this segment"
+    },
+    {
+      "name": "Status",
+      "type": "enum",
+      "nullable": false,
+      "enum_values": ["Prospective", "Active", "Declining", "Inactive"],
+      "description": "Current engagement status with this segment"
+    },
+    {
+      "name": "Priority",
+      "type": "enum",
+      "nullable": false,
+      "enum_values": ["Primary", "Secondary", "Tertiary", "Exploratory"],
+      "description": "Strategic priority level for this segment"
+    },
+    {
+      "name": "Characteristics",
+      "type": "json",
+      "nullable": true,
+      "description": "Structured characteristics for AI analysis and matching",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "demographics": {
+            "type": "object",
+            "properties": {
+              "company_size": { "type": "array", "items": { "type": "string" } },
+              "industries": { "type": "array", "items": { "type": "string" } },
+              "geography": { "type": "array", "items": { "type": "string" } },
+              "revenue_range": { "type": "string" },
+              "employee_count_range": { "type": "string" }
+            }
+          },
+          "psychographics": {
+            "type": "object",
+            "properties": {
+              "values": { "type": "array", "items": { "type": "string" } },
+              "priorities": { "type": "array", "items": { "type": "string" } },
+              "risk_tolerance": { "type": "string", "enum": ["low", "medium", "high"] }
+            }
+          },
+          "behaviors": {
+            "type": "object",
+            "properties": {
+              "buying_process": { "type": "string" },
+              "decision_timeline": { "type": "string" },
+              "preferred_channels": { "type": "array", "items": { "type": "string" } },
+              "technology_adoption": { "type": "string", "enum": ["innovator", "early_adopter", "early_majority", "late_majority", "laggard"] }
+            }
+          },
+          "pain_points": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Key problems this segment faces"
+          },
+          "goals": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "What this segment is trying to achieve"
+          },
+          "decision_makers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "role": { "type": "string" },
+                "influence_level": { "type": "string", "enum": ["decision_maker", "influencer", "gatekeeper", "user"] },
+                "key_concerns": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Metrics",
+      "type": "json",
+      "nullable": true,
+      "description": "Key metrics and KPIs for this segment",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "total_addressable_market": { "type": "number" },
+          "serviceable_addressable_market": { "type": "number" },
+          "serviceable_obtainable_market": { "type": "number" },
+          "current_penetration": { "type": "number" },
+          "average_deal_size": { "type": "number" },
+          "average_sales_cycle_days": { "type": "number" },
+          "customer_lifetime_value": { "type": "number" },
+          "acquisition_cost": { "type": "number" }
+        }
+      }
+    }
+  ],
+
+  "validation_rules": [
+    {
+      "id": "R-SEG-001",
+      "field": "Slug",
+      "rule": "Must be unique within the organization",
+      "error_code": "SEGMENT_SLUG_EXISTS",
+      "error_message": "A segment with this slug already exists in this organization"
+    },
+    {
+      "id": "R-SEG-002",
+      "field": "Slug",
+      "rule": "Must be URL-safe (lowercase, alphanumeric, hyphens only)",
+      "error_code": "SEGMENT_SLUG_INVALID",
+      "error_message": "Slug must contain only lowercase letters, numbers, and hyphens"
+    },
+    {
+      "id": "R-SEG-003",
+      "field": "Name",
+      "rule": "Required, 1-255 characters",
+      "error_code": "SEGMENT_NAME_REQUIRED",
+      "error_message": "Segment name is required"
+    },
+    {
+      "id": "R-SEG-004",
+      "field": "Characteristics",
+      "rule": "If provided, must be valid JSON matching the schema",
+      "error_code": "SEGMENT_CHARACTERISTICS_INVALID",
+      "error_message": "Characteristics has invalid format"
+    }
+  ],
+
+  "relationships": [
+    {
+      "type": "many-to-one",
+      "entity": "ENT002",
+      "foreign_key": "OrganizationId",
+      "navigation": "Organization",
+      "description": "Organization that owns this segment"
+    },
+    {
+      "type": "one-to-many",
+      "entity": "ENT010",
+      "inverse_key": "SegmentId",
+      "navigation": "ProductSegments",
+      "description": "Junction table linking segments to products"
+    },
+    {
+      "type": "one-to-one",
+      "entity": "ENT011",
+      "inverse_key": "SegmentId",
+      "navigation": "Canvas",
+      "description": "The segment-specific canvas (optional)"
+    },
+    {
+      "type": "one-to-many",
+      "entity": "ENT013",
+      "inverse_key": "EntityId",
+      "navigation": "BlockReferences",
+      "description": "Canvas block references that point to this segment",
+      "polymorphic_filter": "EntityType = 'Segment'"
+    }
+  ],
+
+  "indexes": [
+    {
+      "name": "IX_Segments_OrganizationId_Slug",
+      "columns": ["OrganizationId", "Slug"],
+      "unique": true
+    },
+    {
+      "name": "IX_Segments_OrganizationId_Type",
+      "columns": ["OrganizationId", "Type"],
+      "unique": false
+    },
+    {
+      "name": "IX_Segments_OrganizationId_Priority",
+      "columns": ["OrganizationId", "Priority"],
+      "unique": false
+    }
+  ],
+
+  "api_representation": {
+    "dto_name": "SegmentDto",
+    "include_fields": ["Id", "OrganizationId", "Name", "Slug", "Description", "Type", "Status", "Priority", "Characteristics", "Metrics", "CreatedAt", "UpdatedAt"],
+    "computed_fields": [
+      {
+        "name": "ProductCount",
+        "type": "int",
+        "computation": "Count of related Products via ProductSegments"
+      },
+      {
+        "name": "HasCanvas",
+        "type": "bool",
+        "computation": "Whether a Canvas exists for this segment"
+      }
+    ]
+  },
+
+  "audit_requirements": {
+    "log_create": true,
+    "log_update": true,
+    "log_delete": true,
+    "sensitive_fields": ["Metrics"]
+  },
+
+  "multi_tenancy": {
+    "is_tenant_root": false,
+    "scope_field": "OrganizationId",
+    "scoping_behavior": "All queries must be filtered by OrganizationId"
+  },
+
+  "ai_capabilities": {
+    "description": "AI can analyze segments to identify opportunities, optimize targeting, and improve positioning",
+    "analyzable_fields": ["Characteristics", "Metrics", "Priority", "Status"],
+    "cross_entity_analysis": [
+      "Identify underserved segments",
+      "Analyze segment-product fit",
+      "Compare characteristics across segments",
+      "Predict segment potential based on metrics",
+      "Recommend segment prioritization"
+    ]
+  },
+
+  "code_location": {
+    "entity": "orbitos-api/src/OrbitOS.Domain/Entities/Segment.cs",
+    "dto": "orbitos-api/src/OrbitOS.Api/Controllers/SegmentsController.cs",
+    "frontend_type": "orbitos-web/app/types/entities/segment.ts"
+  }
+}

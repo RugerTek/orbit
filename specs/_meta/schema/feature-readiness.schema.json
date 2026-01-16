@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "feature-readiness.schema.json",
+  "title": "Feature Readiness Gate Schema",
+  "description": "Defines the hard gates that must pass before a feature can be marked as 'ready'",
+  "type": "object",
+  "required": ["gates"],
+  "properties": {
+    "gates": {
+      "type": "object",
+      "required": ["ai_documentation", "user_manual", "testing", "code_quality"],
+      "properties": {
+        "ai_documentation": {
+          "type": "object",
+          "description": "AI-maintained specification documentation",
+          "required": ["feature_spec", "entity_specs", "api_contract"],
+          "properties": {
+            "feature_spec": {
+              "type": "object",
+              "required": ["exists", "complete", "file_pattern"],
+              "properties": {
+                "exists": { "type": "boolean", "const": true },
+                "complete": { "type": "boolean", "const": true },
+                "file_pattern": { "type": "string", "pattern": "^specs/features/F\\d{3}-.*\\.json$" },
+                "required_fields": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "default": [
+                    "id",
+                    "name",
+                    "description",
+                    "status",
+                    "capabilities",
+                    "entities",
+                    "api_endpoints",
+                    "ui_screens",
+                    "security_requirements",
+                    "test_coverage"
+                  ]
+                }
+              }
+            },
+            "entity_specs": {
+              "type": "object",
+              "required": ["all_referenced_exist", "all_have_validation_rules"],
+              "properties": {
+                "all_referenced_exist": { "type": "boolean", "const": true },
+                "all_have_validation_rules": { "type": "boolean", "const": true },
+                "file_pattern": { "type": "string", "pattern": "^specs/entities/ENT\\d{3}-.*\\.json$" }
+              }
+            },
+            "api_contract": {
+              "type": "object",
+              "required": ["openapi_updated", "endpoints_documented"],
+              "properties": {
+                "openapi_updated": { "type": "boolean", "const": true },
+                "endpoints_documented": { "type": "boolean", "const": true },
+                "file": { "type": "string", "default": "contracts/openapi.yaml" }
+              }
+            }
+          }
+        },
+        "user_manual": {
+          "type": "object",
+          "description": "Auto-generated user documentation from specs",
+          "required": ["feature_guide", "concept_explanations", "field_help", "walkthrough"],
+          "properties": {
+            "feature_guide": {
+              "type": "object",
+              "required": ["generated", "up_to_date"],
+              "properties": {
+                "generated": { "type": "boolean", "const": true },
+                "up_to_date": { "type": "boolean", "const": true },
+                "source": { "type": "string", "default": "specs/features/F###.json" },
+                "output": { "type": "string", "default": "docs/user-manual/features/F###.md" }
+              }
+            },
+            "concept_explanations": {
+              "type": "object",
+              "required": ["all_entities_explained"],
+              "properties": {
+                "all_entities_explained": { "type": "boolean", "const": true },
+                "output_pattern": { "type": "string", "default": "docs/user-manual/concepts/*.md" }
+              }
+            },
+            "field_help": {
+              "type": "object",
+              "required": ["all_fields_documented"],
+              "properties": {
+                "all_fields_documented": { "type": "boolean", "const": true },
+                "output": { "type": "string", "default": "docs/user-manual/field-help.json" }
+              }
+            },
+            "walkthrough": {
+              "type": "object",
+              "required": ["steps_defined"],
+              "properties": {
+                "steps_defined": { "type": "boolean", "const": true },
+                "minimum_steps": { "type": "integer", "minimum": 3 }
+              }
+            }
+          }
+        },
+        "testing": {
+          "type": "object",
+          "description": "Required test coverage for feature readiness",
+          "required": ["unit_tests", "integration_tests", "e2e_tests"],
+          "properties": {
+            "unit_tests": {
+              "type": "object",
+              "required": ["coverage_met", "all_rules_tested"],
+              "properties": {
+                "coverage_met": { "type": "boolean", "const": true },
+                "minimum_coverage_percent": { "type": "integer", "default": 80 },
+                "all_rules_tested": { "type": "boolean", "const": true }
+              }
+            },
+            "integration_tests": {
+              "type": "object",
+              "required": ["all_endpoints_tested", "all_flows_covered"],
+              "properties": {
+                "all_endpoints_tested": { "type": "boolean", "const": true },
+                "all_flows_covered": { "type": "boolean", "const": true }
+              }
+            },
+            "e2e_tests": {
+              "type": "object",
+              "required": ["critical_paths_covered"],
+              "properties": {
+                "critical_paths_covered": { "type": "boolean", "const": true },
+                "ui_screens_tested": { "type": "boolean", "const": true }
+              }
+            }
+          }
+        },
+        "code_quality": {
+          "type": "object",
+          "description": "Code quality requirements",
+          "required": ["no_lint_errors", "no_type_errors", "security_scan_passed"],
+          "properties": {
+            "no_lint_errors": { "type": "boolean", "const": true },
+            "no_type_errors": { "type": "boolean", "const": true },
+            "security_scan_passed": { "type": "boolean", "const": true },
+            "traceability_complete": { "type": "boolean", "const": true }
+          }
+        }
+      }
+    }
+  }
+}

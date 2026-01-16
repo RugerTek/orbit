@@ -1,0 +1,95 @@
+{
+  "featureId": "F001",
+  "featureName": "Authentication",
+  "totalSteps": 12,
+  "estimatedMinutes": 6,
+  "steps": [
+    {
+      "step": 1,
+      "title": "sign in with my email and password so that I can access my account",
+      "type": "highlight",
+      "target": "F001-C01",
+      "content": "As a user, I want to sign in with my email and password so that I can access my account",
+      "position": "bottom"
+    },
+    {
+      "step": 2,
+      "title": "submits login form",
+      "type": "action",
+      "content": "Complete this action: submits login form",
+      "position": "right"
+    },
+    {
+      "step": 3,
+      "title": "submits login form",
+      "type": "action",
+      "content": "Complete this action: submits login form",
+      "position": "right"
+    },
+    {
+      "step": 4,
+      "title": "submits login form",
+      "type": "action",
+      "content": "Complete this action: submits login form",
+      "position": "right"
+    },
+    {
+      "step": 5,
+      "title": "sign in with Google so that I can use SSO",
+      "type": "highlight",
+      "target": "F001-C02",
+      "content": "As a user, I want to sign in with Google so that I can use SSO",
+      "position": "bottom"
+    },
+    {
+      "step": 6,
+      "title": "clicks Google sign-in",
+      "type": "action",
+      "content": "Complete this action: clicks Google sign-in",
+      "position": "right"
+    },
+    {
+      "step": 7,
+      "title": "clicks Google sign-in",
+      "type": "action",
+      "content": "Complete this action: clicks Google sign-in",
+      "position": "right"
+    },
+    {
+      "step": 8,
+      "title": "signs in",
+      "type": "action",
+      "content": "Complete this action: signs in",
+      "position": "right"
+    },
+    {
+      "step": 9,
+      "title": "As a user, I want my session to persist so that I don't have to login repeatedly",
+      "type": "highlight",
+      "target": "F001-C03",
+      "content": "As a user, I want my session to persist so that I don't have to login repeatedly",
+      "position": "bottom"
+    },
+    {
+      "step": 10,
+      "title": "refreshes page",
+      "type": "action",
+      "content": "Complete this action: refreshes page",
+      "position": "right"
+    },
+    {
+      "step": 11,
+      "title": "makes request",
+      "type": "action",
+      "content": "Complete this action: makes request",
+      "position": "right"
+    },
+    {
+      "step": 12,
+      "title": "Complete!",
+      "type": "completion",
+      "content": "You've learned how to use Authentication. Great job!",
+      "position": "center"
+    }
+  ]
+}

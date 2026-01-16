@@ -1,0 +1,384 @@
+{
+  "$schema": "./schema.json",
+  "id": "ENT014",
+  "name": "Resource",
+  "description": "A resource that the organization owns, controls, or has access to. Resources are the assets required to deliver value propositions, reach markets, maintain customer relationships, and earn revenues. Types include people, assets, technology, partners, channels, and financial resources.",
+  "table": "Resources",
+  "status": "draft",
+  "created_at": "2026-01-15",
+  "updated_at": "2026-01-15",
+
+  "fields": [
+    {
+      "name": "OrganizationId",
+      "type": "Guid",
+      "nullable": false,
+      "references": "ENT002",
+      "description": "Organization that owns this resource"
+    },
+    {
+      "name": "Name",
+      "type": "string",
+      "nullable": false,
+      "max_length": 255,
+      "description": "Resource display name"
+    },
+    {
+      "name": "Slug",
+      "type": "string",
+      "nullable": false,
+      "max_length": 100,
+      "description": "URL-friendly unique identifier within organization"
+    },
+    {
+      "name": "Description",
+      "type": "string",
+      "nullable": true,
+      "max_length": 2000,
+      "description": "Detailed description of the resource"
+    },
+    {
+      "name": "Type",
+      "type": "enum",
+      "nullable": false,
+      "enum_values": ["People", "Asset", "Technology", "Partner", "Channel", "Financial", "Intellectual"],
+      "description": "Primary categorization of the resource"
+    },
+    {
+      "name": "SubtypeId",
+      "type": "Guid",
+      "nullable": true,
+      "references": "ResourceSubtype",
+      "description": "Optional organization-defined subtype for finer categorization"
+    },
+    {
+      "name": "Status",
+      "type": "enum",
+      "nullable": false,
+      "enum_values": ["Active", "Inactive", "Planned", "Deprecated"],
+      "description": "Current availability status"
+    },
+    {
+      "name": "Ownership",
+      "type": "enum",
+      "nullable": false,
+      "enum_values": ["Owned", "Leased", "Contracted", "Shared", "Partnership"],
+      "description": "How the organization controls this resource"
+    },
+    {
+      "name": "Criticality",
+      "type": "enum",
+      "nullable": false,
+      "enum_values": ["Critical", "Important", "Standard", "Optional"],
+      "description": "How critical this resource is to operations"
+    },
+    {
+      "name": "FunctionId",
+      "type": "Guid",
+      "nullable": true,
+      "references": "ENT004",
+      "description": "Primary function/department that manages this resource"
+    },
+    {
+      "name": "Capacity",
+      "type": "json",
+      "nullable": true,
+      "description": "Capacity and utilization information",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "total_capacity": { "type": "number" },
+          "capacity_unit": { "type": "string" },
+          "current_utilization": { "type": "number" },
+          "utilization_percent": { "type": "number", "minimum": 0, "maximum": 100 },
+          "availability_schedule": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "Cost",
+      "type": "json",
+      "nullable": true,
+      "description": "Cost information for financial analysis",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string", "enum": ["fixed", "variable", "mixed"] },
+          "amount": { "type": "number" },
+          "currency": { "type": "string", "default": "USD" },
+          "period": { "type": "string", "enum": ["monthly", "annually", "one_time", "per_use"] },
+          "cost_center": { "type": "string" },
+          "budget_allocation": { "type": "number" }
+        }
+      }
+    },
+    {
+      "name": "Attributes",
+      "type": "json",
+      "nullable": true,
+      "description": "Type-specific attributes for AI analysis",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "people": {
+            "type": "object",
+            "properties": {
+              "headcount": { "type": "integer" },
+              "skills": { "type": "array", "items": { "type": "string" } },
+              "roles": { "type": "array", "items": { "type": "string" } },
+              "location": { "type": "string" },
+              "employment_type": { "type": "string", "enum": ["full_time", "part_time", "contractor", "agency"] }
+            }
+          },
+          "asset": {
+            "type": "object",
+            "properties": {
+              "asset_type": { "type": "string" },
+              "location": { "type": "string" },
+              "serial_number": { "type": "string" },
+              "acquisition_date": { "type": "string", "format": "date" },
+              "depreciation_schedule": { "type": "string" }
+            }
+          },
+          "technology": {
+            "type": "object",
+            "properties": {
+              "tech_type": { "type": "string", "enum": ["software", "hardware", "platform", "infrastructure", "integration"] },
+              "vendor": { "type": "string" },
+              "version": { "type": "string" },
+              "license_type": { "type": "string" },
+              "capabilities": { "type": "array", "items": { "type": "string" } },
+              "integrations": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "partner": {
+            "type": "object",
+            "properties": {
+              "partner_type": { "type": "string", "enum": ["supplier", "distributor", "strategic", "technology", "agency", "reseller"] },
+              "relationship_start": { "type": "string", "format": "date" },
+              "contract_end": { "type": "string", "format": "date" },
+              "relationship_strength": { "type": "integer", "minimum": 1, "maximum": 5 },
+              "strategic_value": { "type": "string" },
+              "services_provided": { "type": "array", "items": { "type": "string" } },
+              "sla_terms": { "type": "string" }
+            }
+          },
+          "channel": {
+            "type": "object",
+            "properties": {
+              "channel_type": { "type": "string", "enum": ["direct", "indirect", "digital", "physical", "hybrid"] },
+              "channel_phase": { "type": "array", "items": { "type": "string", "enum": ["awareness", "evaluation", "purchase", "delivery", "after_sales"] } },
+              "reach": { "type": "string" },
+              "conversion_rate": { "type": "number" },
+              "cost_per_acquisition": { "type": "number" }
+            }
+          },
+          "financial": {
+            "type": "object",
+            "properties": {
+              "financial_type": { "type": "string", "enum": ["cash", "credit_line", "investment", "grant", "loan"] },
+              "amount_available": { "type": "number" },
+              "terms": { "type": "string" },
+              "source": { "type": "string" }
+            }
+          },
+          "intellectual": {
+            "type": "object",
+            "properties": {
+              "ip_type": { "type": "string", "enum": ["patent", "trademark", "copyright", "trade_secret", "know_how", "brand"] },
+              "registration_number": { "type": "string" },
+              "expiration_date": { "type": "string", "format": "date" },
+              "jurisdictions": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Tags",
+      "type": "json",
+      "nullable": true,
+      "description": "Tags for categorization and filtering",
+      "json_schema": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    }
+  ],
+
+  "validation_rules": [
+    {
+      "id": "R-RES-001",
+      "field": "Slug",
+      "rule": "Must be unique within the organization",
+      "error_code": "RESOURCE_SLUG_EXISTS",
+      "error_message": "A resource with this slug already exists in this organization"
+    },
+    {
+      "id": "R-RES-002",
+      "field": "Slug",
+      "rule": "Must be URL-safe (lowercase, alphanumeric, hyphens only)",
+      "error_code": "RESOURCE_SLUG_INVALID",
+      "error_message": "Slug must contain only lowercase letters, numbers, and hyphens"
+    },
+    {
+      "id": "R-RES-003",
+      "field": "Name",
+      "rule": "Required, 1-255 characters",
+      "error_code": "RESOURCE_NAME_REQUIRED",
+      "error_message": "Resource name is required"
+    },
+    {
+      "id": "R-RES-004",
+      "field": "Attributes",
+      "rule": "Type-specific attributes should match the resource Type",
+      "error_code": "RESOURCE_ATTRIBUTES_MISMATCH",
+      "error_message": "Resource attributes do not match the resource type"
+    },
+    {
+      "id": "R-RES-005",
+      "field": "FunctionId",
+      "rule": "If provided, function must belong to the same organization",
+      "error_code": "RESOURCE_FUNCTION_ORG_MISMATCH",
+      "error_message": "Function does not belong to this organization"
+    }
+  ],
+
+  "relationships": [
+    {
+      "type": "many-to-one",
+      "entity": "ENT002",
+      "foreign_key": "OrganizationId",
+      "navigation": "Organization",
+      "description": "Organization that owns this resource"
+    },
+    {
+      "type": "many-to-one",
+      "entity": "ENT004",
+      "foreign_key": "FunctionId",
+      "navigation": "Function",
+      "description": "Primary function that manages this resource"
+    },
+    {
+      "type": "one-to-many",
+      "entity": "ENT013",
+      "inverse_key": "EntityId",
+      "navigation": "BlockReferences",
+      "description": "Canvas block references that point to this resource",
+      "polymorphic_filter": "EntityType = 'Resource'"
+    },
+    {
+      "type": "many-to-many",
+      "entity": "ENT016",
+      "through": "ActivityResources",
+      "navigation": "Activities",
+      "description": "Activities that use this resource"
+    }
+  ],
+
+  "indexes": [
+    {
+      "name": "IX_Resources_OrganizationId_Slug",
+      "columns": ["OrganizationId", "Slug"],
+      "unique": true
+    },
+    {
+      "name": "IX_Resources_OrganizationId_Type",
+      "columns": ["OrganizationId", "Type"],
+      "unique": false
+    },
+    {
+      "name": "IX_Resources_OrganizationId_Status",
+      "columns": ["OrganizationId", "Status"],
+      "unique": false
+    },
+    {
+      "name": "IX_Resources_OrganizationId_FunctionId",
+      "columns": ["OrganizationId", "FunctionId"],
+      "unique": false,
+      "filter": "FunctionId IS NOT NULL"
+    },
+    {
+      "name": "IX_Resources_OrganizationId_Criticality",
+      "columns": ["OrganizationId", "Criticality"],
+      "unique": false
+    }
+  ],
+
+  "api_representation": {
+    "dto_name": "ResourceDto",
+    "include_fields": ["Id", "OrganizationId", "Name", "Slug", "Description", "Type", "SubtypeId", "Status", "Ownership", "Criticality", "FunctionId", "Capacity", "Cost", "Attributes", "Tags", "CreatedAt", "UpdatedAt"],
+    "computed_fields": [
+      {
+        "name": "FunctionName",
+        "type": "string",
+        "computation": "Function.Name if FunctionId is set"
+      },
+      {
+        "name": "CanvasReferenceCount",
+        "type": "int",
+        "computation": "Count of BlockReferences pointing to this resource"
+      },
+      {
+        "name": "ActivityCount",
+        "type": "int",
+        "computation": "Count of Activities using this resource"
+      },
+      {
+        "name": "TotalMonthlyCost",
+        "type": "decimal",
+        "computation": "Normalized monthly cost from Cost field"
+      }
+    ]
+  },
+
+  "audit_requirements": {
+    "log_create": true,
+    "log_update": true,
+    "log_delete": true,
+    "sensitive_fields": ["Cost", "Attributes"]
+  },
+
+  "multi_tenancy": {
+    "is_tenant_root": false,
+    "scope_field": "OrganizationId",
+    "scoping_behavior": "All queries must be filtered by OrganizationId"
+  },
+
+  "ai_capabilities": {
+    "description": "AI can analyze resources to optimize allocation, identify gaps, and provide cost insights",
+    "analyzable_fields": ["Type", "Status", "Ownership", "Criticality", "Capacity", "Cost", "Attributes", "Tags"],
+    "cross_entity_analysis": [
+      "Identify underutilized resources",
+      "Calculate total cost of ownership by type",
+      "Find resource dependencies across activities",
+      "Analyze partner relationship health",
+      "Identify critical resource gaps",
+      "Suggest resource consolidation opportunities",
+      "Track resource utilization trends"
+    ],
+    "ai_queries": [
+      {
+        "query": "resource_utilization",
+        "description": "Find resources with low utilization",
+        "example": "Resources where Capacity.utilization_percent < 50"
+      },
+      {
+        "query": "cost_by_type",
+        "description": "Aggregate costs by resource type",
+        "example": "SUM(Cost.amount) GROUP BY Type"
+      },
+      {
+        "query": "critical_resources",
+        "description": "List all critical resources and their dependencies",
+        "example": "Resources WHERE Criticality = 'Critical' WITH Activity count"
+      }
+    ]
+  },
+
+  "code_location": {
+    "entity": "orbitos-api/src/OrbitOS.Domain/Entities/Resource.cs",
+    "dto": "orbitos-api/src/OrbitOS.Api/Controllers/ResourcesController.cs",
+    "frontend_type": "orbitos-web/app/types/entities/resource.ts"
+  }
+}

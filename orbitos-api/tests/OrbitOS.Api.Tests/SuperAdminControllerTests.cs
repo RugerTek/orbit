@@ -5,8 +5,11 @@
  * Comprehensive tests for all SuperAdmin CRUD operations.
  * Uses in-memory database for fast, isolated testing.
  *
- * Spec: F002-super-admin.json
- * Entities: ENT001-user, ENT002-organization, ENT003-role, ENT004-function
+ * Tests cover:
+ * - Users management
+ * - Organizations management
+ * - System Roles (platform access control)
+ * - Permissions (platform permissions)
  * =============================================================================
  */
 
@@ -44,6 +47,10 @@ public class SuperAdminControllerTests : IClassFixture<CustomWebApplicationFacto
         var db = scope.ServiceProvider.GetRequiredService<OrbitOSDbContext>();
 
         // Clear existing data
+        db.SystemRolePermissions.RemoveRange(db.SystemRolePermissions);
+        db.UserSystemRoles.RemoveRange(db.UserSystemRoles);
+        db.Permissions.RemoveRange(db.Permissions);
+        db.SystemRoles.RemoveRange(db.SystemRoles);
         db.Functions.RemoveRange(db.Functions);
         db.Roles.RemoveRange(db.Roles);
         db.OrganizationMemberships.RemoveRange(db.OrganizationMemberships);
@@ -72,28 +79,51 @@ public class SuperAdminControllerTests : IClassFixture<CustomWebApplicationFacto
         };
         db.Users.Add(testUser);
 
-        // Seed test role
-        var testRole = new Role
+        // Seed test system role
+        var testSystemRole = new SystemRole
         {
             Id = Guid.Parse("33333333-3333-3333-3333-333333333333"),
-            Name = "Test Role",
-            Description = "A test role",
-            OrganizationId = testOrg.Id,
+            Name = "Test System Role",
+            Description = "A test system role",
+            IsBuiltIn = false,
             CreatedAt = DateTime.UtcNow
         };
-        db.Roles.Add(testRole);
+        db.SystemRoles.Add(testSystemRole);
 
-        // Seed test function
-        var testFunction = new Function
+        // Seed a built-in system role (should not be deletable)
+        var builtInRole = new SystemRole
+        {
+            Id = Guid.Parse("33333333-3333-3333-3333-333333333334"),
+            Name = "Built-in Role",
+            Description = "A built-in system role",
+            IsBuiltIn = true,
+            CreatedAt = DateTime.UtcNow
+        };
+        db.SystemRoles.Add(builtInRole);
+
+        // Seed test permission
+        var testPermission = new Permission
         {
             Id = Guid.Parse("44444444-4444-4444-4444-444444444444"),
             Name = "test.read",
             Description = "Test read permission",
             Category = "Testing",
-            OrganizationId = testOrg.Id,
+            IsBuiltIn = false,
             CreatedAt = DateTime.UtcNow
         };
-        db.Functions.Add(testFunction);
+        db.Permissions.Add(testPermission);
+
+        // Seed a built-in permission
+        var builtInPermission = new Permission
+        {
+            Id = Guid.Parse("44444444-4444-4444-4444-444444444445"),
+            Name = "builtin.read",
+            Description = "Built-in permission",
+            Category = "System",
+            IsBuiltIn = true,
+            CreatedAt = DateTime.UtcNow
+        };
+        db.Permissions.Add(builtInPermission);
 
         await db.SaveChangesAsync();
     }
@@ -119,8 +149,8 @@ public class SuperAdminControllerTests : IClassFixture<CustomWebApplicationFacto
         stats.Should().NotBeNull();
         stats!.TotalUsers.Should().BeGreaterThanOrEqualTo(1);
         stats.TotalOrganizations.Should().BeGreaterThanOrEqualTo(1);
-        stats.TotalRoles.Should().BeGreaterThanOrEqualTo(1);
-        stats.TotalFunctions.Should().BeGreaterThanOrEqualTo(1);
+        stats.TotalSystemRoles.Should().BeGreaterThanOrEqualTo(1);
+        stats.TotalPermissions.Should().BeGreaterThanOrEqualTo(1);
     }
 
     // =========================================================================
@@ -282,17 +312,15 @@ public class SuperAdminControllerTests : IClassFixture<CustomWebApplicationFacto
     }
 
     [Fact]
-    public async Task Users_Pagination_ReturnsCorrectPage()
+    public async Task Users_Count_ReturnsNumber()
     {
         // Act
-        var response = await _client.GetAsync("/api/SuperAdmin/users?skip=0&take=10");
+        var response = await _client.GetAsync("/api/SuperAdmin/users/count");
 
         // Assert
         response.IsSuccessStatusCode.Should().BeTrue();
-
-        var users = await response.Content.ReadFromJsonAsync<List<UserDto>>(_jsonOptions);
-        users.Should().NotBeNull();
-        users!.Count.Should().BeLessThanOrEqualTo(10);
+        var count = await response.Content.ReadFromJsonAsync<int>();
+        count.Should().BeGreaterThanOrEqualTo(1);
     }
 
     // =========================================================================
@@ -407,231 +435,6 @@ public class SuperAdminControllerTests : IClassFixture<CustomWebApplicationFacto
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);
     }
 
-    // =========================================================================
-    // ROLES CRUD TESTS
-    // =========================================================================
-
-    [Fact]
-    public async Task Roles_GetAll_ReturnsList()
-    {
-        // Act
-        var response = await _client.GetAsync("/api/SuperAdmin/roles");
-
-        // Assert
-        response.IsSuccessStatusCode.Should().BeTrue();
-
-        var roles = await response.Content.ReadFromJsonAsync<List<RoleDto>>(_jsonOptions);
-        roles.Should().NotBeNull();
-        roles!.Count.Should().BeGreaterThanOrEqualTo(1);
-    }
-
-    [Fact]
-    public async Task Roles_FilterByOrganization_ReturnsFilteredList()
-    {
-        // Act
-        var response = await _client.GetAsync("/api/SuperAdmin/roles?organizationId=11111111-1111-1111-1111-111111111111");
-
-        // Assert
-        response.IsSuccessStatusCode.Should().BeTrue();
-
-        var roles = await response.Content.ReadFromJsonAsync<List<RoleDto>>(_jsonOptions);
-        roles.Should().NotBeNull();
-        roles!.Should().OnlyContain(r => r.OrganizationId == Guid.Parse("11111111-1111-1111-1111-111111111111"));
-    }
-
-    [Fact]
-    public async Task Roles_Create_ReturnsCreatedRole()
-    {
-        // Arrange
-        var newRole = new
-        {
-            Name = $"New Test Role {Guid.NewGuid().ToString()[..8]}",
-            Description = "A new test role",
-            OrganizationId = "11111111-1111-1111-1111-111111111111"
-        };
-
-        // Act
-        var response = await _client.PostAsJsonAsync("/api/SuperAdmin/roles", newRole);
-
-        // Assert
-        response.IsSuccessStatusCode.Should().BeTrue();
-
-        var createdRole = await response.Content.ReadFromJsonAsync<RoleDto>(_jsonOptions);
-        createdRole.Should().NotBeNull();
-        createdRole!.Name.Should().Be(newRole.Name);
-    }
-
-    [Fact]
-    public async Task Roles_Update_ReturnsUpdatedRole()
-    {
-        // Arrange
-        var updateData = new
-        {
-            Name = "Updated Test Role",
-            Description = "Updated description",
-            OrganizationId = "11111111-1111-1111-1111-111111111111"
-        };
-
-        // Act
-        var response = await _client.PutAsJsonAsync("/api/SuperAdmin/roles/33333333-3333-3333-3333-333333333333", updateData);
-
-        // Assert
-        response.IsSuccessStatusCode.Should().BeTrue();
-
-        var updatedRole = await response.Content.ReadFromJsonAsync<RoleDto>(_jsonOptions);
-        updatedRole.Should().NotBeNull();
-        updatedRole!.Name.Should().Be("Updated Test Role");
-    }
-
-    [Fact]
-    public async Task Roles_Delete_ReturnsNoContent()
-    {
-        // First create a role to delete
-        var newRole = new
-        {
-            Name = $"Delete Test Role {Guid.NewGuid().ToString()[..8]}",
-            Description = "To be deleted",
-            OrganizationId = "11111111-1111-1111-1111-111111111111"
-        };
-        var createResponse = await _client.PostAsJsonAsync("/api/SuperAdmin/roles", newRole);
-        var createdRole = await createResponse.Content.ReadFromJsonAsync<RoleDto>(_jsonOptions);
-
-        // Act
-        var response = await _client.DeleteAsync($"/api/SuperAdmin/roles/{createdRole!.Id}");
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
-    }
-
-    // =========================================================================
-    // FUNCTIONS CRUD TESTS
-    // =========================================================================
-
-    [Fact]
-    public async Task Functions_GetAll_ReturnsList()
-    {
-        // Act
-        var response = await _client.GetAsync("/api/SuperAdmin/functions");
-
-        // Assert
-        response.IsSuccessStatusCode.Should().BeTrue();
-
-        var functions = await response.Content.ReadFromJsonAsync<List<FunctionDto>>(_jsonOptions);
-        functions.Should().NotBeNull();
-        functions!.Count.Should().BeGreaterThanOrEqualTo(1);
-    }
-
-    [Fact]
-    public async Task Functions_FilterByOrganization_ReturnsFilteredList()
-    {
-        // Act
-        var response = await _client.GetAsync("/api/SuperAdmin/functions?organizationId=11111111-1111-1111-1111-111111111111");
-
-        // Assert
-        response.IsSuccessStatusCode.Should().BeTrue();
-
-        var functions = await response.Content.ReadFromJsonAsync<List<FunctionDto>>(_jsonOptions);
-        functions.Should().NotBeNull();
-        functions!.Should().OnlyContain(f => f.OrganizationId == Guid.Parse("11111111-1111-1111-1111-111111111111"));
-    }
-
-    [Fact]
-    public async Task Functions_Create_ReturnsCreatedFunction()
-    {
-        // Arrange
-        var newFunction = new
-        {
-            Name = $"test.function.{Guid.NewGuid().ToString()[..8]}",
-            Description = "A new test function",
-            Category = "Testing",
-            OrganizationId = "11111111-1111-1111-1111-111111111111"
-        };
-
-        // Act
-        var response = await _client.PostAsJsonAsync("/api/SuperAdmin/functions", newFunction);
-
-        // Assert
-        response.IsSuccessStatusCode.Should().BeTrue();
-
-        var createdFunction = await response.Content.ReadFromJsonAsync<FunctionDto>(_jsonOptions);
-        createdFunction.Should().NotBeNull();
-        createdFunction!.Name.Should().Be(newFunction.Name);
-        createdFunction.Category.Should().Be("Testing");
-    }
-
-    [Fact]
-    public async Task Functions_Update_ReturnsUpdatedFunction()
-    {
-        // Arrange
-        var updateData = new
-        {
-            Name = "test.updated",
-            Description = "Updated description",
-            Category = "Updated",
-            OrganizationId = "11111111-1111-1111-1111-111111111111"
-        };
-
-        // Act
-        var response = await _client.PutAsJsonAsync("/api/SuperAdmin/functions/44444444-4444-4444-4444-444444444444", updateData);
-
-        // Assert
-        response.IsSuccessStatusCode.Should().BeTrue();
-
-        var updatedFunction = await response.Content.ReadFromJsonAsync<FunctionDto>(_jsonOptions);
-        updatedFunction.Should().NotBeNull();
-        updatedFunction!.Name.Should().Be("test.updated");
-    }
-
-    [Fact]
-    public async Task Functions_Delete_ReturnsNoContent()
-    {
-        // First create a function to delete
-        var newFunction = new
-        {
-            Name = $"test.delete.{Guid.NewGuid().ToString()[..8]}",
-            Description = "To be deleted",
-            Category = "Testing",
-            OrganizationId = "11111111-1111-1111-1111-111111111111"
-        };
-        var createResponse = await _client.PostAsJsonAsync("/api/SuperAdmin/functions", newFunction);
-        var createdFunction = await createResponse.Content.ReadFromJsonAsync<FunctionDto>(_jsonOptions);
-
-        // Act
-        var response = await _client.DeleteAsync($"/api/SuperAdmin/functions/{createdFunction!.Id}");
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
-    }
-
-    [Fact]
-    public async Task Functions_Search_FiltersResults()
-    {
-        // Act
-        var response = await _client.GetAsync("/api/SuperAdmin/functions?search=test");
-
-        // Assert
-        response.IsSuccessStatusCode.Should().BeTrue();
-
-        var functions = await response.Content.ReadFromJsonAsync<List<FunctionDto>>(_jsonOptions);
-        functions.Should().NotBeNull();
-    }
-
-    // =========================================================================
-    // COUNT ENDPOINT TESTS
-    // =========================================================================
-
-    [Fact]
-    public async Task Users_Count_ReturnsNumber()
-    {
-        // Act
-        var response = await _client.GetAsync("/api/SuperAdmin/users/count");
-
-        // Assert
-        response.IsSuccessStatusCode.Should().BeTrue();
-        var count = await response.Content.ReadFromJsonAsync<int>();
-        count.Should().BeGreaterThanOrEqualTo(1);
-    }
-
     [Fact]
     public async Task Organizations_Count_ReturnsNumber()
     {
@@ -644,11 +447,132 @@ public class SuperAdminControllerTests : IClassFixture<CustomWebApplicationFacto
         count.Should().BeGreaterThanOrEqualTo(1);
     }
 
+    // =========================================================================
+    // SYSTEM ROLES CRUD TESTS
+    // =========================================================================
+
     [Fact]
-    public async Task Roles_Count_ReturnsNumber()
+    public async Task SystemRoles_GetAll_ReturnsList()
     {
         // Act
-        var response = await _client.GetAsync("/api/SuperAdmin/roles/count");
+        var response = await _client.GetAsync("/api/SuperAdmin/system-roles");
+
+        // Assert
+        response.IsSuccessStatusCode.Should().BeTrue();
+
+        var roles = await response.Content.ReadFromJsonAsync<List<SystemRoleDto>>(_jsonOptions);
+        roles.Should().NotBeNull();
+        roles!.Count.Should().BeGreaterThanOrEqualTo(1);
+    }
+
+    [Fact]
+    public async Task SystemRoles_GetById_ReturnsSystemRole()
+    {
+        // Act
+        var response = await _client.GetAsync("/api/SuperAdmin/system-roles/33333333-3333-3333-3333-333333333333");
+
+        // Assert
+        response.IsSuccessStatusCode.Should().BeTrue();
+
+        var role = await response.Content.ReadFromJsonAsync<SystemRoleDto>(_jsonOptions);
+        role.Should().NotBeNull();
+        role!.Name.Should().Be("Test System Role");
+    }
+
+    [Fact]
+    public async Task SystemRoles_Create_ReturnsCreatedSystemRole()
+    {
+        // Arrange
+        var newRole = new
+        {
+            Name = $"New System Role {Guid.NewGuid().ToString()[..8]}",
+            Description = "A new test system role"
+        };
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/api/SuperAdmin/system-roles", newRole);
+
+        // Assert
+        response.IsSuccessStatusCode.Should().BeTrue();
+
+        var createdRole = await response.Content.ReadFromJsonAsync<SystemRoleDto>(_jsonOptions);
+        createdRole.Should().NotBeNull();
+        createdRole!.Name.Should().Be(newRole.Name);
+        createdRole.IsBuiltIn.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task SystemRoles_Update_ReturnsUpdatedSystemRole()
+    {
+        // Arrange
+        var updateData = new
+        {
+            Name = "Updated System Role",
+            Description = "Updated description"
+        };
+
+        // Act
+        var response = await _client.PutAsJsonAsync("/api/SuperAdmin/system-roles/33333333-3333-3333-3333-333333333333", updateData);
+
+        // Assert
+        response.IsSuccessStatusCode.Should().BeTrue();
+
+        var updatedRole = await response.Content.ReadFromJsonAsync<SystemRoleDto>(_jsonOptions);
+        updatedRole.Should().NotBeNull();
+        updatedRole!.Name.Should().Be("Updated System Role");
+    }
+
+    [Fact]
+    public async Task SystemRoles_Update_BuiltIn_ReturnsBadRequest()
+    {
+        // Arrange
+        var updateData = new
+        {
+            Name = "Try to update built-in",
+            Description = "Should fail"
+        };
+
+        // Act
+        var response = await _client.PutAsJsonAsync("/api/SuperAdmin/system-roles/33333333-3333-3333-3333-333333333334", updateData);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task SystemRoles_Delete_ReturnsNoContent()
+    {
+        // First create a system role to delete
+        var newRole = new
+        {
+            Name = $"Delete Test Role {Guid.NewGuid().ToString()[..8]}",
+            Description = "To be deleted"
+        };
+        var createResponse = await _client.PostAsJsonAsync("/api/SuperAdmin/system-roles", newRole);
+        var createdRole = await createResponse.Content.ReadFromJsonAsync<SystemRoleDto>(_jsonOptions);
+
+        // Act
+        var response = await _client.DeleteAsync($"/api/SuperAdmin/system-roles/{createdRole!.Id}");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+    }
+
+    [Fact]
+    public async Task SystemRoles_Delete_BuiltIn_ReturnsBadRequest()
+    {
+        // Act - try to delete built-in role
+        var response = await _client.DeleteAsync("/api/SuperAdmin/system-roles/33333333-3333-3333-3333-333333333334");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task SystemRoles_Count_ReturnsNumber()
+    {
+        // Act
+        var response = await _client.GetAsync("/api/SuperAdmin/system-roles/count");
 
         // Assert
         response.IsSuccessStatusCode.Should().BeTrue();
@@ -656,11 +580,164 @@ public class SuperAdminControllerTests : IClassFixture<CustomWebApplicationFacto
         count.Should().BeGreaterThanOrEqualTo(1);
     }
 
+    // =========================================================================
+    // PERMISSIONS CRUD TESTS
+    // =========================================================================
+
     [Fact]
-    public async Task Functions_Count_ReturnsNumber()
+    public async Task Permissions_GetAll_ReturnsList()
     {
         // Act
-        var response = await _client.GetAsync("/api/SuperAdmin/functions/count");
+        var response = await _client.GetAsync("/api/SuperAdmin/permissions");
+
+        // Assert
+        response.IsSuccessStatusCode.Should().BeTrue();
+
+        var permissions = await response.Content.ReadFromJsonAsync<List<PermissionDto>>(_jsonOptions);
+        permissions.Should().NotBeNull();
+        permissions!.Count.Should().BeGreaterThanOrEqualTo(1);
+    }
+
+    [Fact]
+    public async Task Permissions_GetById_ReturnsPermission()
+    {
+        // Act
+        var response = await _client.GetAsync("/api/SuperAdmin/permissions/44444444-4444-4444-4444-444444444444");
+
+        // Assert
+        response.IsSuccessStatusCode.Should().BeTrue();
+
+        var permission = await response.Content.ReadFromJsonAsync<PermissionDto>(_jsonOptions);
+        permission.Should().NotBeNull();
+        permission!.Name.Should().Be("test.read");
+    }
+
+    [Fact]
+    public async Task Permissions_FilterByCategory_ReturnsFilteredList()
+    {
+        // Act
+        var response = await _client.GetAsync("/api/SuperAdmin/permissions?category=Testing");
+
+        // Assert
+        response.IsSuccessStatusCode.Should().BeTrue();
+
+        var permissions = await response.Content.ReadFromJsonAsync<List<PermissionDto>>(_jsonOptions);
+        permissions.Should().NotBeNull();
+        permissions!.Should().OnlyContain(p => p.Category == "Testing");
+    }
+
+    [Fact]
+    public async Task Permissions_Create_ReturnsCreatedPermission()
+    {
+        // Arrange
+        var newPermission = new
+        {
+            Name = $"test.permission.{Guid.NewGuid().ToString()[..8]}",
+            Description = "A new test permission",
+            Category = "Testing"
+        };
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/api/SuperAdmin/permissions", newPermission);
+
+        // Assert
+        response.IsSuccessStatusCode.Should().BeTrue();
+
+        var createdPermission = await response.Content.ReadFromJsonAsync<PermissionDto>(_jsonOptions);
+        createdPermission.Should().NotBeNull();
+        createdPermission!.Name.Should().Be(newPermission.Name);
+        createdPermission.Category.Should().Be("Testing");
+        createdPermission.IsBuiltIn.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Permissions_Update_ReturnsUpdatedPermission()
+    {
+        // Arrange
+        var updateData = new
+        {
+            Name = "test.updated",
+            Description = "Updated description",
+            Category = "Updated"
+        };
+
+        // Act
+        var response = await _client.PutAsJsonAsync("/api/SuperAdmin/permissions/44444444-4444-4444-4444-444444444444", updateData);
+
+        // Assert
+        response.IsSuccessStatusCode.Should().BeTrue();
+
+        var updatedPermission = await response.Content.ReadFromJsonAsync<PermissionDto>(_jsonOptions);
+        updatedPermission.Should().NotBeNull();
+        updatedPermission!.Name.Should().Be("test.updated");
+    }
+
+    [Fact]
+    public async Task Permissions_Update_BuiltIn_ReturnsBadRequest()
+    {
+        // Arrange
+        var updateData = new
+        {
+            Name = "try.update.builtin",
+            Description = "Should fail",
+            Category = "System"
+        };
+
+        // Act
+        var response = await _client.PutAsJsonAsync("/api/SuperAdmin/permissions/44444444-4444-4444-4444-444444444445", updateData);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Permissions_Delete_ReturnsNoContent()
+    {
+        // First create a permission to delete
+        var newPermission = new
+        {
+            Name = $"test.delete.{Guid.NewGuid().ToString()[..8]}",
+            Description = "To be deleted",
+            Category = "Testing"
+        };
+        var createResponse = await _client.PostAsJsonAsync("/api/SuperAdmin/permissions", newPermission);
+        var createdPermission = await createResponse.Content.ReadFromJsonAsync<PermissionDto>(_jsonOptions);
+
+        // Act
+        var response = await _client.DeleteAsync($"/api/SuperAdmin/permissions/{createdPermission!.Id}");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+    }
+
+    [Fact]
+    public async Task Permissions_Delete_BuiltIn_ReturnsBadRequest()
+    {
+        // Act - try to delete built-in permission
+        var response = await _client.DeleteAsync("/api/SuperAdmin/permissions/44444444-4444-4444-4444-444444444445");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Permissions_Search_FiltersResults()
+    {
+        // Act
+        var response = await _client.GetAsync("/api/SuperAdmin/permissions?search=test");
+
+        // Assert
+        response.IsSuccessStatusCode.Should().BeTrue();
+
+        var permissions = await response.Content.ReadFromJsonAsync<List<PermissionDto>>(_jsonOptions);
+        permissions.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task Permissions_Count_ReturnsNumber()
+    {
+        // Act
+        var response = await _client.GetAsync("/api/SuperAdmin/permissions/count");
 
         // Assert
         response.IsSuccessStatusCode.Should().BeTrue();
@@ -674,8 +751,8 @@ public record DashboardStatsDto
 {
     public int TotalUsers { get; init; }
     public int TotalOrganizations { get; init; }
-    public int TotalRoles { get; init; }
-    public int TotalFunctions { get; init; }
+    public int TotalSystemRoles { get; init; }
+    public int TotalPermissions { get; init; }
     public List<ActivityDto>? RecentActivity { get; init; }
 }
 
@@ -703,21 +780,21 @@ public record OrganizationDto
     public DateTime CreatedAt { get; init; }
 }
 
-public record RoleDto
+public record SystemRoleDto
 {
     public Guid Id { get; init; }
     public string? Name { get; init; }
     public string? Description { get; init; }
-    public Guid OrganizationId { get; init; }
+    public bool IsBuiltIn { get; init; }
     public DateTime CreatedAt { get; init; }
 }
 
-public record FunctionDto
+public record PermissionDto
 {
     public Guid Id { get; init; }
     public string? Name { get; init; }
     public string? Description { get; init; }
     public string? Category { get; init; }
-    public Guid OrganizationId { get; init; }
+    public bool IsBuiltIn { get; init; }
     public DateTime CreatedAt { get; init; }
 }

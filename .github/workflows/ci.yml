@@ -1,8 +1,14 @@
 # =============================================================================
-# OrbitOS CI Pipeline
+# OrbitOS CI Pipeline - WITH HARD GATES
 # =============================================================================
 # This workflow runs on every push and pull request to enforce quality gates.
 # All checks must pass before merging is allowed.
+#
+# HARD GATES (will block merge):
+# 1. AI Documentation  - Spec files must be complete
+# 2. User Manual       - Auto-generated docs must exist
+# 3. Testing           - Required test coverage must be met
+# 4. Code Quality      - No lint/type errors, security scan passed
 #
 # Test Coverage:
 # - Backend: Unit + Integration tests with code coverage
@@ -187,10 +193,10 @@ jobs:
           npm audit --audit-level=high || echo "::warning::NPM audit found issues. Please review."
 
   # ===========================================================================
-  # Spec Validation
+  # Spec Validation (HARD GATE)
   # ===========================================================================
   specs:
-    name: Spec Validation
+    name: Spec Validation (HARD GATE)
     runs-on: ubuntu-latest
 
     steps:
@@ -210,11 +216,211 @@ jobs:
           done
           echo "All spec files are valid JSON"
 
+      - name: Check required spec fields
+        run: |
+          # Validate feature specs have all required fields
+          python3 << 'EOF'
+          import json
+          import sys
+          import os
+
+          REQUIRED_FEATURE_FIELDS = [
+              'id', 'name', 'description', 'status', 'capabilities',
+              'entities', 'api_endpoints', 'test_coverage'
+          ]
+
+          REQUIRED_ENTITY_FIELDS = [
+              'id', 'name', 'description', 'fields'
+          ]
+
+          errors = []
+
+          # Check features
+          features_dir = 'specs/features'
+          if os.path.exists(features_dir):
+              for f in os.listdir(features_dir):
+                  if f.startswith('F') and f.endswith('.json') and not f.startswith('_'):
+                      path = os.path.join(features_dir, f)
+                      with open(path) as file:
+                          data = json.load(file)
+                          for field in REQUIRED_FEATURE_FIELDS:
+                              if field not in data:
+                                  errors.append(f"{f}: Missing required field '{field}'")
+
+          # Check entities
+          entities_dir = 'specs/entities'
+          if os.path.exists(entities_dir):
+              for f in os.listdir(entities_dir):
+                  if f.startswith('ENT') and f.endswith('.json') and not f.startswith('_'):
+                      path = os.path.join(entities_dir, f)
+                      with open(path) as file:
+                          data = json.load(file)
+                          for field in REQUIRED_ENTITY_FIELDS:
+                              if field not in data:
+                                  errors.append(f"{f}: Missing required field '{field}'")
+
+          if errors:
+              print("SPEC VALIDATION FAILED:")
+              for e in errors:
+                  print(f"  - {e}")
+              sys.exit(1)
+          else:
+              print("All specs have required fields")
+          EOF
+
       - name: Check feature-entity references
         run: |
           # Verify that entities referenced in features exist
-          echo "Checking feature-entity references..."
-          # TODO: Implement cross-reference validation
+          python3 << 'EOF'
+          import json
+          import os
+          import sys
+
+          errors = []
+
+          # Get all entity IDs
+          entity_ids = set()
+          entities_dir = 'specs/entities'
+          if os.path.exists(entities_dir):
+              for f in os.listdir(entities_dir):
+                  if f.startswith('ENT') and f.endswith('.json') and not f.startswith('_'):
+                      with open(os.path.join(entities_dir, f)) as file:
+                          data = json.load(file)
+                          entity_ids.add(data.get('id', ''))
+
+          # Check feature references
+          features_dir = 'specs/features'
+          if os.path.exists(features_dir):
+              for f in os.listdir(features_dir):
+                  if f.startswith('F') and f.endswith('.json') and not f.startswith('_'):
+                      with open(os.path.join(features_dir, f)) as file:
+                          data = json.load(file)
+                          for entity_ref in data.get('entities', []):
+                              if entity_ref not in entity_ids:
+                                  errors.append(f"{f}: References non-existent entity '{entity_ref}'")
+
+          if errors:
+              print("REFERENCE VALIDATION FAILED:")
+              for e in errors:
+                  print(f"  - {e}")
+              sys.exit(1)
+          else:
+              print("All entity references are valid")
+          EOF
+
+  # ===========================================================================
+  # User Manual Generation & Validation (HARD GATE)
+  # ===========================================================================
+  user-manual:
+    name: User Manual (HARD GATE)
+    runs-on: ubuntu-latest
+    needs: [specs]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Generate user manual from specs
+        run: node scripts/generate-user-manual.js
+
+      - name: Validate user manual completeness
+        run: |
+          python3 << 'EOF'
+          import json
+          import os
+          import sys
+
+          errors = []
+
+          # Check docs/user-manual exists
+          manual_dir = 'docs/user-manual'
+          if not os.path.exists(manual_dir):
+              print("ERROR: docs/user-manual directory not found")
+              sys.exit(1)
+
+          # Check features have manuals
+          features_dir = 'specs/features'
+          manual_features_dir = os.path.join(manual_dir, 'features')
+
+          if os.path.exists(features_dir):
+              for f in os.listdir(features_dir):
+                  if f.startswith('F') and f.endswith('.json') and not f.startswith('_'):
+                      with open(os.path.join(features_dir, f)) as file:
+                          data = json.load(file)
+                          feature_id = data.get('id')
+                          manual_path = os.path.join(manual_features_dir, f"{feature_id}.md")
+
+                          if not os.path.exists(manual_path):
+                              errors.append(f"Missing user manual for {feature_id}")
+                          else:
+                              # Check manual is not empty
+                              with open(manual_path) as mf:
+                                  content = mf.read()
+                                  if len(content) < 200:
+                                      errors.append(f"User manual for {feature_id} is too short")
+
+          # Check field-help.json exists
+          if not os.path.exists(os.path.join(manual_dir, 'field-help.json')):
+              errors.append("Missing field-help.json")
+
+          if errors:
+              print("USER MANUAL VALIDATION FAILED:")
+              for e in errors:
+                  print(f"  - {e}")
+              sys.exit(1)
+          else:
+              print("User manual validation passed")
+          EOF
+
+      - name: Upload user manual artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: user-manual
+          path: docs/user-manual/
+
+  # ===========================================================================
+  # Feature Readiness Gate (FINAL HARD GATE)
+  # ===========================================================================
+  feature-readiness:
+    name: Feature Readiness (FINAL GATE)
+    runs-on: ubuntu-latest
+    needs: [backend, frontend, specs, user-manual, security]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Run feature readiness validation
+        run: |
+          # Generate user manual first (needed for validation)
+          node scripts/generate-user-manual.js
+
+          # Run the full readiness check
+          node scripts/validate-feature-readiness.js
+
+      - name: Check all gates passed
+        run: |
+          echo "## Feature Readiness Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All hard gates must pass before features can be marked as ready:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Gate | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| AI Documentation | ${{ needs.specs.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| User Manual | ${{ needs.user-manual.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend Tests | ${{ needs.backend.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend Tests | ${{ needs.frontend.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Scan | ${{ needs.security.result }} |" >> $GITHUB_STEP_SUMMARY
 
   # ===========================================================================
   # E2E Tests (on main branch only)
@@ -299,7 +505,7 @@ jobs:
   build-summary:
     name: Build Summary
     runs-on: ubuntu-latest
-    needs: [backend, frontend, contracts, security, specs, e2e]
+    needs: [backend, frontend, contracts, security, specs, user-manual, feature-readiness, e2e]
     if: always()
 
     steps:
@@ -307,11 +513,18 @@ jobs:
         run: |
           echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Backend | ${{ needs.backend.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Frontend | ${{ needs.frontend.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "### Hard Gates (Must Pass)" >> $GITHUB_STEP_SUMMARY
+          echo "| Gate | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| AI Documentation (Specs) | ${{ needs.specs.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| User Manual | ${{ needs.user-manual.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend Tests | ${{ needs.backend.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend Tests | ${{ needs.frontend.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Scan | ${{ needs.security.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Feature Readiness** | **${{ needs.feature-readiness.result }}** |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Additional Checks" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| Contracts | ${{ needs.contracts.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Security | ${{ needs.security.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Specs | ${{ needs.specs.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| E2E | ${{ needs.e2e.result }} |" >> $GITHUB_STEP_SUMMARY

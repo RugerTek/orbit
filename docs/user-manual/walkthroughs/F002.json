@@ -1,0 +1,55 @@
+{
+  "featureId": "F002",
+  "featureName": "Super Admin Panel",
+  "totalSteps": 6,
+  "estimatedMinutes": 3,
+  "steps": [
+    {
+      "step": 1,
+      "title": "view system dashboard so that I can see overall statistics",
+      "type": "highlight",
+      "target": "F002-C01",
+      "content": "As a super admin, I want to view system dashboard so that I can see overall statistics",
+      "position": "bottom"
+    },
+    {
+      "step": 2,
+      "title": "manage users so that I can create, edit, and delete user accounts",
+      "type": "highlight",
+      "target": "F002-C02",
+      "content": "As a super admin, I want to manage users so that I can create, edit, and delete user accounts",
+      "position": "bottom"
+    },
+    {
+      "step": 3,
+      "title": "manage organizations so that I can configure multi-tenant setup",
+      "type": "highlight",
+      "target": "F002-C03",
+      "content": "As a super admin, I want to manage organizations so that I can configure multi-tenant setup",
+      "position": "bottom"
+    },
+    {
+      "step": 4,
+      "title": "manage roles so that I can define permission sets per organization",
+      "type": "highlight",
+      "target": "F002-C04",
+      "content": "As a super admin, I want to manage roles so that I can define permission sets per organization",
+      "position": "bottom"
+    },
+    {
+      "step": 5,
+      "title": "manage functions so that I can define granular permissions",
+      "type": "highlight",
+      "target": "F002-C05",
+      "content": "As a super admin, I want to manage functions so that I can define granular permissions",
+      "position": "bottom"
+    },
+    {
+      "step": 6,
+      "title": "Complete!",
+      "type": "completion",
+      "content": "You've learned how to use Super Admin Panel. Great job!",
+      "position": "center"
+    }
+  ]
+}

@@ -1,0 +1,412 @@
+{
+  "$schema": "./schema.json",
+  "id": "ENT015",
+  "name": "Process",
+  "description": "A business process representing a repeatable sequence of activities that transforms inputs into outputs. Processes belong to functions and define how work gets done in the organization. They are the 'how' that connects resources to value delivery.",
+  "table": "Processes",
+  "status": "draft",
+  "created_at": "2026-01-15",
+  "updated_at": "2026-01-15",
+
+  "fields": [
+    {
+      "name": "OrganizationId",
+      "type": "Guid",
+      "nullable": false,
+      "references": "ENT002",
+      "description": "Organization that owns this process"
+    },
+    {
+      "name": "FunctionId",
+      "type": "Guid",
+      "nullable": false,
+      "references": "ENT004",
+      "description": "Function/department that owns this process"
+    },
+    {
+      "name": "Name",
+      "type": "string",
+      "nullable": false,
+      "max_length": 255,
+      "description": "Process display name"
+    },
+    {
+      "name": "Slug",
+      "type": "string",
+      "nullable": false,
+      "max_length": 100,
+      "description": "URL-friendly unique identifier within organization"
+    },
+    {
+      "name": "Description",
+      "type": "string",
+      "nullable": true,
+      "max_length": 2000,
+      "description": "Detailed description of the process purpose and scope"
+    },
+    {
+      "name": "Type",
+      "type": "enum",
+      "nullable": false,
+      "enum_values": ["Core", "Support", "Management"],
+      "description": "Process classification: Core (value-creating), Support (enabling), Management (governing)"
+    },
+    {
+      "name": "Category",
+      "type": "enum",
+      "nullable": true,
+      "enum_values": [
+        "CustomerAcquisition",
+        "CustomerOnboarding",
+        "CustomerRelationship",
+        "CustomerSupport",
+        "ProductDevelopment",
+        "ServiceDelivery",
+        "OrderFulfillment",
+        "FinancialOperations",
+        "HumanResources",
+        "Compliance",
+        "Other"
+      ],
+      "description": "Business category for grouping similar processes"
+    },
+    {
+      "name": "Status",
+      "type": "enum",
+      "nullable": false,
+      "enum_values": ["Draft", "Active", "UnderReview", "Deprecated", "Archived"],
+      "description": "Process lifecycle status"
+    },
+    {
+      "name": "Maturity",
+      "type": "enum",
+      "nullable": false,
+      "enum_values": ["AdHoc", "Defined", "Managed", "Measured", "Optimized"],
+      "description": "Process maturity level (CMMI-inspired)"
+    },
+    {
+      "name": "ParentProcessId",
+      "type": "Guid",
+      "nullable": true,
+      "references": "ENT015",
+      "description": "Parent process for hierarchical process decomposition"
+    },
+    {
+      "name": "OwnerId",
+      "type": "Guid",
+      "nullable": true,
+      "references": "ENT001",
+      "description": "User who is the process owner (accountable)"
+    },
+    {
+      "name": "Trigger",
+      "type": "json",
+      "nullable": true,
+      "description": "What triggers this process to start",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string", "enum": ["event", "schedule", "manual", "condition"] },
+          "description": { "type": "string" },
+          "schedule": { "type": "string", "description": "Cron expression if type is schedule" },
+          "event_source": { "type": "string", "description": "Source system/entity if type is event" }
+        }
+      }
+    },
+    {
+      "name": "Inputs",
+      "type": "json",
+      "nullable": true,
+      "description": "What the process receives to start",
+      "json_schema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "source": { "type": "string" },
+            "required": { "type": "boolean" },
+            "data_type": { "type": "string" }
+          }
+        }
+      }
+    },
+    {
+      "name": "Outputs",
+      "type": "json",
+      "nullable": true,
+      "description": "What the process produces when complete",
+      "json_schema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "destination": { "type": "string" },
+            "data_type": { "type": "string" }
+          }
+        }
+      }
+    },
+    {
+      "name": "Metrics",
+      "type": "json",
+      "nullable": true,
+      "description": "Process performance metrics",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "cycle_time_hours": { "type": "number", "description": "Average time from start to completion" },
+          "throughput_per_day": { "type": "number", "description": "Average number of completions per day" },
+          "error_rate_percent": { "type": "number", "description": "Percentage of executions with errors" },
+          "automation_percent": { "type": "number", "description": "Percentage of steps that are automated" },
+          "cost_per_execution": { "type": "number" },
+          "customer_satisfaction": { "type": "number", "minimum": 1, "maximum": 5 },
+          "sla_compliance_percent": { "type": "number" },
+          "bottleneck_activity": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "Documentation",
+      "type": "json",
+      "nullable": true,
+      "description": "Links to process documentation",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "procedure_url": { "type": "string" },
+          "diagram_url": { "type": "string" },
+          "training_url": { "type": "string" },
+          "last_reviewed": { "type": "string", "format": "date" },
+          "next_review": { "type": "string", "format": "date" }
+        }
+      }
+    },
+    {
+      "name": "Tags",
+      "type": "json",
+      "nullable": true,
+      "description": "Tags for categorization and filtering",
+      "json_schema": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    }
+  ],
+
+  "validation_rules": [
+    {
+      "id": "R-PRC-001",
+      "field": "Slug",
+      "rule": "Must be unique within the organization",
+      "error_code": "PROCESS_SLUG_EXISTS",
+      "error_message": "A process with this slug already exists in this organization"
+    },
+    {
+      "id": "R-PRC-002",
+      "field": "Slug",
+      "rule": "Must be URL-safe (lowercase, alphanumeric, hyphens only)",
+      "error_code": "PROCESS_SLUG_INVALID",
+      "error_message": "Slug must contain only lowercase letters, numbers, and hyphens"
+    },
+    {
+      "id": "R-PRC-003",
+      "field": "Name",
+      "rule": "Required, 1-255 characters",
+      "error_code": "PROCESS_NAME_REQUIRED",
+      "error_message": "Process name is required"
+    },
+    {
+      "id": "R-PRC-004",
+      "field": "FunctionId",
+      "rule": "Function must belong to the same organization",
+      "error_code": "PROCESS_FUNCTION_ORG_MISMATCH",
+      "error_message": "Function does not belong to this organization"
+    },
+    {
+      "id": "R-PRC-005",
+      "field": "ParentProcessId",
+      "rule": "Cannot reference itself or create circular hierarchies",
+      "error_code": "PROCESS_CIRCULAR_REFERENCE",
+      "error_message": "Process cannot be its own parent or create circular references"
+    },
+    {
+      "id": "R-PRC-006",
+      "field": "OwnerId",
+      "rule": "If provided, owner must be a member of the organization",
+      "error_code": "PROCESS_OWNER_NOT_MEMBER",
+      "error_message": "Process owner must be a member of this organization"
+    }
+  ],
+
+  "relationships": [
+    {
+      "type": "many-to-one",
+      "entity": "ENT002",
+      "foreign_key": "OrganizationId",
+      "navigation": "Organization",
+      "description": "Organization that owns this process"
+    },
+    {
+      "type": "many-to-one",
+      "entity": "ENT004",
+      "foreign_key": "FunctionId",
+      "navigation": "Function",
+      "description": "Function that owns this process"
+    },
+    {
+      "type": "many-to-one",
+      "entity": "ENT015",
+      "foreign_key": "ParentProcessId",
+      "navigation": "ParentProcess",
+      "description": "Parent process in the hierarchy"
+    },
+    {
+      "type": "one-to-many",
+      "entity": "ENT015",
+      "inverse_key": "ParentProcessId",
+      "navigation": "SubProcesses",
+      "description": "Child processes in the hierarchy"
+    },
+    {
+      "type": "many-to-one",
+      "entity": "ENT001",
+      "foreign_key": "OwnerId",
+      "navigation": "Owner",
+      "description": "User who owns this process"
+    },
+    {
+      "type": "one-to-many",
+      "entity": "ENT016",
+      "inverse_key": "ProcessId",
+      "navigation": "Activities",
+      "description": "Activities that make up this process"
+    },
+    {
+      "type": "one-to-many",
+      "entity": "ENT013",
+      "inverse_key": "EntityId",
+      "navigation": "BlockReferences",
+      "description": "Canvas block references that point to this process",
+      "polymorphic_filter": "EntityType = 'Process'"
+    }
+  ],
+
+  "indexes": [
+    {
+      "name": "IX_Processes_OrganizationId_Slug",
+      "columns": ["OrganizationId", "Slug"],
+      "unique": true
+    },
+    {
+      "name": "IX_Processes_OrganizationId_FunctionId",
+      "columns": ["OrganizationId", "FunctionId"],
+      "unique": false
+    },
+    {
+      "name": "IX_Processes_OrganizationId_Type",
+      "columns": ["OrganizationId", "Type"],
+      "unique": false
+    },
+    {
+      "name": "IX_Processes_OrganizationId_Status",
+      "columns": ["OrganizationId", "Status"],
+      "unique": false
+    },
+    {
+      "name": "IX_Processes_ParentProcessId",
+      "columns": ["ParentProcessId"],
+      "unique": false,
+      "filter": "ParentProcessId IS NOT NULL"
+    },
+    {
+      "name": "IX_Processes_OwnerId",
+      "columns": ["OwnerId"],
+      "unique": false,
+      "filter": "OwnerId IS NOT NULL"
+    }
+  ],
+
+  "api_representation": {
+    "dto_name": "ProcessDto",
+    "include_fields": ["Id", "OrganizationId", "FunctionId", "Name", "Slug", "Description", "Type", "Category", "Status", "Maturity", "ParentProcessId", "OwnerId", "Trigger", "Inputs", "Outputs", "Metrics", "Documentation", "Tags", "CreatedAt", "UpdatedAt"],
+    "computed_fields": [
+      {
+        "name": "FunctionName",
+        "type": "string",
+        "computation": "Function.Name"
+      },
+      {
+        "name": "OwnerName",
+        "type": "string",
+        "computation": "Owner.DisplayName if OwnerId is set"
+      },
+      {
+        "name": "ActivityCount",
+        "type": "int",
+        "computation": "Count of Activities"
+      },
+      {
+        "name": "SubProcessCount",
+        "type": "int",
+        "computation": "Count of SubProcesses"
+      },
+      {
+        "name": "CanvasReferenceCount",
+        "type": "int",
+        "computation": "Count of BlockReferences pointing to this process"
+      }
+    ]
+  },
+
+  "audit_requirements": {
+    "log_create": true,
+    "log_update": true,
+    "log_delete": true,
+    "sensitive_fields": ["Metrics"]
+  },
+
+  "multi_tenancy": {
+    "is_tenant_root": false,
+    "scope_field": "OrganizationId",
+    "scoping_behavior": "All queries must be filtered by OrganizationId"
+  },
+
+  "ai_capabilities": {
+    "description": "AI can analyze processes to identify optimization opportunities, bottlenecks, and automation candidates",
+    "analyzable_fields": ["Type", "Category", "Status", "Maturity", "Trigger", "Inputs", "Outputs", "Metrics", "Tags"],
+    "cross_entity_analysis": [
+      "Identify process bottlenecks from metrics",
+      "Find automation opportunities (low maturity, high volume)",
+      "Analyze process dependencies across functions",
+      "Calculate total process cost from activities",
+      "Identify orphaned processes (no canvas references)",
+      "Compare process performance across similar categories",
+      "Suggest process improvements based on maturity model"
+    ],
+    "ai_queries": [
+      {
+        "query": "bottleneck_analysis",
+        "description": "Find processes with high cycle time or error rates",
+        "example": "Processes WHERE Metrics.cycle_time_hours > threshold OR Metrics.error_rate_percent > threshold"
+      },
+      {
+        "query": "automation_candidates",
+        "description": "Find processes suitable for automation",
+        "example": "Processes WHERE Maturity IN ('AdHoc', 'Defined') AND Metrics.throughput_per_day > threshold"
+      },
+      {
+        "query": "process_coverage",
+        "description": "Find functions with missing process documentation",
+        "example": "Functions with no linked Processes or Processes with Status = 'Draft'"
+      }
+    ]
+  },
+
+  "code_location": {
+    "entity": "orbitos-api/src/OrbitOS.Domain/Entities/Process.cs",
+    "dto": "orbitos-api/src/OrbitOS.Api/Controllers/ProcessesController.cs",
+    "frontend_type": "orbitos-web/app/types/entities/process.ts"
+  }
+}

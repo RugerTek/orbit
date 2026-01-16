@@ -1,0 +1,341 @@
+{
+  "$schema": "./schema.json",
+  "id": "ENT011",
+  "name": "Canvas",
+  "description": "A Business Model Canvas that visualizes and structures strategic information. Canvases can exist at organization, product, segment, or initiative level, forming a hierarchy that enables strategic alignment across the business.",
+  "table": "Canvases",
+  "status": "draft",
+  "created_at": "2026-01-15",
+  "updated_at": "2026-01-15",
+
+  "fields": [
+    {
+      "name": "OrganizationId",
+      "type": "Guid",
+      "nullable": false,
+      "references": "ENT002",
+      "description": "Organization that owns this canvas"
+    },
+    {
+      "name": "Name",
+      "type": "string",
+      "nullable": false,
+      "max_length": 255,
+      "description": "Canvas display name"
+    },
+    {
+      "name": "Slug",
+      "type": "string",
+      "nullable": false,
+      "max_length": 100,
+      "description": "URL-friendly unique identifier within organization"
+    },
+    {
+      "name": "Description",
+      "type": "string",
+      "nullable": true,
+      "max_length": 2000,
+      "description": "Description of this canvas's purpose and scope"
+    },
+    {
+      "name": "Type",
+      "type": "enum",
+      "nullable": false,
+      "enum_values": ["Organization", "Product", "Segment", "Initiative"],
+      "description": "The scope level of this canvas"
+    },
+    {
+      "name": "Status",
+      "type": "enum",
+      "nullable": false,
+      "enum_values": ["Draft", "Active", "Archived"],
+      "description": "Canvas lifecycle status"
+    },
+    {
+      "name": "ParentCanvasId",
+      "type": "Guid",
+      "nullable": true,
+      "references": "ENT011",
+      "description": "Parent canvas in the hierarchy (null for organization-level canvas)"
+    },
+    {
+      "name": "ProductId",
+      "type": "Guid",
+      "nullable": true,
+      "references": "ENT008",
+      "description": "Associated product (for Product type canvases)"
+    },
+    {
+      "name": "SegmentId",
+      "type": "Guid",
+      "nullable": true,
+      "references": "ENT009",
+      "description": "Associated segment (for Segment type canvases)"
+    },
+    {
+      "name": "Version",
+      "type": "int",
+      "nullable": false,
+      "default": 1,
+      "description": "Version number for tracking canvas iterations"
+    },
+    {
+      "name": "VersionNote",
+      "type": "string",
+      "nullable": true,
+      "max_length": 500,
+      "description": "Description of what changed in this version"
+    },
+    {
+      "name": "AiSummary",
+      "type": "string",
+      "nullable": true,
+      "max_length": 5000,
+      "description": "AI-generated summary of the canvas for quick comprehension"
+    },
+    {
+      "name": "AiMetadata",
+      "type": "json",
+      "nullable": true,
+      "description": "AI analysis metadata",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "last_analyzed_at": { "type": "string", "format": "date-time" },
+          "health_score": { "type": "number", "minimum": 0, "maximum": 1 },
+          "completeness_score": { "type": "number", "minimum": 0, "maximum": 1 },
+          "consistency_score": { "type": "number", "minimum": 0, "maximum": 1 },
+          "suggestions": { "type": "array", "items": { "type": "string" } },
+          "warnings": { "type": "array", "items": { "type": "string" } },
+          "block_scores": {
+            "type": "object",
+            "additionalProperties": { "type": "number" }
+          }
+        }
+      }
+    }
+  ],
+
+  "validation_rules": [
+    {
+      "id": "R-CNV-001",
+      "field": "Slug",
+      "rule": "Must be unique within the organization",
+      "error_code": "CANVAS_SLUG_EXISTS",
+      "error_message": "A canvas with this slug already exists in this organization"
+    },
+    {
+      "id": "R-CNV-002",
+      "field": "Slug",
+      "rule": "Must be URL-safe (lowercase, alphanumeric, hyphens only)",
+      "error_code": "CANVAS_SLUG_INVALID",
+      "error_message": "Slug must contain only lowercase letters, numbers, and hyphens"
+    },
+    {
+      "id": "R-CNV-003",
+      "field": "Name",
+      "rule": "Required, 1-255 characters",
+      "error_code": "CANVAS_NAME_REQUIRED",
+      "error_message": "Canvas name is required"
+    },
+    {
+      "id": "R-CNV-004",
+      "field": "ProductId",
+      "rule": "Required when Type is 'Product', must be null otherwise",
+      "error_code": "CANVAS_PRODUCT_MISMATCH",
+      "error_message": "Product canvas must have a ProductId, other types must not"
+    },
+    {
+      "id": "R-CNV-005",
+      "field": "SegmentId",
+      "rule": "Required when Type is 'Segment', must be null otherwise",
+      "error_code": "CANVAS_SEGMENT_MISMATCH",
+      "error_message": "Segment canvas must have a SegmentId, other types must not"
+    },
+    {
+      "id": "R-CNV-006",
+      "field": "ParentCanvasId",
+      "rule": "Cannot reference itself or create circular hierarchies",
+      "error_code": "CANVAS_CIRCULAR_REFERENCE",
+      "error_message": "Canvas cannot be its own parent or create circular references"
+    },
+    {
+      "id": "R-CNV-007",
+      "field": "Type",
+      "rule": "Organization type canvas: only one active per organization",
+      "error_code": "CANVAS_ORG_EXISTS",
+      "error_message": "Only one active organization canvas is allowed"
+    },
+    {
+      "id": "R-CNV-008",
+      "field": "ProductId",
+      "rule": "Product must belong to the same organization",
+      "error_code": "CANVAS_PRODUCT_ORG_MISMATCH",
+      "error_message": "Product does not belong to this organization"
+    },
+    {
+      "id": "R-CNV-009",
+      "field": "SegmentId",
+      "rule": "Segment must belong to the same organization",
+      "error_code": "CANVAS_SEGMENT_ORG_MISMATCH",
+      "error_message": "Segment does not belong to this organization"
+    }
+  ],
+
+  "relationships": [
+    {
+      "type": "many-to-one",
+      "entity": "ENT002",
+      "foreign_key": "OrganizationId",
+      "navigation": "Organization",
+      "description": "Organization that owns this canvas"
+    },
+    {
+      "type": "many-to-one",
+      "entity": "ENT011",
+      "foreign_key": "ParentCanvasId",
+      "navigation": "ParentCanvas",
+      "description": "Parent canvas in the hierarchy"
+    },
+    {
+      "type": "one-to-many",
+      "entity": "ENT011",
+      "inverse_key": "ParentCanvasId",
+      "navigation": "ChildCanvases",
+      "description": "Child canvases in the hierarchy"
+    },
+    {
+      "type": "many-to-one",
+      "entity": "ENT008",
+      "foreign_key": "ProductId",
+      "navigation": "Product",
+      "description": "Associated product (for Product type)"
+    },
+    {
+      "type": "many-to-one",
+      "entity": "ENT009",
+      "foreign_key": "SegmentId",
+      "navigation": "Segment",
+      "description": "Associated segment (for Segment type)"
+    },
+    {
+      "type": "one-to-many",
+      "entity": "ENT012",
+      "inverse_key": "CanvasId",
+      "navigation": "Blocks",
+      "description": "Blocks that make up this canvas"
+    }
+  ],
+
+  "indexes": [
+    {
+      "name": "IX_Canvases_OrganizationId_Slug",
+      "columns": ["OrganizationId", "Slug"],
+      "unique": true
+    },
+    {
+      "name": "IX_Canvases_OrganizationId_Type_Status",
+      "columns": ["OrganizationId", "Type", "Status"],
+      "unique": false
+    },
+    {
+      "name": "IX_Canvases_ProductId",
+      "columns": ["ProductId"],
+      "unique": false,
+      "filter": "ProductId IS NOT NULL"
+    },
+    {
+      "name": "IX_Canvases_SegmentId",
+      "columns": ["SegmentId"],
+      "unique": false,
+      "filter": "SegmentId IS NOT NULL"
+    },
+    {
+      "name": "IX_Canvases_ParentCanvasId",
+      "columns": ["ParentCanvasId"],
+      "unique": false,
+      "filter": "ParentCanvasId IS NOT NULL"
+    }
+  ],
+
+  "api_representation": {
+    "dto_name": "CanvasDto",
+    "include_fields": ["Id", "OrganizationId", "Name", "Slug", "Description", "Type", "Status", "ParentCanvasId", "ProductId", "SegmentId", "Version", "VersionNote", "AiSummary", "AiMetadata", "CreatedAt", "UpdatedAt"],
+    "computed_fields": [
+      {
+        "name": "BlockCount",
+        "type": "int",
+        "computation": "Count of Blocks"
+      },
+      {
+        "name": "ChildCanvasCount",
+        "type": "int",
+        "computation": "Count of ChildCanvases"
+      },
+      {
+        "name": "ProductName",
+        "type": "string",
+        "computation": "Product.Name if ProductId is set"
+      },
+      {
+        "name": "SegmentName",
+        "type": "string",
+        "computation": "Segment.Name if SegmentId is set"
+      },
+      {
+        "name": "ParentCanvasName",
+        "type": "string",
+        "computation": "ParentCanvas.Name if ParentCanvasId is set"
+      }
+    ]
+  },
+
+  "audit_requirements": {
+    "log_create": true,
+    "log_update": true,
+    "log_delete": true,
+    "sensitive_fields": []
+  },
+
+  "multi_tenancy": {
+    "is_tenant_root": false,
+    "scope_field": "OrganizationId",
+    "scoping_behavior": "All queries must be filtered by OrganizationId"
+  },
+
+  "ai_capabilities": {
+    "description": "AI can analyze canvases to provide strategic insights, identify gaps, and suggest improvements",
+    "analyzable_fields": ["AiSummary", "AiMetadata", "Type", "Status"],
+    "cross_entity_analysis": [
+      "Compare canvases across products to identify strategic alignment",
+      "Analyze canvas completeness and suggest missing elements",
+      "Identify inconsistencies between parent and child canvases",
+      "Generate strategic summaries from canvas content",
+      "Track canvas evolution across versions"
+    ],
+    "ai_actions": [
+      {
+        "action": "generate_summary",
+        "description": "Generate an AI summary of the canvas based on its blocks"
+      },
+      {
+        "action": "analyze_health",
+        "description": "Analyze canvas completeness and consistency, generate health scores"
+      },
+      {
+        "action": "suggest_improvements",
+        "description": "Suggest improvements based on best practices and gaps"
+      },
+      {
+        "action": "compare_canvases",
+        "description": "Compare two canvases and highlight differences"
+      }
+    ]
+  },
+
+  "code_location": {
+    "entity": "orbitos-api/src/OrbitOS.Domain/Entities/Canvas.cs",
+    "dto": "orbitos-api/src/OrbitOS.Api/Controllers/CanvasesController.cs",
+    "frontend_type": "orbitos-web/app/types/entities/canvas.ts"
+  }
+}

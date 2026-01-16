@@ -1,0 +1,41 @@
+{
+  "generated_at": "2026-01-15T11:21:27.387Z",
+  "features": [
+    {
+      "id": "F001",
+      "name": "Authentication",
+      "status": "implemented",
+      "guide": "features/F001.md",
+      "walkthrough": "walkthroughs/F001.json"
+    },
+    {
+      "id": "F002",
+      "name": "Super Admin Panel",
+      "status": "implemented",
+      "guide": "features/F002.md",
+      "walkthrough": "walkthroughs/F002.json"
+    }
+  ],
+  "concepts": [
+    {
+      "id": "ENT001",
+      "name": "User",
+      "doc": "concepts/ENT001.md"
+    },
+    {
+      "id": "ENT002",
+      "name": "Organization",
+      "doc": "concepts/ENT002.md"
+    },
+    {
+      "id": "ENT003",
+      "name": "Role",
+      "doc": "concepts/ENT003.md"
+    },
+    {
+      "id": "ENT004",
+      "name": "Function",
+      "doc": "concepts/ENT004.md"
+    }
+  ]
+}

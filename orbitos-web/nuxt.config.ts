@@ -2,11 +2,21 @@
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
+
+  // Azure Static Web Apps - generate static files
+  ssr: false,
+  nitro: {
+    preset: 'azure'
+  },
   modules: ['@nuxtjs/tailwindcss'],
   devServer: {
     host: '0.0.0.0',
     port: 3000,
   },
+
+  css: [
+    '~/assets/css/orbitos-design-system.css'
+  ],
 
   runtimeConfig: {
     public: {

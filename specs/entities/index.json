@@ -51,6 +51,69 @@
       "file": "ENT007-role-function.json",
       "table": "RoleFunctions",
       "status": "implemented"
+    },
+    {
+      "id": "ENT008",
+      "name": "Product",
+      "file": "ENT008-product.json",
+      "table": "Products",
+      "status": "draft"
+    },
+    {
+      "id": "ENT009",
+      "name": "Segment",
+      "file": "ENT009-segment.json",
+      "table": "Segments",
+      "status": "draft"
+    },
+    {
+      "id": "ENT010",
+      "name": "ProductSegment",
+      "file": "ENT010-product-segment.json",
+      "table": "ProductSegments",
+      "status": "draft"
+    },
+    {
+      "id": "ENT011",
+      "name": "Canvas",
+      "file": "ENT011-canvas.json",
+      "table": "Canvases",
+      "status": "draft"
+    },
+    {
+      "id": "ENT012",
+      "name": "CanvasBlock",
+      "file": "ENT012-canvas-block.json",
+      "table": "CanvasBlocks",
+      "status": "draft"
+    },
+    {
+      "id": "ENT013",
+      "name": "BlockReference",
+      "file": "ENT013-block-reference.json",
+      "table": "BlockReferences",
+      "status": "draft"
+    },
+    {
+      "id": "ENT014",
+      "name": "Resource",
+      "file": "ENT014-resource.json",
+      "table": "Resources",
+      "status": "draft"
+    },
+    {
+      "id": "ENT015",
+      "name": "Process",
+      "file": "ENT015-process.json",
+      "table": "Processes",
+      "status": "draft"
+    },
+    {
+      "id": "ENT016",
+      "name": "Activity",
+      "file": "ENT016-activity.json",
+      "table": "Activities",
+      "status": "draft"
     }
   ],
   "base_entity_fields": [

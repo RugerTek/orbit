@@ -1,0 +1,458 @@
+{
+  "$schema": "./schema.json",
+  "id": "ENT016",
+  "name": "Activity",
+  "description": "A discrete unit of work within a process. Activities are the atomic tasks that consume resources and produce outputs. They represent the lowest level of process decomposition and are where actual work happens.",
+  "table": "Activities",
+  "status": "draft",
+  "created_at": "2026-01-15",
+  "updated_at": "2026-01-15",
+
+  "fields": [
+    {
+      "name": "OrganizationId",
+      "type": "Guid",
+      "nullable": false,
+      "references": "ENT002",
+      "description": "Organization that owns this activity"
+    },
+    {
+      "name": "ProcessId",
+      "type": "Guid",
+      "nullable": true,
+      "references": "ENT015",
+      "description": "Process this activity belongs to (null for standalone activities)"
+    },
+    {
+      "name": "Name",
+      "type": "string",
+      "nullable": false,
+      "max_length": 255,
+      "description": "Activity display name (action-oriented, e.g., 'Send Welcome Email')"
+    },
+    {
+      "name": "Slug",
+      "type": "string",
+      "nullable": false,
+      "max_length": 100,
+      "description": "URL-friendly unique identifier within organization"
+    },
+    {
+      "name": "Description",
+      "type": "string",
+      "nullable": true,
+      "max_length": 2000,
+      "description": "Detailed description of what this activity does"
+    },
+    {
+      "name": "Type",
+      "type": "enum",
+      "nullable": false,
+      "enum_values": ["Manual", "Automated", "Hybrid", "Decision", "Handoff"],
+      "description": "How the activity is executed"
+    },
+    {
+      "name": "Status",
+      "type": "enum",
+      "nullable": false,
+      "enum_values": ["Active", "Inactive", "Deprecated"],
+      "description": "Activity lifecycle status"
+    },
+    {
+      "name": "SequenceOrder",
+      "type": "int",
+      "nullable": true,
+      "description": "Order within the parent process (null if standalone)"
+    },
+    {
+      "name": "ResponsibleRoleId",
+      "type": "Guid",
+      "nullable": true,
+      "references": "ENT003",
+      "description": "Role responsible for executing this activity"
+    },
+    {
+      "name": "LinkedProcessId",
+      "type": "Guid",
+      "nullable": true,
+      "references": "ENT015",
+      "description": "If this activity triggers another process (subprocess call)"
+    },
+    {
+      "name": "Duration",
+      "type": "json",
+      "nullable": true,
+      "description": "Expected duration information",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "estimated_minutes": { "type": "number" },
+          "minimum_minutes": { "type": "number" },
+          "maximum_minutes": { "type": "number" },
+          "actual_average_minutes": { "type": "number" }
+        }
+      }
+    },
+    {
+      "name": "Inputs",
+      "type": "json",
+      "nullable": true,
+      "description": "What this activity needs to start",
+      "json_schema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "source": { "type": "string" },
+            "required": { "type": "boolean" },
+            "data_type": { "type": "string" }
+          }
+        }
+      }
+    },
+    {
+      "name": "Outputs",
+      "type": "json",
+      "nullable": true,
+      "description": "What this activity produces",
+      "json_schema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "destination": { "type": "string" },
+            "data_type": { "type": "string" }
+          }
+        }
+      }
+    },
+    {
+      "name": "Conditions",
+      "type": "json",
+      "nullable": true,
+      "description": "Conditions for execution (for Decision type activities)",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "preconditions": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "decision_criteria": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "condition": { "type": "string" },
+                "outcome": { "type": "string" },
+                "next_activity_slug": { "type": "string" }
+              }
+            }
+          },
+          "postconditions": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    {
+      "name": "Automation",
+      "type": "json",
+      "nullable": true,
+      "description": "Automation details for automated/hybrid activities",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "system": { "type": "string", "description": "System that executes the automation" },
+          "trigger_type": { "type": "string", "enum": ["api", "webhook", "scheduled", "event"] },
+          "integration_id": { "type": "string" },
+          "configuration": { "type": "object" },
+          "error_handling": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "Cost",
+      "type": "json",
+      "nullable": true,
+      "description": "Cost information for this activity",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "labor_cost_per_execution": { "type": "number" },
+          "tool_cost_per_execution": { "type": "number" },
+          "total_cost_per_execution": { "type": "number" },
+          "currency": { "type": "string", "default": "USD" }
+        }
+      }
+    },
+    {
+      "name": "Metrics",
+      "type": "json",
+      "nullable": true,
+      "description": "Performance metrics for this activity",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "executions_per_day": { "type": "number" },
+          "success_rate_percent": { "type": "number" },
+          "average_duration_minutes": { "type": "number" },
+          "rework_rate_percent": { "type": "number" },
+          "automation_rate_percent": { "type": "number" }
+        }
+      }
+    },
+    {
+      "name": "Instructions",
+      "type": "string",
+      "nullable": true,
+      "max_length": 5000,
+      "description": "Step-by-step instructions for manual execution (supports markdown)"
+    },
+    {
+      "name": "Tags",
+      "type": "json",
+      "nullable": true,
+      "description": "Tags for categorization and filtering",
+      "json_schema": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    }
+  ],
+
+  "validation_rules": [
+    {
+      "id": "R-ACT-001",
+      "field": "Slug",
+      "rule": "Must be unique within the organization",
+      "error_code": "ACTIVITY_SLUG_EXISTS",
+      "error_message": "An activity with this slug already exists in this organization"
+    },
+    {
+      "id": "R-ACT-002",
+      "field": "Slug",
+      "rule": "Must be URL-safe (lowercase, alphanumeric, hyphens only)",
+      "error_code": "ACTIVITY_SLUG_INVALID",
+      "error_message": "Slug must contain only lowercase letters, numbers, and hyphens"
+    },
+    {
+      "id": "R-ACT-003",
+      "field": "Name",
+      "rule": "Required, 1-255 characters",
+      "error_code": "ACTIVITY_NAME_REQUIRED",
+      "error_message": "Activity name is required"
+    },
+    {
+      "id": "R-ACT-004",
+      "field": "ProcessId",
+      "rule": "If provided, process must belong to the same organization",
+      "error_code": "ACTIVITY_PROCESS_ORG_MISMATCH",
+      "error_message": "Process does not belong to this organization"
+    },
+    {
+      "id": "R-ACT-005",
+      "field": "ResponsibleRoleId",
+      "rule": "If provided, role must belong to the same organization",
+      "error_code": "ACTIVITY_ROLE_ORG_MISMATCH",
+      "error_message": "Role does not belong to this organization"
+    },
+    {
+      "id": "R-ACT-006",
+      "field": "SequenceOrder",
+      "rule": "Required if ProcessId is set, must be unique within process",
+      "error_code": "ACTIVITY_SEQUENCE_INVALID",
+      "error_message": "Sequence order is required for process activities and must be unique"
+    },
+    {
+      "id": "R-ACT-007",
+      "field": "Automation",
+      "rule": "Required if Type is 'Automated', optional otherwise",
+      "error_code": "ACTIVITY_AUTOMATION_REQUIRED",
+      "error_message": "Automated activities must have automation configuration"
+    },
+    {
+      "id": "R-ACT-008",
+      "field": "LinkedProcessId",
+      "rule": "Cannot link to the parent process (would create loop)",
+      "error_code": "ACTIVITY_LINKED_PROCESS_LOOP",
+      "error_message": "Activity cannot link to its parent process"
+    }
+  ],
+
+  "relationships": [
+    {
+      "type": "many-to-one",
+      "entity": "ENT002",
+      "foreign_key": "OrganizationId",
+      "navigation": "Organization",
+      "description": "Organization that owns this activity"
+    },
+    {
+      "type": "many-to-one",
+      "entity": "ENT015",
+      "foreign_key": "ProcessId",
+      "navigation": "Process",
+      "description": "Process this activity belongs to"
+    },
+    {
+      "type": "many-to-one",
+      "entity": "ENT003",
+      "foreign_key": "ResponsibleRoleId",
+      "navigation": "ResponsibleRole",
+      "description": "Role responsible for this activity"
+    },
+    {
+      "type": "many-to-one",
+      "entity": "ENT015",
+      "foreign_key": "LinkedProcessId",
+      "navigation": "LinkedProcess",
+      "description": "Process triggered by this activity"
+    },
+    {
+      "type": "many-to-many",
+      "entity": "ENT014",
+      "through": "ActivityResources",
+      "navigation": "Resources",
+      "description": "Resources required by this activity"
+    },
+    {
+      "type": "one-to-many",
+      "entity": "ENT013",
+      "inverse_key": "EntityId",
+      "navigation": "BlockReferences",
+      "description": "Canvas block references that point to this activity",
+      "polymorphic_filter": "EntityType = 'Activity'"
+    }
+  ],
+
+  "indexes": [
+    {
+      "name": "IX_Activities_OrganizationId_Slug",
+      "columns": ["OrganizationId", "Slug"],
+      "unique": true
+    },
+    {
+      "name": "IX_Activities_OrganizationId_ProcessId",
+      "columns": ["OrganizationId", "ProcessId"],
+      "unique": false
+    },
+    {
+      "name": "IX_Activities_ProcessId_SequenceOrder",
+      "columns": ["ProcessId", "SequenceOrder"],
+      "unique": true,
+      "filter": "ProcessId IS NOT NULL"
+    },
+    {
+      "name": "IX_Activities_OrganizationId_Type",
+      "columns": ["OrganizationId", "Type"],
+      "unique": false
+    },
+    {
+      "name": "IX_Activities_OrganizationId_Status",
+      "columns": ["OrganizationId", "Status"],
+      "unique": false
+    },
+    {
+      "name": "IX_Activities_ResponsibleRoleId",
+      "columns": ["ResponsibleRoleId"],
+      "unique": false,
+      "filter": "ResponsibleRoleId IS NOT NULL"
+    }
+  ],
+
+  "api_representation": {
+    "dto_name": "ActivityDto",
+    "include_fields": ["Id", "OrganizationId", "ProcessId", "Name", "Slug", "Description", "Type", "Status", "SequenceOrder", "ResponsibleRoleId", "LinkedProcessId", "Duration", "Inputs", "Outputs", "Conditions", "Automation", "Cost", "Metrics", "Instructions", "Tags", "CreatedAt", "UpdatedAt"],
+    "computed_fields": [
+      {
+        "name": "ProcessName",
+        "type": "string",
+        "computation": "Process.Name if ProcessId is set"
+      },
+      {
+        "name": "ResponsibleRoleName",
+        "type": "string",
+        "computation": "ResponsibleRole.Name if ResponsibleRoleId is set"
+      },
+      {
+        "name": "LinkedProcessName",
+        "type": "string",
+        "computation": "LinkedProcess.Name if LinkedProcessId is set"
+      },
+      {
+        "name": "ResourceCount",
+        "type": "int",
+        "computation": "Count of Resources"
+      },
+      {
+        "name": "CanvasReferenceCount",
+        "type": "int",
+        "computation": "Count of BlockReferences pointing to this activity"
+      },
+      {
+        "name": "TotalCostPerExecution",
+        "type": "decimal",
+        "computation": "Sum of labor and tool costs"
+      }
+    ]
+  },
+
+  "audit_requirements": {
+    "log_create": true,
+    "log_update": true,
+    "log_delete": true,
+    "sensitive_fields": ["Cost", "Metrics", "Automation"]
+  },
+
+  "multi_tenancy": {
+    "is_tenant_root": false,
+    "scope_field": "OrganizationId",
+    "scoping_behavior": "All queries must be filtered by OrganizationId"
+  },
+
+  "ai_capabilities": {
+    "description": "AI can analyze activities to identify automation opportunities, optimize sequences, and improve efficiency",
+    "analyzable_fields": ["Type", "Status", "Duration", "Inputs", "Outputs", "Conditions", "Automation", "Cost", "Metrics", "Tags"],
+    "cross_entity_analysis": [
+      "Identify manual activities with high volume (automation candidates)",
+      "Find activities with high rework rates",
+      "Calculate process cost by summing activity costs",
+      "Identify resource bottlenecks across activities",
+      "Analyze decision activity outcomes",
+      "Find duplicate activities across processes",
+      "Suggest activity consolidation"
+    ],
+    "ai_queries": [
+      {
+        "query": "automation_candidates",
+        "description": "Find manual activities with high execution frequency",
+        "example": "Activities WHERE Type = 'Manual' AND Metrics.executions_per_day > threshold"
+      },
+      {
+        "query": "bottleneck_activities",
+        "description": "Find activities with high duration or rework",
+        "example": "Activities WHERE Duration.actual_average_minutes > Duration.estimated_minutes * 1.5 OR Metrics.rework_rate_percent > threshold"
+      },
+      {
+        "query": "cost_analysis",
+        "description": "Calculate total cost of a process from its activities",
+        "example": "SUM(Cost.total_cost_per_execution * Metrics.executions_per_day) for Activities in Process"
+      },
+      {
+        "query": "resource_utilization",
+        "description": "Find resources used by multiple activities",
+        "example": "Resources with ActivityCount > threshold"
+      }
+    ]
+  },
+
+  "code_location": {
+    "entity": "orbitos-api/src/OrbitOS.Domain/Entities/Activity.cs",
+    "dto": "orbitos-api/src/OrbitOS.Api/Controllers/ActivitiesController.cs",
+    "frontend_type": "orbitos-web/app/types/entities/activity.ts"
+  }
+}

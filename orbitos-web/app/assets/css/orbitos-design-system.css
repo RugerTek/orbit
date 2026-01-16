@@ -2,291 +2,481 @@
  * OrbitOS Design System
  * =====================
  * A modern glassmorphism design system with gradient backgrounds
- *
- * Copy this file to any project and import it in your main CSS:
- * @import './orbitos-design-system.css';
- *
- * Requires: Tailwind CSS
  */
 
 /* ============================================
-   BASE LAYER - Foundational styles
+   BASE STYLES - Foundational styles
    ============================================ */
 
-@layer base {
-  /* Dark gradient background for pages */
-  .orbitos-bg {
-    @apply min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden;
-  }
+/* Dark gradient background for pages */
+.orbitos-bg {
+  min-height: 100vh;
+  background: linear-gradient(to bottom right, rgb(15 23 42), rgb(88 28 135), rgb(15 23 42));
+  position: relative;
+  overflow: hidden;
+}
 
-  /* Alternative backgrounds */
-  .orbitos-bg-blue {
-    @apply min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 relative overflow-hidden;
-  }
+/* Alternative backgrounds */
+.orbitos-bg-blue {
+  min-height: 100vh;
+  background: linear-gradient(to bottom right, rgb(15 23 42), rgb(30 58 138), rgb(15 23 42));
+  position: relative;
+  overflow: hidden;
+}
 
-  .orbitos-bg-emerald {
-    @apply min-h-screen bg-gradient-to-br from-slate-900 via-emerald-900 to-slate-900 relative overflow-hidden;
-  }
+.orbitos-bg-emerald {
+  min-height: 100vh;
+  background: linear-gradient(to bottom right, rgb(15 23 42), rgb(6 78 59), rgb(15 23 42));
+  position: relative;
+  overflow: hidden;
 }
 
 /* ============================================
-   COMPONENTS LAYER - Reusable UI components
+   COMPONENTS - Reusable UI components
    ============================================ */
 
-@layer components {
-  /* ------------------------------------
-     Animated Background Blobs
-     ------------------------------------ */
-  .orbitos-blob {
-    @apply absolute rounded-full mix-blend-multiply filter blur-3xl opacity-20;
-    animation: orbitos-pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  }
+/* ------------------------------------
+   Animated Background Blobs
+   ------------------------------------ */
+.orbitos-blob {
+  position: absolute;
+  border-radius: 9999px;
+  mix-blend-mode: multiply;
+  filter: blur(48px);
+  opacity: 0.2;
+  animation: orbitos-pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
 
-  .orbitos-blob-purple {
-    @apply orbitos-blob bg-purple-500;
-  }
+.orbitos-blob-purple {
+  position: absolute;
+  border-radius: 9999px;
+  mix-blend-mode: multiply;
+  filter: blur(48px);
+  opacity: 0.2;
+  background-color: rgb(168 85 247);
+  animation: orbitos-pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
 
-  .orbitos-blob-blue {
-    @apply orbitos-blob bg-blue-500;
-  }
+.orbitos-blob-blue {
+  position: absolute;
+  border-radius: 9999px;
+  mix-blend-mode: multiply;
+  filter: blur(48px);
+  opacity: 0.2;
+  background-color: rgb(59 130 246);
+  animation: orbitos-pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
 
-  .orbitos-blob-indigo {
-    @apply orbitos-blob bg-indigo-500 opacity-10;
-  }
+.orbitos-blob-indigo {
+  position: absolute;
+  border-radius: 9999px;
+  mix-blend-mode: multiply;
+  filter: blur(48px);
+  opacity: 0.1;
+  background-color: rgb(99 102 241);
+  animation: orbitos-pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
 
-  /* ------------------------------------
-     Glass Cards
-     ------------------------------------ */
-  .orbitos-glass {
-    @apply backdrop-blur-xl bg-white/10 border border-white/20 rounded-3xl shadow-2xl;
-  }
+/* ------------------------------------
+   Glass Cards
+   ------------------------------------ */
+.orbitos-glass {
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 1.5rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
 
-  .orbitos-glass-subtle {
-    @apply backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl;
-  }
+.orbitos-glass-subtle {
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+}
 
-  .orbitos-glass-header {
-    @apply backdrop-blur-xl bg-white/5 border-b border-white/10;
-  }
+.orbitos-glass-header {
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  background-color: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
 
-  /* ------------------------------------
-     Buttons
-     ------------------------------------ */
-  .orbitos-btn-primary {
-    @apply flex items-center justify-center gap-2 py-4 px-6 bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl font-semibold text-white shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100;
-  }
+/* ------------------------------------
+   Buttons
+   ------------------------------------ */
+.orbitos-btn-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem 1.5rem;
+  background: linear-gradient(to right, rgb(147 51 234), rgb(37 99 235));
+  border-radius: 1rem;
+  font-weight: 600;
+  color: white;
+  box-shadow: 0 10px 15px -3px rgba(168, 85, 247, 0.3);
+  transition: all 0.3s;
+}
 
-  .orbitos-btn-secondary {
-    @apply flex items-center justify-center gap-2 py-3 px-6 bg-white/5 border border-white/10 rounded-2xl font-medium text-white/70 hover:bg-white/10 hover:text-white transition-all duration-300;
-  }
+.orbitos-btn-primary:hover {
+  box-shadow: 0 10px 15px -3px rgba(168, 85, 247, 0.5);
+  transform: scale(1.02);
+}
 
-  .orbitos-btn-ghost {
-    @apply flex items-center gap-3 py-3 px-4 bg-white/5 border border-white/10 rounded-xl text-white/70 hover:bg-white/10 hover:text-white transition-all duration-300;
-  }
+.orbitos-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
-  /* ------------------------------------
-     Form Inputs
-     ------------------------------------ */
-  .orbitos-input {
-    @apply w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all;
-  }
+.orbitos-btn-primary:disabled:hover {
+  transform: scale(1);
+}
 
-  .orbitos-label {
-    @apply block text-white/60 text-sm mb-2;
-  }
+.orbitos-btn-secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  transition: all 0.3s;
+}
 
-  /* ------------------------------------
-     Cards
-     ------------------------------------ */
-  .orbitos-card {
-    @apply backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300;
-  }
+.orbitos-btn-secondary:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+}
 
-  .orbitos-card-static {
-    @apply backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-6;
-  }
+.orbitos-btn-ghost {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
+  transition: all 0.3s;
+}
 
-  /* ------------------------------------
-     Icon Containers
-     ------------------------------------ */
-  .orbitos-icon-container {
-    @apply flex items-center justify-center rounded-xl;
-  }
+.orbitos-btn-ghost:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+}
 
-  .orbitos-icon-sm {
-    @apply w-8 h-8;
-  }
+/* ------------------------------------
+   Form Inputs
+   ------------------------------------ */
+.orbitos-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
+  color: white;
+  transition: all 0.2s;
+}
 
-  .orbitos-icon-md {
-    @apply w-10 h-10;
-  }
+.orbitos-input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
 
-  .orbitos-icon-lg {
-    @apply w-12 h-12;
-  }
+.orbitos-input:focus {
+  outline: none;
+  border-color: rgb(168 85 247);
+  box-shadow: 0 0 0 1px rgb(168 85 247);
+}
 
-  .orbitos-icon-xl {
-    @apply w-16 h-16 rounded-2xl;
-  }
+.orbitos-label {
+  display: block;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+}
 
-  .orbitos-icon-purple {
-    @apply bg-purple-500/20;
-  }
+/* ------------------------------------
+   Cards
+   ------------------------------------ */
+.orbitos-card {
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  transition: all 0.3s;
+}
 
-  .orbitos-icon-blue {
-    @apply bg-blue-500/20;
-  }
+.orbitos-card:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
 
-  .orbitos-icon-emerald {
-    @apply bg-emerald-500/20;
-  }
+.orbitos-card-static {
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  padding: 1.5rem;
+}
 
-  .orbitos-icon-amber {
-    @apply bg-amber-500/20;
-  }
+/* ------------------------------------
+   Icon Containers
+   ------------------------------------ */
+.orbitos-icon-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+}
 
-  .orbitos-icon-gradient {
-    @apply bg-gradient-to-br from-purple-500 to-blue-600 shadow-lg shadow-purple-500/30;
-  }
+.orbitos-icon-sm {
+  width: 2rem;
+  height: 2rem;
+}
 
-  /* ------------------------------------
-     Avatar
-     ------------------------------------ */
-  .orbitos-avatar {
-    @apply flex items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-blue-600 text-white font-semibold;
-  }
+.orbitos-icon-md {
+  width: 2.5rem;
+  height: 2.5rem;
+}
 
-  .orbitos-avatar-sm {
-    @apply w-8 h-8 text-xs;
-  }
+.orbitos-icon-lg {
+  width: 3rem;
+  height: 3rem;
+}
 
-  .orbitos-avatar-md {
-    @apply w-10 h-10 text-sm;
-  }
+.orbitos-icon-xl {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 1rem;
+}
 
-  .orbitos-avatar-lg {
-    @apply w-20 h-20 text-xl;
-  }
+.orbitos-icon-purple {
+  background-color: rgba(168, 85, 247, 0.2);
+}
 
-  /* ------------------------------------
-     Status Badges
-     ------------------------------------ */
-  .orbitos-badge-success {
-    @apply px-4 py-3 bg-green-500/10 border border-green-500/20 rounded-xl text-green-400 text-sm;
-  }
+.orbitos-icon-blue {
+  background-color: rgba(59, 130, 246, 0.2);
+}
 
-  .orbitos-badge-error {
-    @apply px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm;
-  }
+.orbitos-icon-emerald {
+  background-color: rgba(16, 185, 129, 0.2);
+}
 
-  .orbitos-badge-warning {
-    @apply px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400 text-sm;
-  }
+.orbitos-icon-amber {
+  background-color: rgba(245, 158, 11, 0.2);
+}
 
-  /* ------------------------------------
-     Typography
-     ------------------------------------ */
-  .orbitos-heading-xl {
-    @apply text-3xl font-bold text-white tracking-tight;
-  }
+.orbitos-icon-gradient {
+  background: linear-gradient(to bottom right, rgb(168 85 247), rgb(37 99 235));
+  box-shadow: 0 10px 15px -3px rgba(168, 85, 247, 0.3);
+}
 
-  .orbitos-heading-lg {
-    @apply text-2xl font-bold text-white;
-  }
+/* ------------------------------------
+   Avatar
+   ------------------------------------ */
+.orbitos-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: linear-gradient(to bottom right, rgb(168 85 247), rgb(37 99 235));
+  color: white;
+  font-weight: 600;
+}
 
-  .orbitos-heading-md {
-    @apply text-xl font-bold text-white tracking-tight;
-  }
+.orbitos-avatar-sm {
+  width: 2rem;
+  height: 2rem;
+  font-size: 0.75rem;
+}
 
-  .orbitos-heading-sm {
-    @apply text-lg font-semibold text-white;
-  }
+.orbitos-avatar-md {
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: 0.875rem;
+}
 
-  .orbitos-text {
-    @apply text-white/60;
-  }
+.orbitos-avatar-lg {
+  width: 5rem;
+  height: 5rem;
+  font-size: 1.25rem;
+}
 
-  .orbitos-text-muted {
-    @apply text-white/40;
-  }
+/* ------------------------------------
+   Status Badges
+   ------------------------------------ */
+.orbitos-badge-success {
+  padding: 0.75rem 1rem;
+  background-color: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  border-radius: 0.75rem;
+  color: rgb(74 222 128);
+  font-size: 0.875rem;
+}
 
-  .orbitos-text-xs {
-    @apply text-white/30 text-xs;
-  }
+.orbitos-badge-error {
+  padding: 0.75rem 1rem;
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 0.75rem;
+  color: rgb(248 113 113);
+  font-size: 0.875rem;
+}
 
-  /* ------------------------------------
-     Dividers
-     ------------------------------------ */
-  .orbitos-divider {
-    @apply h-px bg-white/10;
-  }
+.orbitos-badge-warning {
+  padding: 0.75rem 1rem;
+  background-color: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: 0.75rem;
+  color: rgb(251 191 36);
+  font-size: 0.875rem;
+}
 
-  .orbitos-divider-with-text {
-    @apply flex items-center gap-4;
-  }
+/* ------------------------------------
+   Typography
+   ------------------------------------ */
+.orbitos-heading-xl {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: white;
+  letter-spacing: -0.025em;
+}
 
-  .orbitos-divider-with-text::before,
-  .orbitos-divider-with-text::after {
-    @apply flex-1 h-px bg-white/10;
-    content: '';
-  }
+.orbitos-heading-lg {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white;
+}
 
-  /* ------------------------------------
-     Spinner/Loader
-     ------------------------------------ */
-  .orbitos-spinner {
-    @apply border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin;
-  }
+.orbitos-heading-md {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: white;
+  letter-spacing: -0.025em;
+}
 
-  .orbitos-spinner-sm {
-    @apply w-5 h-5 border-2;
-  }
+.orbitos-heading-sm {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: white;
+}
 
-  .orbitos-spinner-md {
-    @apply w-8 h-8 border-3;
-  }
+.orbitos-text {
+  color: rgba(255, 255, 255, 0.6);
+}
 
-  .orbitos-spinner-lg {
-    @apply w-10 h-10 border-4;
-  }
+.orbitos-text-muted {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.orbitos-text-xs {
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 0.75rem;
+}
+
+/* ------------------------------------
+   Dividers
+   ------------------------------------ */
+.orbitos-divider {
+  height: 1px;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.orbitos-divider-with-text {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.orbitos-divider-with-text::before,
+.orbitos-divider-with-text::after {
+  flex: 1;
+  height: 1px;
+  background-color: rgba(255, 255, 255, 0.1);
+  content: '';
+}
+
+/* ------------------------------------
+   Spinner/Loader
+   ------------------------------------ */
+.orbitos-spinner {
+  border-width: 4px;
+  border-style: solid;
+  border-color: rgba(168, 85, 247, 0.3);
+  border-top-color: rgb(168 85 247);
+  border-radius: 9999px;
+  animation: spin 1s linear infinite;
+}
+
+.orbitos-spinner-sm {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-width: 2px;
+}
+
+.orbitos-spinner-md {
+  width: 2rem;
+  height: 2rem;
+  border-width: 3px;
+}
+
+.orbitos-spinner-lg {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-width: 4px;
 }
 
 /* ============================================
-   UTILITIES LAYER - Animation utilities
+   ANIMATIONS
    ============================================ */
 
-@layer utilities {
-  /* Pulse animation for background blobs */
-  @keyframes orbitos-pulse {
-    0%, 100% {
-      opacity: 0.2;
-      transform: scale(1);
-    }
-    50% {
-      opacity: 0.3;
-      transform: scale(1.05);
-    }
+@keyframes orbitos-pulse {
+  0%, 100% {
+    opacity: 0.2;
+    transform: scale(1);
   }
+  50% {
+    opacity: 0.3;
+    transform: scale(1.05);
+  }
+}
 
-  .animate-orbitos-pulse {
-    animation: orbitos-pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
   }
+}
 
-  /* Animation delays */
-  .animation-delay-500 {
-    animation-delay: 500ms;
-  }
+.animate-orbitos-pulse {
+  animation: orbitos-pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
 
-  .animation-delay-1000 {
-    animation-delay: 1000ms;
-  }
+/* Animation delays */
+.animation-delay-500 {
+  animation-delay: 500ms;
+}
 
-  .animation-delay-1500 {
-    animation-delay: 1500ms;
-  }
+.animation-delay-1000 {
+  animation-delay: 1000ms;
+}
 
-  /* Hover scale effect */
-  .hover-scale {
-    @apply transition-all duration-300 hover:scale-[1.02];
-  }
+.animation-delay-1500 {
+  animation-delay: 1500ms;
+}
+
+/* Hover scale effect */
+.hover-scale {
+  transition: all 0.3s;
+}
+
+.hover-scale:hover {
+  transform: scale(1.02);
 }

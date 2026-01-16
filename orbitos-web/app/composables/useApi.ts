@@ -30,7 +30,13 @@ export const useApi = () => {
       throw new Error(`API Error: ${response.status} - ${error}`)
     }
 
-    return response.json()
+    // Handle empty responses (204 No Content)
+    if (response.status === 204 || response.headers.get('content-length') === '0') {
+      return undefined as T
+    }
+
+    const text = await response.text()
+    return text ? JSON.parse(text) : undefined as T
   }
 
   const get = <T>(endpoint: string) => apiFetch<T>(endpoint, { method: 'GET' })

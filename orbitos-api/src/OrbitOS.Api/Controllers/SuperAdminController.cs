@@ -72,67 +72,56 @@ public class UpdateOrganizationRequest
     public string? LogoUrl { get; set; }
 }
 
-public class RoleDto
+// System Role DTOs (platform access control)
+public class SystemRoleDto
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = "";
     public string? Description { get; set; }
-    public string? Purpose { get; set; }
-    public string? Department { get; set; }
-    public Guid OrganizationId { get; set; }
-    public string OrganizationName { get; set; } = "";
+    public bool IsBuiltIn { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
-    public int FunctionCount { get; set; }
+    public int PermissionCount { get; set; }
     public int UserCount { get; set; }
 }
 
-public class CreateRoleRequest
+public class CreateSystemRoleRequest
 {
     public required string Name { get; set; }
     public string? Description { get; set; }
-    public string? Purpose { get; set; }
-    public string? Department { get; set; }
-    public required Guid OrganizationId { get; set; }
 }
 
-public class UpdateRoleRequest
+public class UpdateSystemRoleRequest
 {
     public required string Name { get; set; }
     public string? Description { get; set; }
-    public string? Purpose { get; set; }
-    public string? Department { get; set; }
 }
 
-public class FunctionDto
+// Permission DTOs (platform permissions)
+public class PermissionDto
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = "";
     public string? Description { get; set; }
-    public string? Purpose { get; set; }
-    public string? Category { get; set; }
-    public Guid OrganizationId { get; set; }
-    public string OrganizationName { get; set; } = "";
+    public string Category { get; set; } = "";
+    public bool IsBuiltIn { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
-    public int RoleCount { get; set; }
+    public int SystemRoleCount { get; set; }
 }
 
-public class CreateFunctionRequest
+public class CreatePermissionRequest
 {
     public required string Name { get; set; }
     public string? Description { get; set; }
-    public string? Purpose { get; set; }
-    public string? Category { get; set; }
-    public required Guid OrganizationId { get; set; }
+    public required string Category { get; set; }
 }
 
-public class UpdateFunctionRequest
+public class UpdatePermissionRequest
 {
     public required string Name { get; set; }
     public string? Description { get; set; }
-    public string? Purpose { get; set; }
-    public string? Category { get; set; }
+    public required string Category { get; set; }
 }
 
 public class OrganizationMembershipDto
@@ -158,8 +147,8 @@ public class DashboardStatsDto
 {
     public int TotalUsers { get; set; }
     public int TotalOrganizations { get; set; }
-    public int TotalRoles { get; set; }
-    public int TotalFunctions { get; set; }
+    public int TotalSystemRoles { get; set; }
+    public int TotalPermissions { get; set; }
     public int UsersLast30Days { get; set; }
     public int OrgsLast30Days { get; set; }
     public List<RecentActivityDto> RecentActivity { get; set; } = new();
@@ -195,8 +184,8 @@ public class SuperAdminController : ControllerBase
         {
             TotalUsers = await _dbContext.Users.CountAsync(),
             TotalOrganizations = await _dbContext.Organizations.CountAsync(),
-            TotalRoles = await _dbContext.Roles.CountAsync(),
-            TotalFunctions = await _dbContext.Functions.CountAsync(),
+            TotalSystemRoles = await _dbContext.SystemRoles.CountAsync(),
+            TotalPermissions = await _dbContext.Permissions.CountAsync(),
             UsersLast30Days = await _dbContext.Users.CountAsync(u => u.CreatedAt >= thirtyDaysAgo),
             OrgsLast30Days = await _dbContext.Organizations.CountAsync(o => o.CreatedAt >= thirtyDaysAgo),
         };
@@ -655,17 +644,12 @@ public class SuperAdminController : ControllerBase
         return NoContent();
     }
 
-    // ==================== ROLES ====================
+    // ==================== SYSTEM ROLES ====================
 
-    [HttpGet("roles")]
-    public async Task<ActionResult<List<RoleDto>>> GetRoles([FromQuery] Guid? organizationId, [FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    [HttpGet("system-roles")]
+    public async Task<ActionResult<List<SystemRoleDto>>> GetSystemRoles([FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
-        var query = _dbContext.Roles.Include(r => r.Organization).AsQueryable();
-
-        if (organizationId.HasValue)
-        {
-            query = query.Where(r => r.OrganizationId == organizationId.Value);
-        }
+        var query = _dbContext.SystemRoles.AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -677,34 +661,26 @@ public class SuperAdminController : ControllerBase
             .OrderByDescending(r => r.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(r => new RoleDto
+            .Select(r => new SystemRoleDto
             {
                 Id = r.Id,
                 Name = r.Name,
                 Description = r.Description,
-                Purpose = r.Purpose,
-                Department = r.Department,
-                OrganizationId = r.OrganizationId,
-                OrganizationName = r.Organization.Name,
+                IsBuiltIn = r.IsBuiltIn,
                 CreatedAt = r.CreatedAt,
                 UpdatedAt = r.UpdatedAt,
-                FunctionCount = r.RoleFunctions.Count,
-                UserCount = _dbContext.UserRoles.Count(ur => ur.RoleId == r.Id)
+                PermissionCount = r.SystemRolePermissions.Count,
+                UserCount = _dbContext.UserSystemRoles.Count(ur => ur.SystemRoleId == r.Id)
             })
             .ToListAsync();
 
         return Ok(roles);
     }
 
-    [HttpGet("roles/count")]
-    public async Task<ActionResult<int>> GetRolesCount([FromQuery] Guid? organizationId, [FromQuery] string? search)
+    [HttpGet("system-roles/count")]
+    public async Task<ActionResult<int>> GetSystemRolesCount([FromQuery] string? search)
     {
-        var query = _dbContext.Roles.AsQueryable();
-
-        if (organizationId.HasValue)
-        {
-            query = query.Where(r => r.OrganizationId == organizationId.Value);
-        }
+        var query = _dbContext.SystemRoles.AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -715,266 +691,256 @@ public class SuperAdminController : ControllerBase
         return Ok(await query.CountAsync());
     }
 
-    [HttpGet("roles/{id}")]
-    public async Task<ActionResult<RoleDto>> GetRole(Guid id)
+    [HttpGet("system-roles/{id}")]
+    public async Task<ActionResult<SystemRoleDto>> GetSystemRole(Guid id)
     {
-        var role = await _dbContext.Roles
-            .Include(r => r.Organization)
-            .Include(r => r.RoleFunctions)
+        var role = await _dbContext.SystemRoles
+            .Include(r => r.SystemRolePermissions)
             .FirstOrDefaultAsync(r => r.Id == id);
 
         if (role == null) return NotFound();
 
-        return Ok(new RoleDto
+        return Ok(new SystemRoleDto
         {
             Id = role.Id,
             Name = role.Name,
             Description = role.Description,
-            Purpose = role.Purpose,
-            Department = role.Department,
-            OrganizationId = role.OrganizationId,
-            OrganizationName = role.Organization.Name,
+            IsBuiltIn = role.IsBuiltIn,
             CreatedAt = role.CreatedAt,
             UpdatedAt = role.UpdatedAt,
-            FunctionCount = role.RoleFunctions.Count,
-            UserCount = await _dbContext.UserRoles.CountAsync(ur => ur.RoleId == role.Id)
+            PermissionCount = role.SystemRolePermissions.Count,
+            UserCount = await _dbContext.UserSystemRoles.CountAsync(ur => ur.SystemRoleId == role.Id)
         });
     }
 
-    [HttpPost("roles")]
-    public async Task<ActionResult<RoleDto>> CreateRole([FromBody] CreateRoleRequest request)
+    [HttpPost("system-roles")]
+    public async Task<ActionResult<SystemRoleDto>> CreateSystemRole([FromBody] CreateSystemRoleRequest request)
     {
-        var org = await _dbContext.Organizations.FindAsync(request.OrganizationId);
-        if (org == null) return BadRequest(new { Message = "Organization not found" });
-
-        var role = new Role
+        var role = new SystemRole
         {
             Name = request.Name,
             Description = request.Description,
-            Purpose = request.Purpose,
-            Department = request.Department,
-            OrganizationId = request.OrganizationId
+            IsBuiltIn = false
         };
 
-        _dbContext.Roles.Add(role);
+        _dbContext.SystemRoles.Add(role);
         await _dbContext.SaveChangesAsync();
 
-        _logger.LogInformation("Super admin created role: {Name} in org {OrgName}", role.Name, org.Name);
+        _logger.LogInformation("Super admin created system role: {Name}", role.Name);
 
-        return CreatedAtAction(nameof(GetRole), new { id = role.Id }, new RoleDto
+        return CreatedAtAction(nameof(GetSystemRole), new { id = role.Id }, new SystemRoleDto
         {
             Id = role.Id,
             Name = role.Name,
             Description = role.Description,
-            Purpose = role.Purpose,
-            Department = role.Department,
-            OrganizationId = role.OrganizationId,
-            OrganizationName = org.Name,
+            IsBuiltIn = role.IsBuiltIn,
             CreatedAt = role.CreatedAt,
             UpdatedAt = role.UpdatedAt
         });
     }
 
-    [HttpPut("roles/{id}")]
-    public async Task<ActionResult<RoleDto>> UpdateRole(Guid id, [FromBody] UpdateRoleRequest request)
+    [HttpPut("system-roles/{id}")]
+    public async Task<ActionResult<SystemRoleDto>> UpdateSystemRole(Guid id, [FromBody] UpdateSystemRoleRequest request)
     {
-        var role = await _dbContext.Roles.Include(r => r.Organization).FirstOrDefaultAsync(r => r.Id == id);
+        var role = await _dbContext.SystemRoles.FirstOrDefaultAsync(r => r.Id == id);
         if (role == null) return NotFound();
+
+        if (role.IsBuiltIn)
+        {
+            return BadRequest(new { Message = "Cannot modify built-in system roles" });
+        }
 
         role.Name = request.Name;
         role.Description = request.Description;
-        role.Purpose = request.Purpose;
-        role.Department = request.Department;
 
         await _dbContext.SaveChangesAsync();
 
-        _logger.LogInformation("Super admin updated role: {Name}", role.Name);
+        _logger.LogInformation("Super admin updated system role: {Name}", role.Name);
 
-        return Ok(new RoleDto
+        return Ok(new SystemRoleDto
         {
             Id = role.Id,
             Name = role.Name,
             Description = role.Description,
-            Purpose = role.Purpose,
-            Department = role.Department,
-            OrganizationId = role.OrganizationId,
-            OrganizationName = role.Organization.Name,
+            IsBuiltIn = role.IsBuiltIn,
             CreatedAt = role.CreatedAt,
             UpdatedAt = role.UpdatedAt
         });
     }
 
-    [HttpDelete("roles/{id}")]
-    public async Task<IActionResult> DeleteRole(Guid id)
+    [HttpDelete("system-roles/{id}")]
+    public async Task<IActionResult> DeleteSystemRole(Guid id)
     {
-        var role = await _dbContext.Roles.FindAsync(id);
+        var role = await _dbContext.SystemRoles.FindAsync(id);
         if (role == null) return NotFound();
 
-        _dbContext.Roles.Remove(role);
+        if (role.IsBuiltIn)
+        {
+            return BadRequest(new { Message = "Cannot delete built-in system roles" });
+        }
+
+        _dbContext.SystemRoles.Remove(role);
         await _dbContext.SaveChangesAsync();
 
-        _logger.LogInformation("Super admin deleted role: {Name}", role.Name);
+        _logger.LogInformation("Super admin deleted system role: {Name}", role.Name);
 
         return NoContent();
     }
 
-    // ==================== FUNCTIONS ====================
+    // ==================== PERMISSIONS ====================
 
-    [HttpGet("functions")]
-    public async Task<ActionResult<List<FunctionDto>>> GetFunctions([FromQuery] Guid? organizationId, [FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    [HttpGet("permissions")]
+    public async Task<ActionResult<List<PermissionDto>>> GetPermissions([FromQuery] string? search, [FromQuery] string? category, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
-        var query = _dbContext.Functions.Include(f => f.Organization).AsQueryable();
-
-        if (organizationId.HasValue)
-        {
-            query = query.Where(f => f.OrganizationId == organizationId.Value);
-        }
+        var query = _dbContext.Permissions.AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))
         {
             search = search.ToLower();
-            query = query.Where(f => f.Name.ToLower().Contains(search));
+            query = query.Where(p => p.Name.ToLower().Contains(search));
         }
 
-        var functions = await query
-            .OrderByDescending(f => f.CreatedAt)
+        if (!string.IsNullOrWhiteSpace(category))
+        {
+            query = query.Where(p => p.Category == category);
+        }
+
+        var permissions = await query
+            .OrderBy(p => p.Category)
+            .ThenBy(p => p.Name)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(f => new FunctionDto
+            .Select(p => new PermissionDto
             {
-                Id = f.Id,
-                Name = f.Name,
-                Description = f.Description,
-                Purpose = f.Purpose,
-                Category = f.Category,
-                OrganizationId = f.OrganizationId,
-                OrganizationName = f.Organization.Name,
-                CreatedAt = f.CreatedAt,
-                UpdatedAt = f.UpdatedAt,
-                RoleCount = f.RoleFunctions.Count
+                Id = p.Id,
+                Name = p.Name,
+                Description = p.Description,
+                Category = p.Category,
+                IsBuiltIn = p.IsBuiltIn,
+                CreatedAt = p.CreatedAt,
+                UpdatedAt = p.UpdatedAt,
+                SystemRoleCount = p.SystemRolePermissions.Count
             })
             .ToListAsync();
 
-        return Ok(functions);
+        return Ok(permissions);
     }
 
-    [HttpGet("functions/count")]
-    public async Task<ActionResult<int>> GetFunctionsCount([FromQuery] Guid? organizationId, [FromQuery] string? search)
+    [HttpGet("permissions/count")]
+    public async Task<ActionResult<int>> GetPermissionsCount([FromQuery] string? search, [FromQuery] string? category)
     {
-        var query = _dbContext.Functions.AsQueryable();
-
-        if (organizationId.HasValue)
-        {
-            query = query.Where(f => f.OrganizationId == organizationId.Value);
-        }
+        var query = _dbContext.Permissions.AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))
         {
             search = search.ToLower();
-            query = query.Where(f => f.Name.ToLower().Contains(search));
+            query = query.Where(p => p.Name.ToLower().Contains(search));
+        }
+
+        if (!string.IsNullOrWhiteSpace(category))
+        {
+            query = query.Where(p => p.Category == category);
         }
 
         return Ok(await query.CountAsync());
     }
 
-    [HttpGet("functions/{id}")]
-    public async Task<ActionResult<FunctionDto>> GetFunction(Guid id)
+    [HttpGet("permissions/{id}")]
+    public async Task<ActionResult<PermissionDto>> GetPermission(Guid id)
     {
-        var func = await _dbContext.Functions
-            .Include(f => f.Organization)
-            .Include(f => f.RoleFunctions)
-            .FirstOrDefaultAsync(f => f.Id == id);
+        var permission = await _dbContext.Permissions
+            .Include(p => p.SystemRolePermissions)
+            .FirstOrDefaultAsync(p => p.Id == id);
 
-        if (func == null) return NotFound();
+        if (permission == null) return NotFound();
 
-        return Ok(new FunctionDto
+        return Ok(new PermissionDto
         {
-            Id = func.Id,
-            Name = func.Name,
-            Description = func.Description,
-            Purpose = func.Purpose,
-            Category = func.Category,
-            OrganizationId = func.OrganizationId,
-            OrganizationName = func.Organization.Name,
-            CreatedAt = func.CreatedAt,
-            UpdatedAt = func.UpdatedAt,
-            RoleCount = func.RoleFunctions.Count
+            Id = permission.Id,
+            Name = permission.Name,
+            Description = permission.Description,
+            Category = permission.Category,
+            IsBuiltIn = permission.IsBuiltIn,
+            CreatedAt = permission.CreatedAt,
+            UpdatedAt = permission.UpdatedAt,
+            SystemRoleCount = permission.SystemRolePermissions.Count
         });
     }
 
-    [HttpPost("functions")]
-    public async Task<ActionResult<FunctionDto>> CreateFunction([FromBody] CreateFunctionRequest request)
+    [HttpPost("permissions")]
+    public async Task<ActionResult<PermissionDto>> CreatePermission([FromBody] CreatePermissionRequest request)
     {
-        var org = await _dbContext.Organizations.FindAsync(request.OrganizationId);
-        if (org == null) return BadRequest(new { Message = "Organization not found" });
-
-        var func = new Function
+        var permission = new Permission
         {
             Name = request.Name,
             Description = request.Description,
-            Purpose = request.Purpose,
             Category = request.Category,
-            OrganizationId = request.OrganizationId
+            IsBuiltIn = false
         };
 
-        _dbContext.Functions.Add(func);
+        _dbContext.Permissions.Add(permission);
         await _dbContext.SaveChangesAsync();
 
-        _logger.LogInformation("Super admin created function: {Name} in org {OrgName}", func.Name, org.Name);
+        _logger.LogInformation("Super admin created permission: {Name}", permission.Name);
 
-        return CreatedAtAction(nameof(GetFunction), new { id = func.Id }, new FunctionDto
+        return CreatedAtAction(nameof(GetPermission), new { id = permission.Id }, new PermissionDto
         {
-            Id = func.Id,
-            Name = func.Name,
-            Description = func.Description,
-            Purpose = func.Purpose,
-            Category = func.Category,
-            OrganizationId = func.OrganizationId,
-            OrganizationName = org.Name,
-            CreatedAt = func.CreatedAt,
-            UpdatedAt = func.UpdatedAt
+            Id = permission.Id,
+            Name = permission.Name,
+            Description = permission.Description,
+            Category = permission.Category,
+            IsBuiltIn = permission.IsBuiltIn,
+            CreatedAt = permission.CreatedAt,
+            UpdatedAt = permission.UpdatedAt
         });
     }
 
-    [HttpPut("functions/{id}")]
-    public async Task<ActionResult<FunctionDto>> UpdateFunction(Guid id, [FromBody] UpdateFunctionRequest request)
+    [HttpPut("permissions/{id}")]
+    public async Task<ActionResult<PermissionDto>> UpdatePermission(Guid id, [FromBody] UpdatePermissionRequest request)
     {
-        var func = await _dbContext.Functions.Include(f => f.Organization).FirstOrDefaultAsync(f => f.Id == id);
-        if (func == null) return NotFound();
+        var permission = await _dbContext.Permissions.FirstOrDefaultAsync(p => p.Id == id);
+        if (permission == null) return NotFound();
 
-        func.Name = request.Name;
-        func.Description = request.Description;
-        func.Purpose = request.Purpose;
-        func.Category = request.Category;
+        if (permission.IsBuiltIn)
+        {
+            return BadRequest(new { Message = "Cannot modify built-in permissions" });
+        }
+
+        permission.Name = request.Name;
+        permission.Description = request.Description;
+        permission.Category = request.Category;
 
         await _dbContext.SaveChangesAsync();
 
-        _logger.LogInformation("Super admin updated function: {Name}", func.Name);
+        _logger.LogInformation("Super admin updated permission: {Name}", permission.Name);
 
-        return Ok(new FunctionDto
+        return Ok(new PermissionDto
         {
-            Id = func.Id,
-            Name = func.Name,
-            Description = func.Description,
-            Purpose = func.Purpose,
-            Category = func.Category,
-            OrganizationId = func.OrganizationId,
-            OrganizationName = func.Organization.Name,
-            CreatedAt = func.CreatedAt,
-            UpdatedAt = func.UpdatedAt
+            Id = permission.Id,
+            Name = permission.Name,
+            Description = permission.Description,
+            Category = permission.Category,
+            IsBuiltIn = permission.IsBuiltIn,
+            CreatedAt = permission.CreatedAt,
+            UpdatedAt = permission.UpdatedAt
         });
     }
 
-    [HttpDelete("functions/{id}")]
-    public async Task<IActionResult> DeleteFunction(Guid id)
+    [HttpDelete("permissions/{id}")]
+    public async Task<IActionResult> DeletePermission(Guid id)
     {
-        var func = await _dbContext.Functions.FindAsync(id);
-        if (func == null) return NotFound();
+        var permission = await _dbContext.Permissions.FindAsync(id);
+        if (permission == null) return NotFound();
 
-        _dbContext.Functions.Remove(func);
+        if (permission.IsBuiltIn)
+        {
+            return BadRequest(new { Message = "Cannot delete built-in permissions" });
+        }
+
+        _dbContext.Permissions.Remove(permission);
         await _dbContext.SaveChangesAsync();
 
-        _logger.LogInformation("Super admin deleted function: {Name}", func.Name);
+        _logger.LogInformation("Super admin deleted permission: {Name}", permission.Name);
 
         return NoContent();
     }

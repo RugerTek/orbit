@@ -1,0 +1,281 @@
+{
+  "$schema": "./schema.json",
+  "id": "ENT013",
+  "name": "BlockReference",
+  "description": "A polymorphic reference from a canvas block to an operational entity (Resource, Process, Activity, Product, Segment, or Function). This enables reusability where the same entity can appear in multiple canvases with different context.",
+  "table": "BlockReferences",
+  "status": "draft",
+  "created_at": "2026-01-15",
+  "updated_at": "2026-01-15",
+
+  "fields": [
+    {
+      "name": "OrganizationId",
+      "type": "Guid",
+      "nullable": false,
+      "references": "ENT002",
+      "description": "Organization that owns this reference"
+    },
+    {
+      "name": "CanvasBlockId",
+      "type": "Guid",
+      "nullable": false,
+      "references": "ENT012",
+      "description": "The canvas block containing this reference"
+    },
+    {
+      "name": "EntityType",
+      "type": "enum",
+      "nullable": false,
+      "enum_values": ["Resource", "Process", "Activity", "Product", "Segment", "Function"],
+      "description": "The type of entity being referenced"
+    },
+    {
+      "name": "EntityId",
+      "type": "Guid",
+      "nullable": false,
+      "description": "The ID of the referenced entity (polymorphic foreign key)"
+    },
+    {
+      "name": "Role",
+      "type": "enum",
+      "nullable": false,
+      "enum_values": ["Primary", "Supporting", "Enabling", "Dependency"],
+      "description": "How this entity contributes to the canvas block"
+    },
+    {
+      "name": "ContextNote",
+      "type": "string",
+      "nullable": true,
+      "max_length": 1000,
+      "description": "Canvas-specific context explaining how this entity is relevant to this particular canvas"
+    },
+    {
+      "name": "SortOrder",
+      "type": "int",
+      "nullable": false,
+      "default": 0,
+      "description": "Display order within the block"
+    },
+    {
+      "name": "Highlight",
+      "type": "bool",
+      "nullable": false,
+      "default": false,
+      "description": "Whether this reference should be visually highlighted as particularly important"
+    },
+    {
+      "name": "Metrics",
+      "type": "json",
+      "nullable": true,
+      "description": "Canvas-specific metrics for this entity reference",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "contribution_percent": {
+            "type": "number",
+            "description": "Percentage contribution to this block (e.g., 40% of revenue)"
+          },
+          "cost_allocation": {
+            "type": "number",
+            "description": "Cost allocated to this canvas context"
+          },
+          "importance_score": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5,
+            "description": "Subjective importance rating"
+          },
+          "custom_metrics": {
+            "type": "object",
+            "additionalProperties": { "type": "number" }
+          }
+        }
+      }
+    },
+    {
+      "name": "Tags",
+      "type": "json",
+      "nullable": true,
+      "description": "Tags for categorization and filtering",
+      "json_schema": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    }
+  ],
+
+  "validation_rules": [
+    {
+      "id": "R-BRF-001",
+      "fields": ["CanvasBlockId", "EntityType", "EntityId"],
+      "rule": "Each entity can only be referenced once per block",
+      "error_code": "REFERENCE_EXISTS",
+      "error_message": "This entity is already referenced in this block"
+    },
+    {
+      "id": "R-BRF-002",
+      "field": "EntityId",
+      "rule": "Referenced entity must exist and belong to the same organization",
+      "error_code": "REFERENCE_ENTITY_NOT_FOUND",
+      "error_message": "Referenced entity does not exist or belongs to a different organization"
+    },
+    {
+      "id": "R-BRF-003",
+      "field": "CanvasBlockId",
+      "rule": "Canvas block must belong to the same organization",
+      "error_code": "REFERENCE_BLOCK_ORG_MISMATCH",
+      "error_message": "Canvas block does not belong to this organization"
+    },
+    {
+      "id": "R-BRF-004",
+      "field": "EntityType",
+      "rule": "Entity type must be appropriate for the block type",
+      "error_code": "REFERENCE_ENTITY_TYPE_MISMATCH",
+      "error_message": "This entity type is not appropriate for this block type",
+      "details": {
+        "KeyPartners": ["Resource"],
+        "KeyActivities": ["Activity", "Process"],
+        "KeyResources": ["Resource", "Function"],
+        "ValuePropositions": ["Product"],
+        "CustomerRelationships": ["Process"],
+        "Channels": ["Resource"],
+        "CustomerSegments": ["Segment"],
+        "CostStructure": ["Resource", "Activity", "Process", "Function"],
+        "RevenueStreams": ["Product"]
+      }
+    }
+  ],
+
+  "relationships": [
+    {
+      "type": "many-to-one",
+      "entity": "ENT002",
+      "foreign_key": "OrganizationId",
+      "navigation": "Organization",
+      "description": "Organization that owns this reference"
+    },
+    {
+      "type": "many-to-one",
+      "entity": "ENT012",
+      "foreign_key": "CanvasBlockId",
+      "navigation": "CanvasBlock",
+      "description": "Block containing this reference"
+    },
+    {
+      "type": "polymorphic",
+      "discriminator": "EntityType",
+      "foreign_key": "EntityId",
+      "mappings": {
+        "Resource": "Resource entity (to be created)",
+        "Process": "Process entity (to be created)",
+        "Activity": "Activity entity (to be created)",
+        "Product": "ENT008",
+        "Segment": "ENT009",
+        "Function": "ENT004"
+      },
+      "navigation": "ReferencedEntity",
+      "description": "The entity being referenced"
+    }
+  ],
+
+  "indexes": [
+    {
+      "name": "IX_BlockReferences_CanvasBlockId_EntityType_EntityId",
+      "columns": ["CanvasBlockId", "EntityType", "EntityId"],
+      "unique": true
+    },
+    {
+      "name": "IX_BlockReferences_EntityType_EntityId",
+      "columns": ["EntityType", "EntityId"],
+      "unique": false,
+      "description": "Find all references to a specific entity across all canvases"
+    },
+    {
+      "name": "IX_BlockReferences_OrganizationId_EntityType",
+      "columns": ["OrganizationId", "EntityType"],
+      "unique": false
+    },
+    {
+      "name": "IX_BlockReferences_CanvasBlockId_SortOrder",
+      "columns": ["CanvasBlockId", "SortOrder"],
+      "unique": false
+    }
+  ],
+
+  "api_representation": {
+    "dto_name": "BlockReferenceDto",
+    "include_fields": ["Id", "OrganizationId", "CanvasBlockId", "EntityType", "EntityId", "Role", "ContextNote", "SortOrder", "Highlight", "Metrics", "Tags", "CreatedAt", "UpdatedAt"],
+    "computed_fields": [
+      {
+        "name": "EntityName",
+        "type": "string",
+        "computation": "Name from the referenced entity"
+      },
+      {
+        "name": "EntityDescription",
+        "type": "string",
+        "computation": "Description from the referenced entity"
+      },
+      {
+        "name": "CanvasCount",
+        "type": "int",
+        "computation": "Number of canvases that reference this same entity"
+      },
+      {
+        "name": "BlockType",
+        "type": "string",
+        "computation": "BlockType from parent CanvasBlock"
+      }
+    ]
+  },
+
+  "audit_requirements": {
+    "log_create": true,
+    "log_update": true,
+    "log_delete": true,
+    "sensitive_fields": ["Metrics"]
+  },
+
+  "multi_tenancy": {
+    "is_tenant_root": false,
+    "scope_field": "OrganizationId",
+    "scoping_behavior": "All queries must be filtered by OrganizationId"
+  },
+
+  "ai_capabilities": {
+    "description": "AI can analyze references to understand how entities are used across canvases and identify patterns",
+    "analyzable_fields": ["EntityType", "Role", "ContextNote", "Metrics", "Tags"],
+    "cross_entity_analysis": [
+      "Find entities used across multiple canvases",
+      "Identify underutilized resources",
+      "Analyze role distribution across blocks",
+      "Compare context notes for same entity in different canvases",
+      "Calculate entity importance based on reference patterns",
+      "Suggest missing references based on similar canvases"
+    ],
+    "ai_queries": [
+      {
+        "query": "shared_resources",
+        "description": "Find resources referenced in multiple product canvases",
+        "example": "SELECT EntityId, COUNT(DISTINCT CanvasId) FROM BlockReferences WHERE EntityType='Resource' GROUP BY EntityId HAVING COUNT > 1"
+      },
+      {
+        "query": "entity_canvas_coverage",
+        "description": "For a given entity, show all canvases where it appears with context",
+        "example": "Given Resource X, return all canvases with their context notes"
+      },
+      {
+        "query": "block_completeness",
+        "description": "Analyze which blocks have few references and may need attention",
+        "example": "Blocks with < 2 references where similar canvases have > 5"
+      }
+    ]
+  },
+
+  "code_location": {
+    "entity": "orbitos-api/src/OrbitOS.Domain/Entities/BlockReference.cs",
+    "dto": "orbitos-api/src/OrbitOS.Api/Controllers/CanvasesController.cs",
+    "frontend_type": "orbitos-web/app/types/entities/block-reference.ts"
+  }
+}

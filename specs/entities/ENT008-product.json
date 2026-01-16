@@ -1,0 +1,249 @@
+{
+  "$schema": "./schema.json",
+  "id": "ENT008",
+  "name": "Product",
+  "description": "A product or service offered by the organization. Products are external-facing offerings that deliver value to customer segments and generate revenue.",
+  "table": "Products",
+  "status": "draft",
+  "created_at": "2026-01-15",
+  "updated_at": "2026-01-15",
+
+  "fields": [
+    {
+      "name": "OrganizationId",
+      "type": "Guid",
+      "nullable": false,
+      "references": "ENT002",
+      "description": "Organization that owns this product"
+    },
+    {
+      "name": "Name",
+      "type": "string",
+      "nullable": false,
+      "max_length": 255,
+      "description": "Product display name"
+    },
+    {
+      "name": "Slug",
+      "type": "string",
+      "nullable": false,
+      "max_length": 100,
+      "description": "URL-friendly unique identifier within organization"
+    },
+    {
+      "name": "Description",
+      "type": "string",
+      "nullable": true,
+      "max_length": 2000,
+      "description": "Detailed product description"
+    },
+    {
+      "name": "Type",
+      "type": "enum",
+      "nullable": false,
+      "enum_values": ["Product", "Service", "Hybrid"],
+      "description": "Whether this is a tangible product, intangible service, or combination"
+    },
+    {
+      "name": "Status",
+      "type": "enum",
+      "nullable": false,
+      "enum_values": ["Concept", "Development", "Active", "Sunset", "Retired"],
+      "description": "Product lifecycle status"
+    },
+    {
+      "name": "ValueProposition",
+      "type": "string",
+      "nullable": true,
+      "max_length": 1000,
+      "description": "Core value proposition - what problem it solves and why customers choose it"
+    },
+    {
+      "name": "PricingModel",
+      "type": "json",
+      "nullable": true,
+      "description": "Structured pricing information for AI analysis",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["subscription", "one_time", "usage_based", "freemium", "custom"]
+          },
+          "currency": {
+            "type": "string",
+            "default": "USD"
+          },
+          "tiers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "price": { "type": "number" },
+                "billing_period": { "type": "string" },
+                "features": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          },
+          "pricing_factors": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "What drives price (users, storage, API calls, etc.)"
+          }
+        }
+      }
+    },
+    {
+      "name": "Metadata",
+      "type": "json",
+      "nullable": true,
+      "description": "Additional AI-readable attributes",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "launch_date": { "type": "string", "format": "date" },
+          "target_market": { "type": "string" },
+          "competitive_advantage": { "type": "array", "items": { "type": "string" } },
+          "key_features": { "type": "array", "items": { "type": "string" } },
+          "integrations": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  ],
+
+  "validation_rules": [
+    {
+      "id": "R-PRD-001",
+      "field": "Slug",
+      "rule": "Must be unique within the organization",
+      "error_code": "PRODUCT_SLUG_EXISTS",
+      "error_message": "A product with this slug already exists in this organization"
+    },
+    {
+      "id": "R-PRD-002",
+      "field": "Slug",
+      "rule": "Must be URL-safe (lowercase, alphanumeric, hyphens only)",
+      "error_code": "PRODUCT_SLUG_INVALID",
+      "error_message": "Slug must contain only lowercase letters, numbers, and hyphens"
+    },
+    {
+      "id": "R-PRD-003",
+      "field": "Name",
+      "rule": "Required, 1-255 characters",
+      "error_code": "PRODUCT_NAME_REQUIRED",
+      "error_message": "Product name is required"
+    },
+    {
+      "id": "R-PRD-004",
+      "field": "Status",
+      "rule": "Can only transition to Retired from Sunset status",
+      "error_code": "PRODUCT_STATUS_INVALID_TRANSITION",
+      "error_message": "Products must be in Sunset status before being Retired"
+    },
+    {
+      "id": "R-PRD-005",
+      "field": "PricingModel",
+      "rule": "If provided, must be valid JSON matching the schema",
+      "error_code": "PRODUCT_PRICING_INVALID",
+      "error_message": "Pricing model has invalid format"
+    }
+  ],
+
+  "relationships": [
+    {
+      "type": "many-to-one",
+      "entity": "ENT002",
+      "foreign_key": "OrganizationId",
+      "navigation": "Organization",
+      "description": "Organization that owns this product"
+    },
+    {
+      "type": "one-to-many",
+      "entity": "ENT010",
+      "inverse_key": "ProductId",
+      "navigation": "ProductSegments",
+      "description": "Junction table linking products to customer segments"
+    },
+    {
+      "type": "one-to-one",
+      "entity": "ENT011",
+      "inverse_key": "ProductId",
+      "navigation": "Canvas",
+      "description": "The business model canvas for this product (optional)"
+    },
+    {
+      "type": "one-to-many",
+      "entity": "ENT013",
+      "inverse_key": "EntityId",
+      "navigation": "BlockReferences",
+      "description": "Canvas block references that point to this product",
+      "polymorphic_filter": "EntityType = 'Product'"
+    }
+  ],
+
+  "indexes": [
+    {
+      "name": "IX_Products_OrganizationId_Slug",
+      "columns": ["OrganizationId", "Slug"],
+      "unique": true
+    },
+    {
+      "name": "IX_Products_OrganizationId_Status",
+      "columns": ["OrganizationId", "Status"],
+      "unique": false
+    },
+    {
+      "name": "IX_Products_OrganizationId_Type",
+      "columns": ["OrganizationId", "Type"],
+      "unique": false
+    }
+  ],
+
+  "api_representation": {
+    "dto_name": "ProductDto",
+    "include_fields": ["Id", "OrganizationId", "Name", "Slug", "Description", "Type", "Status", "ValueProposition", "PricingModel", "Metadata", "CreatedAt", "UpdatedAt"],
+    "computed_fields": [
+      {
+        "name": "SegmentCount",
+        "type": "int",
+        "computation": "Count of related Segments via ProductSegments"
+      },
+      {
+        "name": "HasCanvas",
+        "type": "bool",
+        "computation": "Whether a Canvas exists for this product"
+      }
+    ]
+  },
+
+  "audit_requirements": {
+    "log_create": true,
+    "log_update": true,
+    "log_delete": true,
+    "sensitive_fields": []
+  },
+
+  "multi_tenancy": {
+    "is_tenant_root": false,
+    "scope_field": "OrganizationId",
+    "scoping_behavior": "All queries must be filtered by OrganizationId"
+  },
+
+  "ai_capabilities": {
+    "description": "AI can analyze products to provide insights on portfolio strategy, pricing optimization, and market positioning",
+    "analyzable_fields": ["ValueProposition", "PricingModel", "Metadata", "Status"],
+    "cross_entity_analysis": [
+      "Compare value propositions across products",
+      "Analyze pricing consistency across product portfolio",
+      "Identify gaps in segment coverage",
+      "Track product lifecycle trends"
+    ]
+  },
+
+  "code_location": {
+    "entity": "orbitos-api/src/OrbitOS.Domain/Entities/Product.cs",
+    "dto": "orbitos-api/src/OrbitOS.Api/Controllers/ProductsController.cs",
+    "frontend_type": "orbitos-web/app/types/entities/product.ts"
+  }
+}

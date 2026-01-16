@@ -1,0 +1,200 @@
+{
+  "$schema": "./schema.json",
+  "id": "ENT010",
+  "name": "ProductSegment",
+  "description": "Junction table linking Products to Segments, representing which customer segments a product serves. Includes context about how the product serves each segment differently.",
+  "table": "ProductSegments",
+  "status": "draft",
+  "created_at": "2026-01-15",
+  "updated_at": "2026-01-15",
+
+  "fields": [
+    {
+      "name": "OrganizationId",
+      "type": "Guid",
+      "nullable": false,
+      "references": "ENT002",
+      "description": "Organization that owns this relationship"
+    },
+    {
+      "name": "ProductId",
+      "type": "Guid",
+      "nullable": false,
+      "references": "ENT008",
+      "description": "The product"
+    },
+    {
+      "name": "SegmentId",
+      "type": "Guid",
+      "nullable": false,
+      "references": "ENT009",
+      "description": "The customer segment"
+    },
+    {
+      "name": "IsPrimary",
+      "type": "bool",
+      "nullable": false,
+      "default": false,
+      "description": "Whether this is a primary segment for the product"
+    },
+    {
+      "name": "PositioningNote",
+      "type": "string",
+      "nullable": true,
+      "max_length": 1000,
+      "description": "How the product is positioned for this specific segment"
+    },
+    {
+      "name": "ValuePropositionVariant",
+      "type": "string",
+      "nullable": true,
+      "max_length": 1000,
+      "description": "Segment-specific value proposition messaging"
+    },
+    {
+      "name": "PricingVariant",
+      "type": "json",
+      "nullable": true,
+      "description": "Segment-specific pricing adjustments",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "discount_percent": { "type": "number" },
+          "special_terms": { "type": "string" },
+          "bundled_features": { "type": "array", "items": { "type": "string" } },
+          "minimum_commitment": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "Metrics",
+      "type": "json",
+      "nullable": true,
+      "description": "Performance metrics for this product-segment combination",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "revenue_contribution": { "type": "number" },
+          "customer_count": { "type": "integer" },
+          "average_deal_size": { "type": "number" },
+          "win_rate": { "type": "number" },
+          "churn_rate": { "type": "number" },
+          "nps_score": { "type": "number" }
+        }
+      }
+    }
+  ],
+
+  "validation_rules": [
+    {
+      "id": "R-PSG-001",
+      "fields": ["ProductId", "SegmentId"],
+      "rule": "Combination must be unique within organization",
+      "error_code": "PRODUCT_SEGMENT_EXISTS",
+      "error_message": "This product is already linked to this segment"
+    },
+    {
+      "id": "R-PSG-002",
+      "field": "ProductId",
+      "rule": "Product must belong to the same organization",
+      "error_code": "PRODUCT_ORG_MISMATCH",
+      "error_message": "Product does not belong to this organization"
+    },
+    {
+      "id": "R-PSG-003",
+      "field": "SegmentId",
+      "rule": "Segment must belong to the same organization",
+      "error_code": "SEGMENT_ORG_MISMATCH",
+      "error_message": "Segment does not belong to this organization"
+    }
+  ],
+
+  "relationships": [
+    {
+      "type": "many-to-one",
+      "entity": "ENT002",
+      "foreign_key": "OrganizationId",
+      "navigation": "Organization",
+      "description": "Organization that owns this relationship"
+    },
+    {
+      "type": "many-to-one",
+      "entity": "ENT008",
+      "foreign_key": "ProductId",
+      "navigation": "Product",
+      "description": "The product in this relationship"
+    },
+    {
+      "type": "many-to-one",
+      "entity": "ENT009",
+      "foreign_key": "SegmentId",
+      "navigation": "Segment",
+      "description": "The segment in this relationship"
+    }
+  ],
+
+  "indexes": [
+    {
+      "name": "IX_ProductSegments_OrganizationId_ProductId_SegmentId",
+      "columns": ["OrganizationId", "ProductId", "SegmentId"],
+      "unique": true
+    },
+    {
+      "name": "IX_ProductSegments_SegmentId",
+      "columns": ["SegmentId"],
+      "unique": false
+    },
+    {
+      "name": "IX_ProductSegments_ProductId_IsPrimary",
+      "columns": ["ProductId", "IsPrimary"],
+      "unique": false
+    }
+  ],
+
+  "api_representation": {
+    "dto_name": "ProductSegmentDto",
+    "include_fields": ["Id", "OrganizationId", "ProductId", "SegmentId", "IsPrimary", "PositioningNote", "ValuePropositionVariant", "PricingVariant", "Metrics", "CreatedAt", "UpdatedAt"],
+    "computed_fields": [
+      {
+        "name": "ProductName",
+        "type": "string",
+        "computation": "Product.Name from related Product"
+      },
+      {
+        "name": "SegmentName",
+        "type": "string",
+        "computation": "Segment.Name from related Segment"
+      }
+    ]
+  },
+
+  "audit_requirements": {
+    "log_create": true,
+    "log_update": true,
+    "log_delete": true,
+    "sensitive_fields": ["Metrics", "PricingVariant"]
+  },
+
+  "multi_tenancy": {
+    "is_tenant_root": false,
+    "scope_field": "OrganizationId",
+    "scoping_behavior": "All queries must be filtered by OrganizationId"
+  },
+
+  "ai_capabilities": {
+    "description": "AI can analyze product-segment relationships to optimize portfolio strategy and identify opportunities",
+    "analyzable_fields": ["PositioningNote", "ValuePropositionVariant", "PricingVariant", "Metrics"],
+    "cross_entity_analysis": [
+      "Identify segment coverage gaps in product portfolio",
+      "Analyze revenue concentration across segments",
+      "Compare positioning strategies across products",
+      "Recommend cross-sell opportunities"
+    ]
+  },
+
+  "code_location": {
+    "entity": "orbitos-api/src/OrbitOS.Domain/Entities/ProductSegment.cs",
+    "dto": "orbitos-api/src/OrbitOS.Api/Controllers/ProductsController.cs",
+    "frontend_type": "orbitos-web/app/types/entities/product-segment.ts"
+  }
+}

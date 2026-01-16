@@ -22,6 +22,194 @@ namespace OrbitOS.Infrastructure.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Activity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("ActivityType")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("AssignedResourceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("EstimatedDurationMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("FunctionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Instructions")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("LinkedProcessId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("int");
+
+                    b.Property<double>("PositionX")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("float")
+                        .HasDefaultValue(0.0);
+
+                    b.Property<double>("PositionY")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("float")
+                        .HasDefaultValue(0.0);
+
+                    b.Property<Guid>("ProcessId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssignedResourceId");
+
+                    b.HasIndex("FunctionId");
+
+                    b.HasIndex("LinkedProcessId");
+
+                    b.HasIndex("ProcessId", "Order")
+                        .IsUnique();
+
+                    b.ToTable("Activities");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.ActivityEdge", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Animated")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("EdgeType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Label")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("ProcessId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SourceActivityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SourceHandle")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("TargetActivityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("TargetHandle")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SourceActivityId");
+
+                    b.HasIndex("TargetActivityId");
+
+                    b.HasIndex("ProcessId", "SourceActivityId", "TargetActivityId", "SourceHandle")
+                        .IsUnique()
+                        .HasFilter("[SourceHandle] IS NOT NULL");
+
+                    b.ToTable("ActivityEdges");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Canvas", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("CanvasType")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.ToTable("Canvases");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.CanvasBlock", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("BlockType")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("CanvasId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Content")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CanvasId", "BlockType")
+                        .IsUnique();
+
+                    b.ToTable("CanvasBlocks");
+                });
+
             modelBuilder.Entity("OrbitOS.Domain.Entities.Function", b =>
                 {
                     b.Property<Guid>("Id")
@@ -29,12 +217,22 @@ namespace OrbitOS.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Category")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int?>("Complexity")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("EstimatedDurationMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Instructions")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Name")
@@ -48,6 +246,113 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<string>("Purpose")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<bool>("RequiresApproval")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("Functions");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.FunctionCapability", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("CertifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("FunctionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Level")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("ResourceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FunctionId");
+
+                    b.HasIndex("ResourceId", "FunctionId")
+                        .IsUnique();
+
+                    b.ToTable("FunctionCapabilities");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Goal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("CurrentValue")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("GoalType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("OwnerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ParentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("TargetValue")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTime?>("TimeframeEnd")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("TimeframeStart")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Unit")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -55,7 +360,11 @@ namespace OrbitOS.Infrastructure.Migrations
 
                     b.HasIndex("OrganizationId");
 
-                    b.ToTable("Functions");
+                    b.HasIndex("OwnerId");
+
+                    b.HasIndex("ParentId");
+
+                    b.ToTable("Goals");
                 });
 
             modelBuilder.Entity("OrbitOS.Domain.Entities.Organization", b =>
@@ -80,6 +389,9 @@ namespace OrbitOS.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("Purpose")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Slug")
                         .IsRequired()
@@ -128,6 +440,187 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.ToTable("OrganizationMemberships");
                 });
 
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Permission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsBuiltIn")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Permissions");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Process", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("Frequency")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("LinkedProcessId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Output")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("OwnerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Purpose")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("StateType")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Trigger")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LinkedProcessId");
+
+                    b.HasIndex("OwnerId");
+
+                    b.HasIndex("OrganizationId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("Processes");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Resource", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("LinkedUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Metadata")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ResourceSubtypeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LinkedUserId");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("ResourceSubtypeId");
+
+                    b.ToTable("Resources");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.ResourceSubtype", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Icon")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("MetadataSchema")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("ResourceType")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId", "ResourceType", "Name")
+                        .IsUnique();
+
+                    b.ToTable("ResourceSubtypes");
+                });
+
             modelBuilder.Entity("OrbitOS.Domain.Entities.Role", b =>
                 {
                     b.Property<Guid>("Id")
@@ -138,7 +631,8 @@ namespace OrbitOS.Infrastructure.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Department")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
@@ -162,6 +656,47 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.HasIndex("OrganizationId");
 
                     b.ToTable("Roles");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.RoleAssignment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("AllocationPercentage")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("EndDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsPrimary")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("ResourceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("StartDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RoleId");
+
+                    b.HasIndex("ResourceId", "RoleId")
+                        .IsUnique();
+
+                    b.ToTable("RoleAssignments");
                 });
 
             modelBuilder.Entity("OrbitOS.Domain.Entities.RoleFunction", b =>
@@ -190,6 +725,65 @@ namespace OrbitOS.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("RoleFunctions");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.SystemRole", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsBuiltIn")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("SystemRoles");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.SystemRolePermission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("PermissionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SystemRoleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PermissionId");
+
+                    b.HasIndex("SystemRoleId", "PermissionId")
+                        .IsUnique();
+
+                    b.ToTable("SystemRolePermissions");
                 });
 
             modelBuilder.Entity("OrbitOS.Domain.Entities.User", b =>
@@ -287,6 +881,120 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.ToTable("UserRoles");
                 });
 
+            modelBuilder.Entity("OrbitOS.Domain.Entities.UserSystemRole", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SystemRoleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("SystemRoleId");
+
+                    b.HasIndex("UserId", "SystemRoleId", "OrganizationId")
+                        .IsUnique();
+
+                    b.ToTable("UserSystemRoles");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Activity", b =>
+                {
+                    b.HasOne("OrbitOS.Domain.Entities.Resource", "AssignedResource")
+                        .WithMany("AssignedActivities")
+                        .HasForeignKey("AssignedResourceId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("OrbitOS.Domain.Entities.Function", "Function")
+                        .WithMany("Activities")
+                        .HasForeignKey("FunctionId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("OrbitOS.Domain.Entities.Process", "LinkedProcess")
+                        .WithMany()
+                        .HasForeignKey("LinkedProcessId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("OrbitOS.Domain.Entities.Process", "Process")
+                        .WithMany("Activities")
+                        .HasForeignKey("ProcessId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AssignedResource");
+
+                    b.Navigation("Function");
+
+                    b.Navigation("LinkedProcess");
+
+                    b.Navigation("Process");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.ActivityEdge", b =>
+                {
+                    b.HasOne("OrbitOS.Domain.Entities.Process", "Process")
+                        .WithMany("Edges")
+                        .HasForeignKey("ProcessId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OrbitOS.Domain.Entities.Activity", "SourceActivity")
+                        .WithMany("OutgoingEdges")
+                        .HasForeignKey("SourceActivityId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("OrbitOS.Domain.Entities.Activity", "TargetActivity")
+                        .WithMany("IncomingEdges")
+                        .HasForeignKey("TargetActivityId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Process");
+
+                    b.Navigation("SourceActivity");
+
+                    b.Navigation("TargetActivity");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Canvas", b =>
+                {
+                    b.HasOne("OrbitOS.Domain.Entities.Organization", "Organization")
+                        .WithMany("Canvases")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Organization");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.CanvasBlock", b =>
+                {
+                    b.HasOne("OrbitOS.Domain.Entities.Canvas", "Canvas")
+                        .WithMany("Blocks")
+                        .HasForeignKey("CanvasId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Canvas");
+                });
+
             modelBuilder.Entity("OrbitOS.Domain.Entities.Function", b =>
                 {
                     b.HasOne("OrbitOS.Domain.Entities.Organization", "Organization")
@@ -296,6 +1004,50 @@ namespace OrbitOS.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Organization");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.FunctionCapability", b =>
+                {
+                    b.HasOne("OrbitOS.Domain.Entities.Function", "Function")
+                        .WithMany("FunctionCapabilities")
+                        .HasForeignKey("FunctionId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("OrbitOS.Domain.Entities.Resource", "Resource")
+                        .WithMany("FunctionCapabilities")
+                        .HasForeignKey("ResourceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Function");
+
+                    b.Navigation("Resource");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Goal", b =>
+                {
+                    b.HasOne("OrbitOS.Domain.Entities.Organization", "Organization")
+                        .WithMany("Goals")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OrbitOS.Domain.Entities.Resource", "Owner")
+                        .WithMany("OwnedGoals")
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("OrbitOS.Domain.Entities.Goal", "Parent")
+                        .WithMany("Children")
+                        .HasForeignKey("ParentId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Organization");
+
+                    b.Navigation("Owner");
+
+                    b.Navigation("Parent");
                 });
 
             modelBuilder.Entity("OrbitOS.Domain.Entities.OrganizationMembership", b =>
@@ -317,6 +1069,68 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Process", b =>
+                {
+                    b.HasOne("OrbitOS.Domain.Entities.Process", "LinkedProcess")
+                        .WithMany()
+                        .HasForeignKey("LinkedProcessId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("OrbitOS.Domain.Entities.Organization", "Organization")
+                        .WithMany("Processes")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OrbitOS.Domain.Entities.Resource", "Owner")
+                        .WithMany("OwnedProcesses")
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("LinkedProcess");
+
+                    b.Navigation("Organization");
+
+                    b.Navigation("Owner");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Resource", b =>
+                {
+                    b.HasOne("OrbitOS.Domain.Entities.User", "LinkedUser")
+                        .WithMany("LinkedResources")
+                        .HasForeignKey("LinkedUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("OrbitOS.Domain.Entities.Organization", "Organization")
+                        .WithMany("Resources")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OrbitOS.Domain.Entities.ResourceSubtype", "ResourceSubtype")
+                        .WithMany("Resources")
+                        .HasForeignKey("ResourceSubtypeId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("LinkedUser");
+
+                    b.Navigation("Organization");
+
+                    b.Navigation("ResourceSubtype");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.ResourceSubtype", b =>
+                {
+                    b.HasOne("OrbitOS.Domain.Entities.Organization", "Organization")
+                        .WithMany("ResourceSubtypes")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Organization");
+                });
+
             modelBuilder.Entity("OrbitOS.Domain.Entities.Role", b =>
                 {
                     b.HasOne("OrbitOS.Domain.Entities.Organization", "Organization")
@@ -326,6 +1140,25 @@ namespace OrbitOS.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Organization");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.RoleAssignment", b =>
+                {
+                    b.HasOne("OrbitOS.Domain.Entities.Resource", "Resource")
+                        .WithMany("RoleAssignments")
+                        .HasForeignKey("ResourceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OrbitOS.Domain.Entities.Role", "Role")
+                        .WithMany("RoleAssignments")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Resource");
+
+                    b.Navigation("Role");
                 });
 
             modelBuilder.Entity("OrbitOS.Domain.Entities.RoleFunction", b =>
@@ -345,6 +1178,25 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Navigation("Function");
 
                     b.Navigation("Role");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.SystemRolePermission", b =>
+                {
+                    b.HasOne("OrbitOS.Domain.Entities.Permission", "Permission")
+                        .WithMany("SystemRolePermissions")
+                        .HasForeignKey("PermissionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OrbitOS.Domain.Entities.SystemRole", "SystemRole")
+                        .WithMany("SystemRolePermissions")
+                        .HasForeignKey("SystemRoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Permission");
+
+                    b.Navigation("SystemRole");
                 });
 
             modelBuilder.Entity("OrbitOS.Domain.Entities.UserRole", b =>
@@ -374,30 +1226,131 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("OrbitOS.Domain.Entities.UserSystemRole", b =>
+                {
+                    b.HasOne("OrbitOS.Domain.Entities.Organization", "Organization")
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("OrbitOS.Domain.Entities.SystemRole", "SystemRole")
+                        .WithMany("UserSystemRoles")
+                        .HasForeignKey("SystemRoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OrbitOS.Domain.Entities.User", "User")
+                        .WithMany("UserSystemRoles")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Organization");
+
+                    b.Navigation("SystemRole");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Activity", b =>
+                {
+                    b.Navigation("IncomingEdges");
+
+                    b.Navigation("OutgoingEdges");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Canvas", b =>
+                {
+                    b.Navigation("Blocks");
+                });
+
             modelBuilder.Entity("OrbitOS.Domain.Entities.Function", b =>
                 {
+                    b.Navigation("Activities");
+
+                    b.Navigation("FunctionCapabilities");
+
                     b.Navigation("RoleFunctions");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Goal", b =>
+                {
+                    b.Navigation("Children");
                 });
 
             modelBuilder.Entity("OrbitOS.Domain.Entities.Organization", b =>
                 {
+                    b.Navigation("Canvases");
+
                     b.Navigation("Functions");
 
+                    b.Navigation("Goals");
+
                     b.Navigation("Memberships");
+
+                    b.Navigation("Processes");
+
+                    b.Navigation("ResourceSubtypes");
+
+                    b.Navigation("Resources");
 
                     b.Navigation("Roles");
                 });
 
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Permission", b =>
+                {
+                    b.Navigation("SystemRolePermissions");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Process", b =>
+                {
+                    b.Navigation("Activities");
+
+                    b.Navigation("Edges");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Resource", b =>
+                {
+                    b.Navigation("AssignedActivities");
+
+                    b.Navigation("FunctionCapabilities");
+
+                    b.Navigation("OwnedGoals");
+
+                    b.Navigation("OwnedProcesses");
+
+                    b.Navigation("RoleAssignments");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.ResourceSubtype", b =>
+                {
+                    b.Navigation("Resources");
+                });
+
             modelBuilder.Entity("OrbitOS.Domain.Entities.Role", b =>
                 {
+                    b.Navigation("RoleAssignments");
+
                     b.Navigation("RoleFunctions");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.SystemRole", b =>
+                {
+                    b.Navigation("SystemRolePermissions");
+
+                    b.Navigation("UserSystemRoles");
                 });
 
             modelBuilder.Entity("OrbitOS.Domain.Entities.User", b =>
                 {
+                    b.Navigation("LinkedResources");
+
                     b.Navigation("OrganizationMemberships");
 
                     b.Navigation("UserRoles");
+
+                    b.Navigation("UserSystemRoles");
                 });
 #pragma warning restore 612, 618
         }

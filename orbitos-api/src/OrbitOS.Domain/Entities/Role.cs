@@ -13,4 +13,5 @@ public class Role : BaseEntity
     // Navigation properties
     public Organization Organization { get; set; } = null!;
     public ICollection<RoleFunction> RoleFunctions { get; set; } = new List<RoleFunction>();
+    public ICollection<RoleAssignment> RoleAssignments { get; set; } = new List<RoleAssignment>();
 }
