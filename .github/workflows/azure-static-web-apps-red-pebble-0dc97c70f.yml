@@ -4,10 +4,16 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'orbitos-web/**'
+      - '.github/workflows/azure-static-web-apps-red-pebble-0dc97c70f.yml'
   pull_request:
     types: [opened, synchronize, reopened, closed]
     branches:
       - main
+    paths:
+      - 'orbitos-web/**'
+      - '.github/workflows/azure-static-web-apps-red-pebble-0dc97c70f.yml'
 
 jobs:
   build_and_deploy_job:

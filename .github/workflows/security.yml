@@ -10,8 +10,16 @@ name: Security Scan
 on:
   push:
     branches: [main, develop]
+    paths:
+      - 'orbitos-api/**'
+      - 'orbitos-web/**'
+      - '.github/workflows/security.yml'
   pull_request:
     branches: [main, develop]
+    paths:
+      - 'orbitos-api/**'
+      - 'orbitos-web/**'
+      - '.github/workflows/security.yml'
   schedule:
     # Run daily at 2 AM UTC
     - cron: '0 2 * * *'
