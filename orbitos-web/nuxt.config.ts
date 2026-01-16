@@ -44,3 +44,4 @@ export default defineNuxtConfig({
     strict: true
   }
 })
+// trigger rebuild Fri Jan 16 11:24:05 -03 2026
