@@ -82,7 +82,7 @@ describe('useSuperAdmin', () => {
       mockFetch.mockResolvedValueOnce(mockUsers)
 
       const { getUsers } = useSuperAdmin()
-      await getUsers({ search: 'test' })
+      await getUsers('test')
 
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('search=test')
@@ -93,13 +93,13 @@ describe('useSuperAdmin', () => {
       mockFetch.mockResolvedValueOnce([])
 
       const { getUsers } = useSuperAdmin()
-      await getUsers({ skip: 10, take: 20 })
+      await getUsers(undefined, 2, 20)
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('skip=10')
+        expect.stringContaining('page=2')
       )
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('take=20')
+        expect.stringContaining('pageSize=20')
       )
     })
 
@@ -186,7 +186,7 @@ describe('useSuperAdmin', () => {
         expect.stringContaining('/users/123/reset-password'),
         expect.objectContaining({
           method: 'POST',
-          body: { NewPassword: 'NewPass123!' }
+          body: { newPassword: 'NewPass123!' }
         })
       )
     })
@@ -292,7 +292,7 @@ describe('useSuperAdmin', () => {
       mockFetch.mockResolvedValueOnce(mockRoles)
 
       const { getRoles } = useSuperAdmin()
-      await getRoles({ organizationId: 'org-123' })
+      await getRoles('org-123')
 
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('organizationId=org-123')
@@ -363,7 +363,7 @@ describe('useSuperAdmin', () => {
       mockFetch.mockResolvedValueOnce([])
 
       const { getFunctions } = useSuperAdmin()
-      await getFunctions({ organizationId: 'org-123' })
+      await getFunctions('org-123')
 
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('organizationId=org-123')
@@ -446,13 +446,13 @@ describe('useSuperAdmin', () => {
       mockFetch.mockResolvedValueOnce({ id: '999', userId: 'user-1', organizationId: 'org-1' })
 
       const { addMember } = useSuperAdmin()
-      await addMember('org-1', 'user-1')
+      await addMember({ userId: 'user-1', organizationId: 'org-1' })
 
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('/memberships'),
         expect.objectContaining({
           method: 'POST',
-          body: { organizationId: 'org-1', userId: 'user-1' }
+          body: { userId: 'user-1', organizationId: 'org-1' }
         })
       )
     })

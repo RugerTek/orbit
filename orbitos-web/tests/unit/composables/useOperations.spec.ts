@@ -9,6 +9,11 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { ref, computed } from 'vue'
+
+// Stub Vue auto-imports for Nuxt composable
+vi.stubGlobal('ref', ref)
+vi.stubGlobal('computed', computed)
 
 // Mock the useApi composable
 const mockGet = vi.fn()
@@ -16,7 +21,7 @@ const mockPost = vi.fn()
 const mockPut = vi.fn()
 const mockDelete = vi.fn()
 
-vi.mock('~/composables/useApi', () => ({
+vi.mock('@/composables/useApi', () => ({
   useApi: () => ({
     get: mockGet,
     post: mockPost,
@@ -26,7 +31,7 @@ vi.mock('~/composables/useApi', () => ({
 }))
 
 // Import after mocking
-import { useOperations } from '~/composables/useOperations'
+import { useOperations } from '@/composables/useOperations'
 
 describe('useOperations', () => {
   beforeEach(() => {
@@ -368,7 +373,7 @@ describe('useOperations', () => {
       const result = await ops.fetchRoleAssignments()
 
       expect(mockGet).toHaveBeenCalledWith(
-        '/api/organizations/11111111-1111-1111-1111-111111111111/operations/role-assignments'
+        '/api/organizations/11111111-1111-1111-1111-111111111111/operations/resources/role-assignments'
       )
       expect(result).toHaveLength(1)
       expect(ops.roleAssignments.value).toEqual(mockAssignments)
@@ -381,7 +386,7 @@ describe('useOperations', () => {
       await ops.fetchRoleAssignments('person-1')
 
       expect(mockGet).toHaveBeenCalledWith(
-        '/api/organizations/11111111-1111-1111-1111-111111111111/operations/role-assignments?resourceId=person-1'
+        '/api/organizations/11111111-1111-1111-1111-111111111111/operations/resources/role-assignments?resourceId=person-1'
       )
     })
   })
@@ -409,7 +414,7 @@ describe('useOperations', () => {
       const result = await ops.createRoleAssignment(newAssignment)
 
       expect(mockPost).toHaveBeenCalledWith(
-        '/api/organizations/11111111-1111-1111-1111-111111111111/operations/role-assignments',
+        '/api/organizations/11111111-1111-1111-1111-111111111111/operations/resources/role-assignments',
         newAssignment
       )
       expect(result.id).toBe('new-assignment-id')
@@ -436,7 +441,7 @@ describe('useOperations', () => {
       await ops.deleteRoleAssignment('assignment-1')
 
       expect(mockDelete).toHaveBeenCalledWith(
-        '/api/organizations/11111111-1111-1111-1111-111111111111/operations/role-assignments/assignment-1'
+        '/api/organizations/11111111-1111-1111-1111-111111111111/operations/resources/role-assignments/assignment-1'
       )
       expect(ops.roleAssignments.value).toHaveLength(0)
     })
