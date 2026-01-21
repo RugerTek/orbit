@@ -532,7 +532,15 @@ const stats = computed(() => {
               <td class="px-6 py-4">
                 <NuxtLink :to="`/app/people/${person.id}`" class="block hover:text-purple-300 transition-colors">
                   <div class="font-semibold text-white">{{ person.name }}</div>
-                  <div class="text-xs text-white/40">{{ person.description || 'No description' }}</div>
+                  <div class="text-xs text-white/40">
+                    <template v-if="getPersonRoles(person.id).length > 0">
+                      {{ getPersonRoles(person.id).find(r => r.isPrimary)?.roleName || getPersonRoles(person.id)[0]?.roleName }}
+                      <span v-if="getPersonRoles(person.id).length > 1" class="text-white/30">
+                        (+{{ getPersonRoles(person.id).length - 1 }} more)
+                      </span>
+                    </template>
+                    <template v-else>No role assigned</template>
+                  </div>
                 </NuxtLink>
               </td>
               <td class="px-6 py-4">
@@ -615,7 +623,8 @@ const stats = computed(() => {
           </div>
 
           <div class="relative">
-            <label class="orbitos-label">Role</label>
+            <label class="orbitos-label">Primary Role</label>
+            <p class="text-xs text-white/40 mb-2">Assign a role to define this person's responsibilities</p>
             <div class="relative">
               <input
                 v-model="roleSearchQuery"
@@ -743,7 +752,8 @@ const stats = computed(() => {
           </div>
 
           <div class="relative">
-            <label class="orbitos-label">Role</label>
+            <label class="orbitos-label">Primary Role</label>
+            <p class="text-xs text-white/40 mb-2">Assign a role to define this person's responsibilities</p>
             <div class="relative">
               <input
                 v-model="editRoleSearchQuery"
@@ -811,6 +821,20 @@ const stats = computed(() => {
                 Type to search or create a role
               </div>
             </div>
+          </div>
+
+          <!-- Link to detail page for multiple roles -->
+          <div class="rounded-lg bg-purple-500/10 border border-purple-500/20 p-3">
+            <p class="text-xs text-purple-300">
+              Need to assign multiple roles with different allocations?
+              <NuxtLink
+                :to="`/app/people/${editingPerson.id}`"
+                class="underline hover:text-purple-200"
+                @click="showEditDialog = false"
+              >
+                View full profile
+              </NuxtLink>
+            </p>
           </div>
         </div>
 
