@@ -4,7 +4,54 @@
   "name": "AI Agent Data Access & CRUD Operations",
   "version": "1.0.0",
   "status": "Draft",
+  "priority": "must-have",
+  "created_at": "2026-01-17",
+  "updated_at": "2026-01-21",
+  "owner": "ai-team",
   "description": "Enable AI agents to have full read access to all organizational data and propose CRUD operations with user confirmation workflow",
+
+  "capabilities": [
+    {
+      "id": "F005-C01",
+      "description": "As an AI agent, I want to have read access to all organizational data so that I can provide informed assistance",
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "Given I am an AI agent in a conversation, when I receive a query, then I have access to all organization entities",
+        "Given I access organizational data, when I reference it, then I cite the sources in my response",
+        "Given the organization data changes, when I next receive a message, then I have access to the updated data"
+      ]
+    },
+    {
+      "id": "F005-C02",
+      "description": "As an AI agent, I want to propose create/update/delete operations so that I can help users manage data conversationally",
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "Given a user requests a data modification, when I understand the intent, then I propose the specific changes",
+        "Given I propose a change, when showing it to the user, then I explain what will be created/modified/deleted",
+        "Given I propose a change, when showing it to the user, then I ask for explicit confirmation before execution"
+      ]
+    },
+    {
+      "id": "F005-C03",
+      "description": "As a user, I want to approve, modify, or reject AI-proposed changes so that I maintain control over data modifications",
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "Given an AI proposes a change, when I view it, then I see approve/modify/reject options",
+        "Given I click modify, when I edit the proposed data, then I can approve the modified version",
+        "Given I reject a change, when I provide a reason, then the AI acknowledges and can propose alternatives"
+      ]
+    },
+    {
+      "id": "F005-C04",
+      "description": "As an admin, I want a full audit trail of AI-proposed changes so that I can review AI activity",
+      "priority": "should-have",
+      "acceptance_criteria": [
+        "Given an AI proposes a change, when it is recorded, then the proposal includes timestamp, agent, and context",
+        "Given a user approves/rejects a change, when it is recorded, then the decision includes user and timestamp",
+        "Given I view the pending actions page, when filtering by status, then I see all proposed changes and their outcomes"
+      ]
+    }
+  ],
 
   "objectives": [
     "Provide AI agents with comprehensive organizational context for intelligent assistance",
@@ -521,5 +568,83 @@
       "REQ-AI-004: Full audit trail for all AI-initiated actions",
       "REQ-AI-005: Support both single and multi-agent conversations"
     ]
+  },
+
+  "api_endpoints": [
+    {
+      "method": "GET",
+      "path": "/api/organizations/{orgId}/ai-context",
+      "description": "Get full organization context for AI consumption",
+      "status": "implemented"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{orgId}/ai-context/summary",
+      "description": "Get lightweight summary for token optimization",
+      "status": "pending"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{orgId}/pending-actions",
+      "description": "List pending actions for the organization",
+      "status": "implemented"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{orgId}/pending-actions/{actionId}",
+      "description": "Get pending action details",
+      "status": "implemented"
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizations/{orgId}/pending-actions/{actionId}/approve",
+      "description": "Approve a pending action (optionally with modifications)",
+      "status": "implemented"
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizations/{orgId}/pending-actions/{actionId}/reject",
+      "description": "Reject a pending action",
+      "status": "implemented"
+    }
+  ],
+
+  "test_coverage": {
+    "unit_tests": [
+      "Organization context aggregation",
+      "Tool call parameter validation",
+      "PendingAction state transitions",
+      "Audit trail creation"
+    ],
+    "integration_tests": [
+      "AI context injection into conversation",
+      "Tool call execution flow",
+      "Pending action approval/rejection",
+      "Multi-tenant data isolation"
+    ],
+    "e2e_tests": {
+      "file": "orbitos-web/tests/e2e/ai-data-access.spec.ts",
+      "test_suites": [
+        {
+          "name": "AI Data Access",
+          "tests": [
+            "AI agent should have access to organization data",
+            "AI agent should reference sources in responses",
+            "Proposed changes should show approve/reject buttons",
+            "Approved changes should execute successfully",
+            "Rejected changes should not execute"
+          ]
+        },
+        {
+          "name": "Pending Actions",
+          "tests": [
+            "Should display pending actions list",
+            "Should filter pending actions by status",
+            "Should approve pending action",
+            "Should reject pending action with reason"
+          ]
+        }
+      ]
+    }
   }
 }

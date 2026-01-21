@@ -243,9 +243,51 @@
     "external_services": []
   },
 
+  "entities": [],
+
+  "api_endpoints": [],
+
   "test_coverage": {
-    "unit_tests": [],
+    "unit_tests": [
+      "Help content loading and parsing",
+      "Search functionality with fuzzy matching",
+      "Route-to-help-content mapping",
+      "Keyboard shortcut registration"
+    ],
     "integration_tests": [],
-    "e2e_tests": []
+    "e2e_tests": {
+      "file": "orbitos-web/tests/e2e/help-system.spec.ts",
+      "test_suites": [
+        {
+          "name": "Help Sidebar",
+          "tests": [
+            "should display help toggle button on right edge",
+            "should open help sidebar when clicking toggle button",
+            "should close help sidebar when pressing Escape",
+            "should show context-aware content based on current page",
+            "should display four tabs: Overview, Fields, Actions, Tips",
+            "should persist sidebar state in localStorage"
+          ]
+        },
+        {
+          "name": "Spotlight Search",
+          "tests": [
+            "should open spotlight with Cmd+K / Ctrl+K",
+            "should search across features, concepts, and fields",
+            "should navigate to help content when selecting result",
+            "should close spotlight when pressing Escape"
+          ]
+        },
+        {
+          "name": "Walkthroughs",
+          "tests": [
+            "should start walkthrough when clicking Start Tour button",
+            "should highlight elements during walkthrough steps",
+            "should navigate between steps with arrow keys",
+            "should end walkthrough when pressing Escape"
+          ]
+        }
+      ]
+    }
   }
 }
