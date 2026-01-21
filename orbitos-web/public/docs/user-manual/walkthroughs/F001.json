@@ -1,0 +1,43 @@
+{
+  "id": "F001",
+  "name": "Getting Started",
+  "description": "Learn how to sign in and navigate OrbitOS",
+  "estimatedTime": "5 minutes",
+  "steps": [
+    {
+      "id": "step1",
+      "title": "Welcome to OrbitOS",
+      "content": "OrbitOS is your AI-native operating system for business. Let's take a quick tour of the main features.",
+      "target": null,
+      "position": "center"
+    },
+    {
+      "id": "step2",
+      "title": "Navigation Sidebar",
+      "content": "Use the sidebar on the left to navigate between different sections of OrbitOS.",
+      "target": "aside",
+      "position": "right"
+    },
+    {
+      "id": "step3",
+      "title": "Search & Help",
+      "content": "Press Cmd+K (or Ctrl+K) anytime to search help, features, and concepts.",
+      "target": ".orbitos-input",
+      "position": "bottom"
+    },
+    {
+      "id": "step4",
+      "title": "Organization Switcher",
+      "content": "If you belong to multiple organizations, you can switch between them here.",
+      "target": "[data-testid='org-switcher']",
+      "position": "top"
+    },
+    {
+      "id": "step5",
+      "title": "You're Ready!",
+      "content": "You now know the basics. Explore the different sections to learn more about OrbitOS capabilities.",
+      "target": null,
+      "position": "center"
+    }
+  ]
+}

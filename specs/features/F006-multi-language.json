@@ -1,0 +1,743 @@
+{
+  "$schema": "./schema.json",
+  "id": "F006",
+  "name": "Multi-Language Support",
+  "description": "Comprehensive internationalization (i18n) system enabling both UI language switching and automatic translation of user-generated content across all entities, with support for translation corrections and an extensible language framework",
+  "status": "draft",
+  "priority": "should-have",
+  "created_at": "2026-01-21",
+  "updated_at": "2026-01-21",
+  "owner": "platform-team",
+
+  "overview": {
+    "problem_statement": "OrbitOS serves global organizations that need to: (1) use the application in their preferred language, and (2) share operational content (processes, roles, functions) across teams speaking different languages. Currently, all content is stored in a single language with no translation support.",
+    "solution_approach": "Two-tier localization: (1) System Language for UI strings using vue-i18n, and (2) Content Translation for user-generated entity content using a translation table pattern with AI-assisted translation and human correction workflow.",
+    "initial_languages": ["en", "es"],
+    "extensibility": "Architecture supports infinite languages via database-driven language registry"
+  },
+
+  "implementation_status": {
+    "summary": "Not started. Specification draft.",
+    "phases": [
+      {
+        "id": "phase-1",
+        "name": "System Language (UI i18n)",
+        "status": "pending",
+        "description": "Internationalize all static UI strings (labels, buttons, messages, validation errors)",
+        "components": [
+          { "name": "vue-i18n setup in Nuxt", "status": "pending", "file": "orbitos-web/app/plugins/i18n.ts" },
+          { "name": "English locale file", "status": "pending", "file": "orbitos-web/app/locales/en.json" },
+          { "name": "Spanish locale file", "status": "pending", "file": "orbitos-web/app/locales/es.json" },
+          { "name": "Language switcher component", "status": "pending", "file": "orbitos-web/app/components/LanguageSwitcher.vue" },
+          { "name": "User language preference storage", "status": "pending", "file": "orbitos-api/src/OrbitOS.Domain/Entities/User.cs" },
+          { "name": "Language preference API", "status": "pending", "file": "orbitos-api/src/OrbitOS.Api/Controllers/UsersController.cs" },
+          { "name": "Locale detection middleware", "status": "pending", "file": "orbitos-web/app/middleware/locale.ts" },
+          { "name": "Extract all hardcoded strings", "status": "pending" },
+          { "name": "Backend validation message localization", "status": "pending" }
+        ]
+      },
+      {
+        "id": "phase-2",
+        "name": "Translation Infrastructure",
+        "status": "pending",
+        "description": "Database schema and API for storing entity translations",
+        "components": [
+          { "name": "Language entity", "status": "pending", "file": "orbitos-api/src/OrbitOS.Domain/Entities/Language.cs" },
+          { "name": "EntityTranslation entity", "status": "pending", "file": "orbitos-api/src/OrbitOS.Domain/Entities/EntityTranslation.cs" },
+          { "name": "Database migration for translation tables", "status": "pending" },
+          { "name": "Translation repository", "status": "pending", "file": "orbitos-api/src/OrbitOS.Infrastructure/Repositories/TranslationRepository.cs" },
+          { "name": "Translation service", "status": "pending", "file": "orbitos-api/src/OrbitOS.Api/Services/TranslationService.cs" },
+          { "name": "Translation API endpoints", "status": "pending", "file": "orbitos-api/src/OrbitOS.Api/Controllers/TranslationsController.cs" }
+        ]
+      },
+      {
+        "id": "phase-3",
+        "name": "AI-Assisted Translation",
+        "status": "pending",
+        "description": "Automatic translation generation using AI models",
+        "components": [
+          { "name": "AI translation service", "status": "pending", "file": "orbitos-api/src/OrbitOS.Api/Services/AiTranslationService.cs" },
+          { "name": "Batch translation job", "status": "pending" },
+          { "name": "Translation queue for background processing", "status": "pending" },
+          { "name": "Translation cost tracking", "status": "pending" }
+        ]
+      },
+      {
+        "id": "phase-4",
+        "name": "Translation UI & Workflow",
+        "status": "pending",
+        "description": "User interface for viewing, editing, and managing translations",
+        "components": [
+          { "name": "Translatable field component", "status": "pending", "file": "orbitos-web/app/components/TranslatableField.vue" },
+          { "name": "Translation editor dialog", "status": "pending", "file": "orbitos-web/app/components/TranslationEditorDialog.vue" },
+          { "name": "Content language switcher", "status": "pending", "file": "orbitos-web/app/components/ContentLanguageSwitcher.vue" },
+          { "name": "Translation status indicators", "status": "pending" },
+          { "name": "Bulk translation management page", "status": "pending", "file": "orbitos-web/app/pages/app/settings/translations.vue" },
+          { "name": "useTranslations composable", "status": "pending", "file": "orbitos-web/app/composables/useTranslations.ts" }
+        ]
+      },
+      {
+        "id": "phase-5",
+        "name": "Entity Integration",
+        "status": "pending",
+        "description": "Integrate translation support into all translatable entities",
+        "components": [
+          { "name": "Process translation support", "status": "pending" },
+          { "name": "Activity translation support", "status": "pending" },
+          { "name": "Role translation support", "status": "pending" },
+          { "name": "Function translation support", "status": "pending" },
+          { "name": "Resource translation support", "status": "pending" },
+          { "name": "Canvas translation support", "status": "pending" },
+          { "name": "CanvasBlock translation support", "status": "pending" },
+          { "name": "Organization translation support", "status": "pending" }
+        ]
+      }
+    ]
+  },
+
+  "capabilities": [
+    {
+      "id": "F006-C01",
+      "description": "As a user, I want to switch the application UI language so that I can use OrbitOS in my preferred language",
+      "priority": "must-have",
+      "status": "pending",
+      "phase": "phase-1",
+      "acceptance_criteria": [
+        "Given I am logged in, when I click the language switcher, then I see available languages (English, Spanish)",
+        "Given I select a different language, when the page reloads, then all UI elements display in the selected language",
+        "Given I change my language preference, when I log in again, then the application remembers my preference",
+        "Given I am not logged in, when I visit the app, then it detects my browser language preference"
+      ]
+    },
+    {
+      "id": "F006-C02",
+      "description": "As a user, I want all form labels, buttons, messages, and validation errors to be displayed in my selected language",
+      "priority": "must-have",
+      "status": "pending",
+      "phase": "phase-1",
+      "acceptance_criteria": [
+        "Given my language is Spanish, when I view any page, then navigation items are in Spanish",
+        "Given my language is Spanish, when I fill a form incorrectly, then validation errors are in Spanish",
+        "Given my language is Spanish, when a toast/notification appears, then it is in Spanish",
+        "Given my language is Spanish, when I see empty states or placeholders, then they are in Spanish"
+      ]
+    },
+    {
+      "id": "F006-C03",
+      "description": "As a user, I want to view content (processes, roles, functions) in my preferred language so that I can understand operational information",
+      "priority": "must-have",
+      "status": "pending",
+      "phase": "phase-4",
+      "acceptance_criteria": [
+        "Given a process exists in English, when I view it with Spanish selected, then I see the Spanish translation",
+        "Given no Spanish translation exists, when I view content, then I see the original language with an indicator",
+        "Given I switch content language, when viewing a list, then all items show in the selected language where available"
+      ]
+    },
+    {
+      "id": "F006-C04",
+      "description": "As a content creator, I want content to be automatically translated when I save it so that other users can immediately access it in their language",
+      "priority": "must-have",
+      "status": "pending",
+      "phase": "phase-3",
+      "acceptance_criteria": [
+        "Given I save a new process in English, when the save completes, then Spanish translation is generated automatically",
+        "Given I update a field, when I save, then the corresponding translation is regenerated",
+        "Given translation is in progress, when viewing the content, then I see a 'translating...' indicator",
+        "Given AI translation fails, when I view the content, then I see 'translation unavailable' with option to retry"
+      ]
+    },
+    {
+      "id": "F006-C05",
+      "description": "As a translator/editor, I want to correct AI-generated translations so that domain-specific terminology is accurate",
+      "priority": "must-have",
+      "status": "pending",
+      "phase": "phase-4",
+      "acceptance_criteria": [
+        "Given I view a translated field, when I click the edit icon, then I can modify the translation",
+        "Given I edit a translation, when I save, then my correction replaces the AI-generated text",
+        "Given I correct a translation, when the source is later updated, then I'm warned about potential re-translation",
+        "Given I mark a translation as 'verified', when the source changes, then the field shows 'needs review'"
+      ]
+    },
+    {
+      "id": "F006-C06",
+      "description": "As an admin, I want to see translation coverage statistics so that I know which content needs attention",
+      "priority": "should-have",
+      "status": "pending",
+      "phase": "phase-4",
+      "acceptance_criteria": [
+        "Given I am an admin, when I view translation settings, then I see coverage percentage per language",
+        "Given I view coverage, when I click a language, then I see which entities are missing translations",
+        "Given content is missing translations, when I click 'Translate All', then AI translates all missing content",
+        "Given I view translation stats, when I look at costs, then I see estimated and actual translation costs"
+      ]
+    },
+    {
+      "id": "F006-C07",
+      "description": "As an admin, I want to add new languages to the system so that we can support additional regions",
+      "priority": "should-have",
+      "status": "pending",
+      "phase": "phase-2",
+      "acceptance_criteria": [
+        "Given I am an admin, when I access language settings, then I can add a new language",
+        "Given I add a language (e.g., French), when I save, then it appears in all language selectors",
+        "Given I add a language, when users switch to it, then existing content shows as 'not translated'",
+        "Given I add a language, when I trigger 'Translate All', then AI generates translations for all content"
+      ]
+    },
+    {
+      "id": "F006-C08",
+      "description": "As a user, I want UI language and content language to be independent so that I can use English UI while viewing Spanish content",
+      "priority": "should-have",
+      "status": "pending",
+      "phase": "phase-4",
+      "acceptance_criteria": [
+        "Given my UI language is English, when I switch content language to Spanish, then UI stays English but content shows in Spanish",
+        "Given I have both preferences set, when I view a process, then UI labels are in my UI language and process content is in my content language",
+        "Given I'm collaborating with Spanish speakers, when I share a link, then they see content in their preferred language"
+      ]
+    },
+    {
+      "id": "F006-C09",
+      "description": "As a content consumer, I want to see which language the original content was written in so that I understand the translation context",
+      "priority": "could-have",
+      "status": "pending",
+      "phase": "phase-4",
+      "acceptance_criteria": [
+        "Given I view translated content, when I look at metadata, then I see 'Original: English' indicator",
+        "Given I view translated content, when I click 'View Original', then I see the source language version",
+        "Given content has been human-edited, when I view it, then I see 'Verified translation' badge"
+      ]
+    },
+    {
+      "id": "F006-C10",
+      "description": "As a developer, I want translation to be performant so that page loads are not significantly impacted",
+      "priority": "must-have",
+      "status": "pending",
+      "phase": "phase-5",
+      "acceptance_criteria": [
+        "Given I load a list of 50 processes, when translations exist, then page load is under 500ms",
+        "Given I switch content language, when the switch occurs, then content updates within 200ms",
+        "Given translations are being fetched, when I scroll, then lazy loading fetches translations on demand"
+      ]
+    }
+  ],
+
+  "entities": [
+    "ENT027",
+    "ENT028"
+  ],
+
+  "translatable_entities": {
+    "description": "Entities with fields that support translation",
+    "entities": [
+      {
+        "entity": "ENT015",
+        "name": "Process",
+        "translatable_fields": ["Name", "Purpose", "Description", "Trigger", "Output", "VersionNote"]
+      },
+      {
+        "entity": "ENT016",
+        "name": "Activity",
+        "translatable_fields": ["Name", "Description", "Instructions"]
+      },
+      {
+        "entity": "ENT003",
+        "name": "Role",
+        "translatable_fields": ["Name", "Description", "Purpose"]
+      },
+      {
+        "entity": "ENT004",
+        "name": "Function",
+        "translatable_fields": ["Name", "Description", "Purpose", "Instructions"]
+      },
+      {
+        "entity": "ENT014",
+        "name": "Resource",
+        "translatable_fields": ["Name", "Description", "VacantPositionTitle"]
+      },
+      {
+        "entity": "ENT011",
+        "name": "Canvas",
+        "translatable_fields": ["Name", "Description", "VersionNote"]
+      },
+      {
+        "entity": "ENT012",
+        "name": "CanvasBlock",
+        "translatable_fields": ["Title", "SummaryNote"]
+      },
+      {
+        "entity": "ENT002",
+        "name": "Organization",
+        "translatable_fields": ["Name", "Description", "Purpose"]
+      },
+      {
+        "entity": "ENT017",
+        "name": "AiAgent",
+        "translatable_fields": ["Name", "RoleTitle"],
+        "note": "SystemPrompt should NOT be translated as it controls AI behavior"
+      },
+      {
+        "entity": "ENT021",
+        "name": "Partner",
+        "translatable_fields": ["Name", "Description"]
+      },
+      {
+        "entity": "ENT022",
+        "name": "Channel",
+        "translatable_fields": ["Name", "Description"]
+      },
+      {
+        "entity": "ENT023",
+        "name": "ValueProposition",
+        "translatable_fields": ["Name", "Description"]
+      },
+      {
+        "entity": "ENT024",
+        "name": "CustomerRelationship",
+        "translatable_fields": ["Name", "Description"]
+      },
+      {
+        "entity": "ENT025",
+        "name": "RevenueStream",
+        "translatable_fields": ["Name", "Description"]
+      }
+    ]
+  },
+
+  "api_endpoints": [
+    {
+      "method": "GET",
+      "path": "/api/languages",
+      "description": "Get all available languages in the system",
+      "response": "LanguageDto[]",
+      "status": "pending",
+      "notes": "Public endpoint, no auth required"
+    },
+    {
+      "method": "POST",
+      "path": "/api/languages",
+      "description": "Add a new language to the system (super admin only)",
+      "request_body": "CreateLanguageRequest",
+      "response": "LanguageDto",
+      "status": "pending"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/languages/{code}",
+      "description": "Update language settings (enable/disable)",
+      "request_body": "UpdateLanguageRequest",
+      "response": "LanguageDto",
+      "status": "pending"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/users/me/language",
+      "description": "Update current user's UI language preference",
+      "request_body": "{ \"languageCode\": \"es\" }",
+      "response": "UserDto",
+      "status": "pending"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/users/me/content-language",
+      "description": "Update current user's content language preference",
+      "request_body": "{ \"languageCode\": \"es\" }",
+      "response": "UserDto",
+      "status": "pending"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{orgId}/translations",
+      "description": "Get translation statistics for the organization",
+      "response": "TranslationStatsDto",
+      "status": "pending"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{orgId}/translations/{entityType}/{entityId}",
+      "description": "Get all translations for a specific entity",
+      "response": "EntityTranslationDto[]",
+      "status": "pending"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/organizations/{orgId}/translations/{entityType}/{entityId}/{languageCode}",
+      "description": "Create or update translation for an entity field",
+      "request_body": "UpdateTranslationRequest",
+      "response": "EntityTranslationDto",
+      "status": "pending"
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizations/{orgId}/translations/{entityType}/{entityId}/generate",
+      "description": "Trigger AI translation generation for an entity",
+      "request_body": "{ \"targetLanguages\": [\"es\", \"fr\"] }",
+      "response": "TranslationJobDto",
+      "status": "pending"
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizations/{orgId}/translations/bulk-generate",
+      "description": "Trigger AI translation for multiple entities",
+      "request_body": "BulkTranslateRequest",
+      "response": "TranslationJobDto",
+      "status": "pending"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{orgId}/translations/jobs/{jobId}",
+      "description": "Get status of a translation job",
+      "response": "TranslationJobDto",
+      "status": "pending"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/organizations/{orgId}/translations/{translationId}/verify",
+      "description": "Mark a translation as human-verified",
+      "response": "EntityTranslationDto",
+      "status": "pending"
+    }
+  ],
+
+  "ui_screens": [
+    {
+      "id": "SCR020",
+      "name": "Language Switcher (UI)",
+      "description": "Dropdown in header/profile for switching UI language",
+      "path": "Component in app layout",
+      "file": "orbitos-web/app/components/LanguageSwitcher.vue",
+      "status": "pending",
+      "ui_elements": [
+        {
+          "id": "SCR020-EL01",
+          "name": "Language Dropdown",
+          "type": "dropdown",
+          "elements": [
+            { "id": "current-flag", "type": "icon", "shows": "current language flag" },
+            { "id": "current-name", "type": "text", "shows": "current language name" },
+            { "id": "language-list", "type": "list", "items": "available languages with flags" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "SCR021",
+      "name": "Content Language Switcher",
+      "description": "Toggle for switching content display language (separate from UI)",
+      "path": "Component on content pages",
+      "file": "orbitos-web/app/components/ContentLanguageSwitcher.vue",
+      "status": "pending",
+      "ui_elements": [
+        {
+          "id": "SCR021-EL01",
+          "name": "Content Language Toggle",
+          "type": "toggle-group",
+          "elements": [
+            { "id": "language-buttons", "type": "button-group", "items": "available languages" },
+            { "id": "auto-option", "type": "button", "text": "Auto (match UI)" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "SCR022",
+      "name": "Translation Editor Dialog",
+      "description": "Modal for editing translations of a specific field",
+      "path": "Component (dialog)",
+      "file": "orbitos-web/app/components/TranslationEditorDialog.vue",
+      "status": "pending",
+      "ui_elements": [
+        {
+          "id": "SCR022-EL01",
+          "name": "Translation Editor",
+          "type": "dialog",
+          "elements": [
+            { "id": "title", "type": "heading", "text": "Edit Translation" },
+            { "id": "field-name", "type": "text", "shows": "which field is being edited" },
+            { "id": "original-label", "type": "label", "text": "Original (English)" },
+            { "id": "original-content", "type": "readonly-text", "shows": "source language content" },
+            { "id": "translation-label", "type": "label", "text": "Translation (Spanish)" },
+            { "id": "translation-input", "type": "textarea", "shows": "current translation, editable" },
+            { "id": "ai-badge", "type": "badge", "text": "AI Generated", "condition": "not human verified" },
+            { "id": "verified-badge", "type": "badge", "text": "Human Verified", "condition": "verified" },
+            { "id": "regenerate-btn", "type": "button", "text": "Regenerate with AI" },
+            { "id": "verify-checkbox", "type": "checkbox", "text": "Mark as verified" },
+            { "id": "cancel-btn", "type": "button", "text": "Cancel" },
+            { "id": "save-btn", "type": "button", "text": "Save Translation" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "SCR023",
+      "name": "Translation Management Page",
+      "description": "Admin page for managing translations across the organization",
+      "path": "/app/settings/translations",
+      "file": "orbitos-web/app/pages/app/settings/translations.vue",
+      "status": "pending",
+      "ui_elements": [
+        {
+          "id": "SCR023-EL01",
+          "name": "Header",
+          "type": "section",
+          "elements": [
+            { "id": "title", "type": "heading", "text": "Translation Management" },
+            { "id": "description", "type": "text", "text": "Manage content translations across languages." },
+            { "id": "translate-all-btn", "type": "button", "text": "Translate All Missing" }
+          ]
+        },
+        {
+          "id": "SCR023-EL02",
+          "name": "Coverage Stats",
+          "type": "section",
+          "elements": [
+            { "id": "stat-cards", "type": "stat-card-row", "items": [
+              { "label": "Total Translatable", "value": "entityCount" },
+              { "label": "English Coverage", "value": "100%" },
+              { "label": "Spanish Coverage", "value": "coveragePercent" },
+              { "label": "Pending Review", "value": "pendingCount" }
+            ]}
+          ]
+        },
+        {
+          "id": "SCR023-EL03",
+          "name": "Language Filter",
+          "type": "section",
+          "elements": [
+            { "id": "language-tabs", "type": "tabs", "items": "available languages" },
+            { "id": "entity-filter", "type": "dropdown", "options": ["All Entities", "Processes", "Roles", "Functions", "etc."] },
+            { "id": "status-filter", "type": "dropdown", "options": ["All", "Missing", "AI Generated", "Verified"] }
+          ]
+        },
+        {
+          "id": "SCR023-EL04",
+          "name": "Translation Table",
+          "type": "table",
+          "columns": ["Entity Type", "Name", "Field", "Original", "Translation", "Status", "Actions"],
+          "elements": [
+            { "id": "edit-btn", "type": "icon-button", "action": "opens translation editor" },
+            { "id": "verify-btn", "type": "icon-button", "action": "marks as verified" },
+            { "id": "regenerate-btn", "type": "icon-button", "action": "regenerates AI translation" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "SCR024",
+      "name": "Language Settings Page",
+      "description": "Admin page for managing available languages",
+      "path": "/admin/languages",
+      "file": "orbitos-web/app/pages/admin/languages.vue",
+      "status": "pending",
+      "ui_elements": [
+        {
+          "id": "SCR024-EL01",
+          "name": "Header",
+          "type": "section",
+          "elements": [
+            { "id": "title", "type": "heading", "text": "Languages" },
+            { "id": "add-btn", "type": "button", "text": "Add Language" }
+          ]
+        },
+        {
+          "id": "SCR024-EL02",
+          "name": "Languages Table",
+          "type": "table",
+          "columns": ["Flag", "Code", "Name", "Native Name", "Enabled", "Actions"],
+          "elements": [
+            { "id": "toggle-enabled", "type": "switch", "action": "enables/disables language" },
+            { "id": "set-default-btn", "type": "button", "text": "Set as Default" }
+          ]
+        }
+      ]
+    }
+  ],
+
+  "domain_models": {
+    "translation_status": [
+      { "id": "missing", "name": "Missing", "description": "No translation exists" },
+      { "id": "ai_generated", "name": "AI Generated", "description": "Translation was auto-generated by AI" },
+      { "id": "human_edited", "name": "Human Edited", "description": "Translation was modified by a human" },
+      { "id": "verified", "name": "Verified", "description": "Translation has been verified as accurate" },
+      { "id": "needs_review", "name": "Needs Review", "description": "Source changed after translation was verified" }
+    ],
+    "default_languages": [
+      { "code": "en", "name": "English", "nativeName": "English", "flag": "us", "isDefault": true },
+      { "code": "es", "name": "Spanish", "nativeName": "Espanol", "flag": "es", "isDefault": false }
+    ],
+    "future_languages": [
+      { "code": "fr", "name": "French", "nativeName": "Francais", "flag": "fr" },
+      { "code": "de", "name": "German", "nativeName": "Deutsch", "flag": "de" },
+      { "code": "pt", "name": "Portuguese", "nativeName": "Portugues", "flag": "br" },
+      { "code": "zh", "name": "Chinese", "nativeName": "Zhongwen", "flag": "cn" },
+      { "code": "ja", "name": "Japanese", "nativeName": "Nihongo", "flag": "jp" }
+    ]
+  },
+
+  "data_model": {
+    "description": "Translation storage approach using a separate translations table",
+    "approach": "Polymorphic translation table with entity_type + entity_id + field_name + language_code as composite key",
+    "rationale": [
+      "Avoids schema changes when adding new translatable fields",
+      "Supports infinite languages without schema modification",
+      "Allows tracking translation metadata (status, verified_by, verified_at)",
+      "Efficient querying with proper indexing",
+      "Clean separation of concerns"
+    ],
+    "alternative_considered": {
+      "approach": "Separate translation columns per language (e.g., Name_es, Name_fr)",
+      "rejected_because": "Requires schema changes for each new language, doesn't scale"
+    }
+  },
+
+  "technical_architecture": {
+    "frontend": {
+      "i18n_library": "@nuxtjs/i18n (vue-i18n wrapper for Nuxt)",
+      "locale_files": "JSON files in orbitos-web/app/locales/",
+      "detection_strategy": ["User preference from API", "localStorage", "Browser Accept-Language header"],
+      "lazy_loading": "Locale files loaded on-demand per language",
+      "key_format": "Nested object structure (e.g., pages.roles.title, validation.required)"
+    },
+    "backend": {
+      "translation_storage": "EntityTranslations table with polymorphic reference",
+      "caching": "Redis cache for frequently accessed translations with 1-hour TTL",
+      "api_response_strategy": "Return translations inline with entity when Accept-Language header is set",
+      "ai_provider": "Use existing MultiProviderAiService for translation generation"
+    },
+    "translation_flow": {
+      "on_entity_create": [
+        "1. Save entity with source language content",
+        "2. Queue translation job for all enabled languages",
+        "3. AI generates translations asynchronously",
+        "4. Translations saved with status 'ai_generated'"
+      ],
+      "on_entity_update": [
+        "1. Save updated entity",
+        "2. Mark existing translations as 'needs_review' if source field changed",
+        "3. Optionally regenerate translations (configurable)"
+      ],
+      "on_translation_edit": [
+        "1. User edits translation",
+        "2. Save with status 'human_edited'",
+        "3. If marked verified, set status 'verified' and verified_by/verified_at"
+      ]
+    }
+  },
+
+  "security_requirements": [
+    "Translation management restricted to organization admins",
+    "Language settings restricted to super admins",
+    "All translation operations scoped by organization_id",
+    "Audit logging for translation changes (who edited, when)",
+    "AI translation costs tracked and limited per organization"
+  ],
+
+  "performance_requirements": [
+    "Translated content fetch adds < 50ms to entity queries",
+    "Language switching in UI < 100ms (after locale file loaded)",
+    "Content language switching < 200ms",
+    "Bulk translation job processes 100 entities < 5 minutes",
+    "Translation cache hit rate > 90% for active content"
+  ],
+
+  "dependencies": {
+    "features": ["F001"],
+    "packages": {
+      "frontend": ["@nuxtjs/i18n"],
+      "backend": []
+    },
+    "external_services": [
+      "Anthropic Claude API (for AI translation)"
+    ]
+  },
+
+  "estimation": {
+    "complexity": "high",
+    "phases_breakdown": [
+      { "phase": "phase-1", "description": "UI i18n", "scope": "Frontend string extraction and i18n setup" },
+      { "phase": "phase-2", "description": "Translation infrastructure", "scope": "Database schema, entities, API" },
+      { "phase": "phase-3", "description": "AI translation", "scope": "Integration with AI service" },
+      { "phase": "phase-4", "description": "Translation UI", "scope": "Editor, management pages" },
+      { "phase": "phase-5", "description": "Entity integration", "scope": "Update all entity views and forms" }
+    ]
+  },
+
+  "test_coverage": {
+    "unit_tests": [
+      "Language preference persistence",
+      "Translation status transitions",
+      "Translation key resolution",
+      "AI translation prompt generation",
+      "Cache invalidation logic"
+    ],
+    "integration_tests": [
+      "Language switching flow",
+      "Translation CRUD operations",
+      "AI translation generation",
+      "Bulk translation job processing",
+      "Translation with entity updates"
+    ],
+    "e2e_tests": {
+      "file": "orbitos-web/tests/e2e/multi-language.spec.ts",
+      "test_suites": [
+        {
+          "name": "UI Language Switching",
+          "tests": [
+            "should display language switcher in header",
+            "should switch UI to Spanish when selected",
+            "should persist language preference after reload",
+            "should show all navigation items in selected language",
+            "should show form validation errors in selected language"
+          ]
+        },
+        {
+          "name": "Content Language",
+          "tests": [
+            "should display content language switcher on entity pages",
+            "should show process content in Spanish when selected",
+            "should indicate when translation is missing",
+            "should allow UI and content language to differ"
+          ]
+        },
+        {
+          "name": "Translation Editing",
+          "tests": [
+            "should open translation editor when clicking edit icon",
+            "should show original and translated content side by side",
+            "should save edited translation",
+            "should mark translation as verified",
+            "should regenerate translation with AI"
+          ]
+        },
+        {
+          "name": "Translation Management",
+          "tests": [
+            "should display translation coverage statistics",
+            "should filter translations by entity type",
+            "should filter translations by status",
+            "should bulk translate missing content"
+          ]
+        }
+      ]
+    }
+  },
+
+  "ux_review_notes": {
+    "completed_review": false,
+    "design_considerations": [
+      "Language switcher should be easily accessible but not prominent",
+      "Content language vs UI language distinction must be clear",
+      "Translation status indicators should be subtle but visible",
+      "AI-generated badge should not imply lower quality",
+      "Consider RTL language support for future Arabic/Hebrew"
+    ],
+    "pending_items": [
+      "Design language switcher component",
+      "Design translation status indicators",
+      "Design inline translation editing UX",
+      "Review accessibility for language switching"
+    ]
+  }
+}

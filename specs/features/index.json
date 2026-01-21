@@ -2,20 +2,70 @@
   "$schema": "./schema.json",
   "version": "1.0.0",
   "description": "Feature registry for OrbitOS",
+  "last_updated": "2026-01-20",
   "features": [
     {
       "id": "F001",
       "name": "Authentication",
       "file": "F001-authentication.json",
       "status": "implemented",
-      "priority": "must-have"
+      "priority": "must-have",
+      "e2e_tests": ["login.spec.ts"],
+      "notes": "Email/password, Google OAuth, Azure AD support"
     },
     {
       "id": "F002",
       "name": "Super Admin Panel",
       "file": "F002-super-admin.json",
       "status": "implemented",
-      "priority": "must-have"
+      "priority": "must-have",
+      "e2e_tests": ["super-admin.spec.ts", "super-admin-crud.spec.ts"],
+      "notes": "Full CRUD for users, orgs, roles, functions"
+    },
+    {
+      "id": "F003",
+      "name": "Multi-Agent AI Chat",
+      "file": "F003-multi-agent-chat.json",
+      "status": "implemented",
+      "priority": "should-have",
+      "e2e_tests": ["ai-agents.spec.ts", "conversations.spec.ts"],
+      "notes": "Phase 1 (Agents) and Phase 2 (Conversations) complete"
+    },
+    {
+      "id": "F004",
+      "name": "Business Model Canvas",
+      "file": "F004-business-canvas.json",
+      "status": "in-progress",
+      "priority": "must-have",
+      "e2e_tests": ["canvas-comprehensive.spec.ts", "canvas-crud-flow.spec.ts", "canvas-full-ui-interactions.spec.ts"],
+      "notes": "Core canvas views and entity management implemented"
+    },
+    {
+      "id": "F005",
+      "name": "AI Agent Data Access & CRUD Operations",
+      "file": "F005-ai-data-access.json",
+      "status": "in-progress",
+      "priority": "must-have",
+      "e2e_tests": ["ai-data-access.spec.ts"],
+      "notes": "Context injection implemented, pending actions workflow in progress"
+    },
+    {
+      "id": "F006",
+      "name": "Multi-Language Support",
+      "file": "F006-multi-language.json",
+      "status": "draft",
+      "priority": "should-have",
+      "e2e_tests": ["multi-language.spec.ts"],
+      "notes": "System language (UI i18n) + content translation with AI-assisted translations and human corrections"
+    },
+    {
+      "id": "F007",
+      "name": "Contextual Help System",
+      "file": "F007-help-system.json",
+      "status": "implemented",
+      "priority": "should-have",
+      "e2e_tests": [],
+      "notes": "Persistent help sidebar, spotlight search (Cmd+K), contextual documentation per page, interactive walkthroughs"
     }
   ],
   "statuses": {

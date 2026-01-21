@@ -37,6 +37,12 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
 
@@ -76,6 +82,9 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AssignedResourceId");
@@ -100,6 +109,12 @@ namespace OrbitOS.Infrastructure.Migrations
                         .HasColumnType("bit");
 
                     b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<int>("EdgeType")
@@ -129,6 +144,9 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
 
                     b.HasIndex("SourceActivityId");
@@ -142,16 +160,200 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.ToTable("ActivityEdges");
                 });
 
+            modelBuilder.Entity("OrbitOS.Domain.Entities.AiAgent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AvatarColor")
+                        .HasMaxLength(7)
+                        .HasColumnType("nvarchar(7)");
+
+                    b.Property<string>("AvatarUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("nvarchar(2048)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("MaxTokensPerResponse")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ModelDisplayName")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("ModelId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Provider")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RoleTitle")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SystemPrompt")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("Temperature")
+                        .HasPrecision(3, 2)
+                        .HasColumnType("decimal(3,2)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("AiAgents");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.BlockReference", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CanvasBlockId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ChannelId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ContextNote")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("CustomerRelationshipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("EntityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("EntityType")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsHighlighted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("LinkType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MetricsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("PartnerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("RevenueStreamId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Role")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TagsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ValuePropositionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChannelId");
+
+                    b.HasIndex("CustomerRelationshipId");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("PartnerId");
+
+                    b.HasIndex("RevenueStreamId");
+
+                    b.HasIndex("ValuePropositionId");
+
+                    b.HasIndex("EntityType", "EntityId");
+
+                    b.HasIndex("CanvasBlockId", "EntityType", "EntityId")
+                        .IsUnique()
+                        .HasFilter("[DeletedAt] IS NULL");
+
+                    b.ToTable("BlockReferences");
+                });
+
             modelBuilder.Entity("OrbitOS.Domain.Entities.Canvas", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("AiMetadataJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("AiSummary")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int>("CanvasType")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Description")
@@ -165,15 +367,53 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("ParentCanvasId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("ScopeType")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("SegmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Slug")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("int");
+
+                    b.Property<string>("VersionNote")
+                        .HasColumnType("nvarchar(max)");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("OrganizationId");
+                    b.HasIndex("ParentCanvasId")
+                        .HasFilter("[ParentCanvasId] IS NOT NULL");
+
+                    b.HasIndex("ProductId")
+                        .HasFilter("[ProductId] IS NOT NULL");
+
+                    b.HasIndex("SegmentId")
+                        .HasFilter("[SegmentId] IS NOT NULL");
+
+                    b.HasIndex("OrganizationId", "ScopeType");
+
+                    b.HasIndex("OrganizationId", "Slug")
+                        .IsUnique()
+                        .HasFilter("[Slug] IS NOT NULL");
 
                     b.ToTable("Canvases");
                 });
@@ -183,6 +423,9 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AiInsightsJson")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("BlockType")
                         .HasColumnType("int");
@@ -196,18 +439,370 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PositionJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SummaryNote")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("CanvasId", "BlockType")
+                        .IsUnique()
+                        .HasFilter("[DeletedAt] IS NULL");
+
+                    b.ToTable("CanvasBlocks");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Channel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Category")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CostJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("IntegrationJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("MetricsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Ownership")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("PartnerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PhasesJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Slug")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TagsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Type")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("CanvasId", "BlockType")
-                        .IsUnique();
+                    b.HasIndex("PartnerId")
+                        .HasFilter("[PartnerId] IS NOT NULL");
 
-                    b.ToTable("CanvasBlocks");
+                    b.HasIndex("OrganizationId", "Category");
+
+                    b.HasIndex("OrganizationId", "Slug")
+                        .IsUnique()
+                        .HasFilter("[Slug] IS NOT NULL");
+
+                    b.HasIndex("OrganizationId", "Status");
+
+                    b.HasIndex("OrganizationId", "Type");
+
+                    b.ToTable("Channels");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Conversation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AiResponseCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("LastMessageAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long?>("MaxTokens")
+                        .HasColumnType("bigint");
+
+                    b.Property<int?>("MaxTurns")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MessageCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Mode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<int>("TotalCostCents")
+                        .HasColumnType("int");
+
+                    b.Property<long>("TotalTokens")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("LastMessageAt")
+                        .IsDescending();
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("OrganizationId", "Status");
+
+                    b.ToTable("Conversations");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.ConversationParticipant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("AiAgentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ConversationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("JoinedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("LastSeenMessageId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("LeftAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("NotificationsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ParticipantType")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AiAgentId")
+                        .HasFilter("[AiAgentId] IS NOT NULL");
+
+                    b.HasIndex("ConversationId");
+
+                    b.HasIndex("LastSeenMessageId");
+
+                    b.HasIndex("UserId")
+                        .HasFilter("[UserId] IS NOT NULL");
+
+                    b.HasIndex("ConversationId", "AiAgentId")
+                        .IsUnique()
+                        .HasFilter("[AiAgentId] IS NOT NULL");
+
+                    b.HasIndex("ConversationId", "UserId")
+                        .IsUnique()
+                        .HasFilter("[UserId] IS NOT NULL");
+
+                    b.ToTable("ConversationParticipants");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.CustomerRelationship", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CostJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ExpectationsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("LifecycleJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("MetricsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PurposeJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("SegmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Slug")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TagsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TouchpointsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SegmentId")
+                        .HasFilter("[SegmentId] IS NOT NULL");
+
+                    b.HasIndex("OrganizationId", "Slug")
+                        .IsUnique()
+                        .HasFilter("[Slug] IS NOT NULL");
+
+                    b.HasIndex("OrganizationId", "Status");
+
+                    b.HasIndex("OrganizationId", "Type");
+
+                    b.ToTable("CustomerRelationships");
                 });
 
             modelBuilder.Entity("OrbitOS.Domain.Entities.Function", b =>
@@ -224,6 +819,12 @@ namespace OrbitOS.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Description")
@@ -255,6 +856,9 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
 
                     b.HasIndex("OrganizationId", "Name")
@@ -275,6 +879,12 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime?>("ExpiresAt")
                         .HasColumnType("datetime2");
 
@@ -293,12 +903,16 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
 
                     b.HasIndex("FunctionId");
 
                     b.HasIndex("ResourceId", "FunctionId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[DeletedAt] IS NULL");
 
                     b.ToTable("FunctionCapabilities");
                 });
@@ -312,9 +926,15 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<decimal?>("CurrentValue")
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
@@ -356,6 +976,9 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
 
                     b.HasIndex("OrganizationId");
@@ -365,6 +988,100 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.HasIndex("ParentId");
 
                     b.ToTable("Goals");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Message", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ContentHtml")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("ConversationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("CostCents")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("MentionedAgentIdsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ModelUsed")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid?>("ParentMessageId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ReferencedItemsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("ResponseTimeMs")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("SenderAiAgentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SenderType")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<Guid?>("SenderUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("SequenceNumber")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SourcesJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int?>("TokensUsed")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ConversationId");
+
+                    b.HasIndex("ParentMessageId");
+
+                    b.HasIndex("SenderAiAgentId")
+                        .HasFilter("[SenderAiAgentId] IS NOT NULL");
+
+                    b.HasIndex("SenderUserId")
+                        .HasFilter("[SenderUserId] IS NOT NULL");
+
+                    b.HasIndex("ConversationId", "CreatedAt");
+
+                    b.HasIndex("ConversationId", "SequenceNumber");
+
+                    b.ToTable("Messages");
                 });
 
             modelBuilder.Entity("OrbitOS.Domain.Entities.Organization", b =>
@@ -377,6 +1094,12 @@ namespace OrbitOS.Infrastructure.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Description")
@@ -401,6 +1124,9 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Slug")
@@ -418,6 +1144,12 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uniqueidentifier");
 
@@ -426,6 +1158,9 @@ namespace OrbitOS.Infrastructure.Migrations
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
@@ -438,6 +1173,206 @@ namespace OrbitOS.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("OrganizationMemberships");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Partner", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ContactJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ContractJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CostJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("RelationshipStrength")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ServicesProvidedJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ServicesReceivedJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Slug")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StrategicValue")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TagsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Website")
+                        .HasMaxLength(2048)
+                        .HasColumnType("nvarchar(2048)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId", "Slug")
+                        .IsUnique()
+                        .HasFilter("[Slug] IS NOT NULL");
+
+                    b.HasIndex("OrganizationId", "Status");
+
+                    b.HasIndex("OrganizationId", "Type");
+
+                    b.ToTable("Partners");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.PendingAction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ActionType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid?>("AgentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ConversationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("EntityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("EntityName")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ExecutedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ExecutionResultJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FinalDataJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("MessageId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PreviousDataJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ProposedDataJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RejectionReason")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("ResultEntityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ReviewedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("UserModificationsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgentId")
+                        .HasFilter("[AgentId] IS NOT NULL");
+
+                    b.HasIndex("ExpiresAt")
+                        .HasFilter("[ExpiresAt] IS NOT NULL AND [Status] = 'Pending'");
+
+                    b.HasIndex("MessageId")
+                        .HasFilter("[MessageId] IS NOT NULL");
+
+                    b.HasIndex("ReviewedByUserId");
+
+                    b.HasIndex("ConversationId", "Status")
+                        .HasFilter("[ConversationId] IS NOT NULL");
+
+                    b.HasIndex("EntityType", "EntityId")
+                        .HasFilter("[EntityId] IS NOT NULL");
+
+                    b.HasIndex("OrganizationId", "Status");
+
+                    b.ToTable("PendingActions");
                 });
 
             modelBuilder.Entity("OrbitOS.Domain.Entities.Permission", b =>
@@ -454,6 +1389,12 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
 
@@ -467,6 +1408,9 @@ namespace OrbitOS.Infrastructure.Migrations
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
@@ -485,8 +1429,20 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("EntryActivityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ExitActivityId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int?>("Frequency")
                         .HasColumnType("int");
@@ -523,7 +1479,17 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("UseExplicitFlow")
+                        .HasColumnType("bit");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("EntryActivityId");
+
+                    b.HasIndex("ExitActivityId");
 
                     b.HasIndex("LinkedProcessId");
 
@@ -535,6 +1501,62 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.ToTable("Processes");
                 });
 
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Product", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FeaturesJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PricingJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Slug")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TagsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.ToTable("Product");
+                });
+
             modelBuilder.Entity("OrbitOS.Domain.Entities.Resource", b =>
                 {
                     b.Property<Guid>("Id")
@@ -544,8 +1566,19 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsVacant")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
 
                     b.Property<Guid?>("LinkedUserId")
                         .HasColumnType("uniqueidentifier");
@@ -561,6 +1594,9 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("ReportsToResourceId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("ResourceSubtypeId")
                         .HasColumnType("uniqueidentifier");
 
@@ -570,13 +1606,23 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("VacantPositionTitle")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("LinkedUserId");
 
-                    b.HasIndex("OrganizationId");
+                    b.HasIndex("ReportsToResourceId")
+                        .HasFilter("[ReportsToResourceId] IS NOT NULL");
 
                     b.HasIndex("ResourceSubtypeId");
+
+                    b.HasIndex("OrganizationId", "IsVacant");
 
                     b.ToTable("Resources");
                 });
@@ -588,6 +1634,12 @@ namespace OrbitOS.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Description")
@@ -613,12 +1665,100 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
 
                     b.HasIndex("OrganizationId", "ResourceType", "Name")
                         .IsUnique();
 
                     b.ToTable("ResourceSubtypes");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.RevenueStream", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("MetricsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PricingJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("PricingMechanism")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("RevenueJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("SegmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Slug")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TagsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("WillingnessToPayJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId")
+                        .HasFilter("[ProductId] IS NOT NULL");
+
+                    b.HasIndex("SegmentId")
+                        .HasFilter("[SegmentId] IS NOT NULL");
+
+                    b.HasIndex("OrganizationId", "Slug")
+                        .IsUnique()
+                        .HasFilter("[Slug] IS NOT NULL");
+
+                    b.HasIndex("OrganizationId", "Status");
+
+                    b.HasIndex("OrganizationId", "Type");
+
+                    b.ToTable("RevenueStreams");
                 });
 
             modelBuilder.Entity("OrbitOS.Domain.Entities.Role", b =>
@@ -628,6 +1768,12 @@ namespace OrbitOS.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Department")
@@ -651,6 +1797,9 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
 
                     b.HasIndex("OrganizationId");
@@ -671,6 +1820,12 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime?>("EndDate")
                         .HasColumnType("datetime2");
 
@@ -689,12 +1844,16 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
 
                     b.HasIndex("RoleId");
 
                     b.HasIndex("ResourceId", "RoleId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[DeletedAt] IS NULL");
 
                     b.ToTable("RoleAssignments");
                 });
@@ -708,6 +1867,12 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<Guid>("FunctionId")
                         .HasColumnType("uniqueidentifier");
 
@@ -717,14 +1882,80 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
 
                     b.HasIndex("FunctionId");
 
                     b.HasIndex("RoleId", "FunctionId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[DeletedAt] IS NULL");
 
                     b.ToTable("RoleFunctions");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Segment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BehaviorsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DemographicsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("MetricsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("NeedsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Slug")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TagsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.ToTable("Segment");
                 });
 
             modelBuilder.Entity("OrbitOS.Domain.Entities.SystemRole", b =>
@@ -734,6 +1965,12 @@ namespace OrbitOS.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Description")
@@ -749,6 +1986,9 @@ namespace OrbitOS.Infrastructure.Migrations
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
@@ -767,6 +2007,12 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<Guid>("PermissionId")
                         .HasColumnType("uniqueidentifier");
 
@@ -775,6 +2021,9 @@ namespace OrbitOS.Infrastructure.Migrations
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
@@ -800,6 +2049,12 @@ namespace OrbitOS.Infrastructure.Migrations
                         .HasColumnType("nvarchar(128)");
 
                     b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("DisplayName")
@@ -832,6 +2087,9 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AzureAdObjectId")
@@ -857,6 +2115,12 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uniqueidentifier");
 
@@ -865,6 +2129,9 @@ namespace OrbitOS.Infrastructure.Migrations
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
@@ -890,6 +2157,12 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uniqueidentifier");
 
@@ -898,6 +2171,9 @@ namespace OrbitOS.Infrastructure.Migrations
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
@@ -912,6 +2188,100 @@ namespace OrbitOS.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("UserSystemRoles");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.ValueProposition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CustomerJobsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("DifferentiatorsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("GainCreatorsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("GainsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Headline")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PainRelieversJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PainsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ProductsServicesJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("SegmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Slug")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TagsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ValidationJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId")
+                        .HasFilter("[ProductId] IS NOT NULL");
+
+                    b.HasIndex("SegmentId")
+                        .HasFilter("[SegmentId] IS NOT NULL");
+
+                    b.HasIndex("OrganizationId", "Slug")
+                        .IsUnique()
+                        .HasFilter("[Slug] IS NOT NULL");
+
+                    b.HasIndex("OrganizationId", "Status");
+
+                    b.ToTable("ValuePropositions");
                 });
 
             modelBuilder.Entity("OrbitOS.Domain.Entities.Activity", b =>
@@ -973,6 +2343,56 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Navigation("TargetActivity");
                 });
 
+            modelBuilder.Entity("OrbitOS.Domain.Entities.AiAgent", b =>
+                {
+                    b.HasOne("OrbitOS.Domain.Entities.Organization", "Organization")
+                        .WithMany("AiAgents")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Organization");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.BlockReference", b =>
+                {
+                    b.HasOne("OrbitOS.Domain.Entities.CanvasBlock", "CanvasBlock")
+                        .WithMany("References")
+                        .HasForeignKey("CanvasBlockId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OrbitOS.Domain.Entities.Channel", null)
+                        .WithMany("BlockReferences")
+                        .HasForeignKey("ChannelId");
+
+                    b.HasOne("OrbitOS.Domain.Entities.CustomerRelationship", null)
+                        .WithMany("BlockReferences")
+                        .HasForeignKey("CustomerRelationshipId");
+
+                    b.HasOne("OrbitOS.Domain.Entities.Organization", "Organization")
+                        .WithMany("BlockReferences")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("OrbitOS.Domain.Entities.Partner", null)
+                        .WithMany("BlockReferences")
+                        .HasForeignKey("PartnerId");
+
+                    b.HasOne("OrbitOS.Domain.Entities.RevenueStream", null)
+                        .WithMany("BlockReferences")
+                        .HasForeignKey("RevenueStreamId");
+
+                    b.HasOne("OrbitOS.Domain.Entities.ValueProposition", null)
+                        .WithMany("BlockReferences")
+                        .HasForeignKey("ValuePropositionId");
+
+                    b.Navigation("CanvasBlock");
+
+                    b.Navigation("Organization");
+                });
+
             modelBuilder.Entity("OrbitOS.Domain.Entities.Canvas", b =>
                 {
                     b.HasOne("OrbitOS.Domain.Entities.Organization", "Organization")
@@ -981,7 +2401,28 @@ namespace OrbitOS.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("OrbitOS.Domain.Entities.Canvas", "ParentCanvas")
+                        .WithMany("ChildCanvases")
+                        .HasForeignKey("ParentCanvasId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("OrbitOS.Domain.Entities.Product", "Product")
+                        .WithMany("Canvases")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("OrbitOS.Domain.Entities.Segment", "Segment")
+                        .WithMany("Canvases")
+                        .HasForeignKey("SegmentId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.Navigation("Organization");
+
+                    b.Navigation("ParentCanvas");
+
+                    b.Navigation("Product");
+
+                    b.Navigation("Segment");
                 });
 
             modelBuilder.Entity("OrbitOS.Domain.Entities.CanvasBlock", b =>
@@ -992,7 +2433,102 @@ namespace OrbitOS.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("OrbitOS.Domain.Entities.Organization", "Organization")
+                        .WithMany("CanvasBlocks")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
                     b.Navigation("Canvas");
+
+                    b.Navigation("Organization");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Channel", b =>
+                {
+                    b.HasOne("OrbitOS.Domain.Entities.Organization", "Organization")
+                        .WithMany("Channels")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OrbitOS.Domain.Entities.Partner", "Partner")
+                        .WithMany("Channels")
+                        .HasForeignKey("PartnerId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Organization");
+
+                    b.Navigation("Partner");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Conversation", b =>
+                {
+                    b.HasOne("OrbitOS.Domain.Entities.User", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("OrbitOS.Domain.Entities.Organization", "Organization")
+                        .WithMany("Conversations")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("Organization");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.ConversationParticipant", b =>
+                {
+                    b.HasOne("OrbitOS.Domain.Entities.AiAgent", "AiAgent")
+                        .WithMany()
+                        .HasForeignKey("AiAgentId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("OrbitOS.Domain.Entities.Conversation", "Conversation")
+                        .WithMany("Participants")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OrbitOS.Domain.Entities.Message", "LastSeenMessage")
+                        .WithMany()
+                        .HasForeignKey("LastSeenMessageId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("OrbitOS.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("AiAgent");
+
+                    b.Navigation("Conversation");
+
+                    b.Navigation("LastSeenMessage");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.CustomerRelationship", b =>
+                {
+                    b.HasOne("OrbitOS.Domain.Entities.Organization", "Organization")
+                        .WithMany("CustomerRelationships")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OrbitOS.Domain.Entities.Segment", "Segment")
+                        .WithMany("CustomerRelationships")
+                        .HasForeignKey("SegmentId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Organization");
+
+                    b.Navigation("Segment");
                 });
 
             modelBuilder.Entity("OrbitOS.Domain.Entities.Function", b =>
@@ -1050,6 +2586,38 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Navigation("Parent");
                 });
 
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Message", b =>
+                {
+                    b.HasOne("OrbitOS.Domain.Entities.Conversation", "Conversation")
+                        .WithMany("Messages")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OrbitOS.Domain.Entities.Message", "ParentMessage")
+                        .WithMany("Replies")
+                        .HasForeignKey("ParentMessageId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("OrbitOS.Domain.Entities.AiAgent", "SenderAiAgent")
+                        .WithMany()
+                        .HasForeignKey("SenderAiAgentId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("OrbitOS.Domain.Entities.User", "SenderUser")
+                        .WithMany()
+                        .HasForeignKey("SenderUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Conversation");
+
+                    b.Navigation("ParentMessage");
+
+                    b.Navigation("SenderAiAgent");
+
+                    b.Navigation("SenderUser");
+                });
+
             modelBuilder.Entity("OrbitOS.Domain.Entities.OrganizationMembership", b =>
                 {
                     b.HasOne("OrbitOS.Domain.Entities.Organization", "Organization")
@@ -1069,8 +2637,68 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Partner", b =>
+                {
+                    b.HasOne("OrbitOS.Domain.Entities.Organization", "Organization")
+                        .WithMany("Partners")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Organization");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.PendingAction", b =>
+                {
+                    b.HasOne("OrbitOS.Domain.Entities.AiAgent", "Agent")
+                        .WithMany()
+                        .HasForeignKey("AgentId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("OrbitOS.Domain.Entities.Conversation", "Conversation")
+                        .WithMany()
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("OrbitOS.Domain.Entities.Message", "Message")
+                        .WithMany()
+                        .HasForeignKey("MessageId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("OrbitOS.Domain.Entities.Organization", "Organization")
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OrbitOS.Domain.Entities.User", "ReviewedByUser")
+                        .WithMany()
+                        .HasForeignKey("ReviewedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Agent");
+
+                    b.Navigation("Conversation");
+
+                    b.Navigation("Message");
+
+                    b.Navigation("Organization");
+
+                    b.Navigation("ReviewedByUser");
+                });
+
             modelBuilder.Entity("OrbitOS.Domain.Entities.Process", b =>
                 {
+                    b.HasOne("OrbitOS.Domain.Entities.Activity", "EntryActivity")
+                        .WithMany()
+                        .HasForeignKey("EntryActivityId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("OrbitOS.Domain.Entities.Activity", "ExitActivity")
+                        .WithMany()
+                        .HasForeignKey("ExitActivityId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("OrbitOS.Domain.Entities.Process", "LinkedProcess")
                         .WithMany()
                         .HasForeignKey("LinkedProcessId")
@@ -1087,11 +2715,26 @@ namespace OrbitOS.Infrastructure.Migrations
                         .HasForeignKey("OwnerId")
                         .OnDelete(DeleteBehavior.NoAction);
 
+                    b.Navigation("EntryActivity");
+
+                    b.Navigation("ExitActivity");
+
                     b.Navigation("LinkedProcess");
 
                     b.Navigation("Organization");
 
                     b.Navigation("Owner");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Product", b =>
+                {
+                    b.HasOne("OrbitOS.Domain.Entities.Organization", "Organization")
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Organization");
                 });
 
             modelBuilder.Entity("OrbitOS.Domain.Entities.Resource", b =>
@@ -1107,6 +2750,11 @@ namespace OrbitOS.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("OrbitOS.Domain.Entities.Resource", "ReportsToResource")
+                        .WithMany("DirectReports")
+                        .HasForeignKey("ReportsToResourceId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("OrbitOS.Domain.Entities.ResourceSubtype", "ResourceSubtype")
                         .WithMany("Resources")
                         .HasForeignKey("ResourceSubtypeId")
@@ -1116,6 +2764,8 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Navigation("LinkedUser");
 
                     b.Navigation("Organization");
+
+                    b.Navigation("ReportsToResource");
 
                     b.Navigation("ResourceSubtype");
                 });
@@ -1129,6 +2779,31 @@ namespace OrbitOS.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Organization");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.RevenueStream", b =>
+                {
+                    b.HasOne("OrbitOS.Domain.Entities.Organization", "Organization")
+                        .WithMany("RevenueStreams")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OrbitOS.Domain.Entities.Product", "Product")
+                        .WithMany("RevenueStreams")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("OrbitOS.Domain.Entities.Segment", "Segment")
+                        .WithMany("RevenueStreams")
+                        .HasForeignKey("SegmentId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Organization");
+
+                    b.Navigation("Product");
+
+                    b.Navigation("Segment");
                 });
 
             modelBuilder.Entity("OrbitOS.Domain.Entities.Role", b =>
@@ -1178,6 +2853,17 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Navigation("Function");
 
                     b.Navigation("Role");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Segment", b =>
+                {
+                    b.HasOne("OrbitOS.Domain.Entities.Organization", "Organization")
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Organization");
                 });
 
             modelBuilder.Entity("OrbitOS.Domain.Entities.SystemRolePermission", b =>
@@ -1253,6 +2939,31 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("OrbitOS.Domain.Entities.ValueProposition", b =>
+                {
+                    b.HasOne("OrbitOS.Domain.Entities.Organization", "Organization")
+                        .WithMany("ValuePropositions")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OrbitOS.Domain.Entities.Product", "Product")
+                        .WithMany("ValuePropositions")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("OrbitOS.Domain.Entities.Segment", "Segment")
+                        .WithMany("ValuePropositions")
+                        .HasForeignKey("SegmentId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Organization");
+
+                    b.Navigation("Product");
+
+                    b.Navigation("Segment");
+                });
+
             modelBuilder.Entity("OrbitOS.Domain.Entities.Activity", b =>
                 {
                     b.Navigation("IncomingEdges");
@@ -1263,6 +2974,30 @@ namespace OrbitOS.Infrastructure.Migrations
             modelBuilder.Entity("OrbitOS.Domain.Entities.Canvas", b =>
                 {
                     b.Navigation("Blocks");
+
+                    b.Navigation("ChildCanvases");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.CanvasBlock", b =>
+                {
+                    b.Navigation("References");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Channel", b =>
+                {
+                    b.Navigation("BlockReferences");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Conversation", b =>
+                {
+                    b.Navigation("Messages");
+
+                    b.Navigation("Participants");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.CustomerRelationship", b =>
+                {
+                    b.Navigation("BlockReferences");
                 });
 
             modelBuilder.Entity("OrbitOS.Domain.Entities.Function", b =>
@@ -1279,9 +3014,26 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Navigation("Children");
                 });
 
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Message", b =>
+                {
+                    b.Navigation("Replies");
+                });
+
             modelBuilder.Entity("OrbitOS.Domain.Entities.Organization", b =>
                 {
+                    b.Navigation("AiAgents");
+
+                    b.Navigation("BlockReferences");
+
+                    b.Navigation("CanvasBlocks");
+
                     b.Navigation("Canvases");
+
+                    b.Navigation("Channels");
+
+                    b.Navigation("Conversations");
+
+                    b.Navigation("CustomerRelationships");
 
                     b.Navigation("Functions");
 
@@ -1289,13 +3041,26 @@ namespace OrbitOS.Infrastructure.Migrations
 
                     b.Navigation("Memberships");
 
+                    b.Navigation("Partners");
+
                     b.Navigation("Processes");
 
                     b.Navigation("ResourceSubtypes");
 
                     b.Navigation("Resources");
 
+                    b.Navigation("RevenueStreams");
+
                     b.Navigation("Roles");
+
+                    b.Navigation("ValuePropositions");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Partner", b =>
+                {
+                    b.Navigation("BlockReferences");
+
+                    b.Navigation("Channels");
                 });
 
             modelBuilder.Entity("OrbitOS.Domain.Entities.Permission", b =>
@@ -1310,9 +3075,20 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Navigation("Edges");
                 });
 
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Product", b =>
+                {
+                    b.Navigation("Canvases");
+
+                    b.Navigation("RevenueStreams");
+
+                    b.Navigation("ValuePropositions");
+                });
+
             modelBuilder.Entity("OrbitOS.Domain.Entities.Resource", b =>
                 {
                     b.Navigation("AssignedActivities");
+
+                    b.Navigation("DirectReports");
 
                     b.Navigation("FunctionCapabilities");
 
@@ -1328,11 +3104,27 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Navigation("Resources");
                 });
 
+            modelBuilder.Entity("OrbitOS.Domain.Entities.RevenueStream", b =>
+                {
+                    b.Navigation("BlockReferences");
+                });
+
             modelBuilder.Entity("OrbitOS.Domain.Entities.Role", b =>
                 {
                     b.Navigation("RoleAssignments");
 
                     b.Navigation("RoleFunctions");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.Segment", b =>
+                {
+                    b.Navigation("Canvases");
+
+                    b.Navigation("CustomerRelationships");
+
+                    b.Navigation("RevenueStreams");
+
+                    b.Navigation("ValuePropositions");
                 });
 
             modelBuilder.Entity("OrbitOS.Domain.Entities.SystemRole", b =>
@@ -1351,6 +3143,11 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Navigation("UserRoles");
 
                     b.Navigation("UserSystemRoles");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.ValueProposition", b =>
+                {
+                    b.Navigation("BlockReferences");
                 });
 #pragma warning restore 612, 618
         }

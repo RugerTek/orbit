@@ -1,9 +1,24 @@
 <script setup lang="ts">
+import type { AssignableItem } from '~/components/SearchableAssigner.vue'
+import type { RoleFunction } from '~/composables/useOperations'
+
 definePageMeta({
   layout: 'app'
 })
 
-const { functions, isLoading, fetchFunctions, createFunction, updateFunction, deleteFunction } = useOperations()
+const {
+  functions,
+  roles,
+  isLoading,
+  fetchFunctions,
+  fetchRoles,
+  createFunction,
+  updateFunction,
+  deleteFunction,
+  fetchFunctionRoles,
+  assignRoleToFunction,
+  unassignRoleFromFunction,
+} = useOperations()
 
 // Dialog state
 const showAddDialog = ref(false)
@@ -32,9 +47,14 @@ const editingFunction = ref<{
   description: string
 } | null>(null)
 
+// Role assignment state (for edit mode)
+const assignedRoles = ref<RoleFunction[]>([])
+const loadingRoles = ref(false)
+
 // Fetch functions on mount
 onMounted(async () => {
   await fetchFunctions()
+  await fetchRoles()
 })
 
 // Get unique categories for filter
@@ -87,7 +107,7 @@ const handleAddFunction = async () => {
 }
 
 // Open edit dialog
-const openEditDialog = (func: { id: string; name: string; purpose?: string; category?: string; description?: string }) => {
+const openEditDialog = async (func: { id: string; name: string; purpose?: string; category?: string; description?: string }) => {
   editingFunction.value = {
     id: func.id,
     name: func.name,
@@ -95,7 +115,11 @@ const openEditDialog = (func: { id: string; name: string; purpose?: string; cate
     category: func.category || '',
     description: func.description || ''
   }
+  assignedRoles.value = []
   showEditDialog.value = true
+
+  // Load assigned roles for this function
+  await loadAssignedRoles(func.id)
 }
 
 // Edit function
@@ -178,6 +202,71 @@ const stats = computed(() => ({
   atRisk: functions.value.filter(f => f.coverageStatus === 'at_risk' || f.coverageStatus === 'uncovered').length,
   covered: functions.value.filter(f => f.coverageStatus === 'covered').length
 }))
+
+// Computed properties for SearchableAssigner
+const assignedRolesForAssigner = computed<AssignableItem[]>(() =>
+  assignedRoles.value.map(rf => ({
+    id: rf.roleId,
+    name: rf.roleName,
+    subtitle: rf.roleDepartment || undefined,
+  }))
+)
+
+const availableRolesForAssigner = computed<AssignableItem[]>(() => {
+  const assignedIds = new Set(assignedRoles.value.map(rf => rf.roleId))
+  return roles.value
+    .filter(r => !assignedIds.has(r.id))
+    .map(r => ({
+      id: r.id,
+      name: r.name,
+      subtitle: r.department || undefined,
+    }))
+})
+
+// Load assigned roles for a function
+const loadAssignedRoles = async (functionId: string) => {
+  loadingRoles.value = true
+  try {
+    assignedRoles.value = await fetchFunctionRoles(functionId)
+  } catch (e) {
+    console.error('Failed to load assigned roles:', e)
+    assignedRoles.value = []
+  } finally {
+    loadingRoles.value = false
+  }
+}
+
+// Handle adding a role to the function
+const handleAddRole = async (roleId: string) => {
+  if (!editingFunction.value) return
+  try {
+    const newAssignment = await assignRoleToFunction(editingFunction.value.id, roleId)
+    assignedRoles.value.push(newAssignment)
+    // Update the role count in the local function data
+    const funcIndex = functions.value.findIndex(f => f.id === editingFunction.value?.id)
+    if (funcIndex !== -1) {
+      functions.value[funcIndex].roleCount = (functions.value[funcIndex].roleCount || 0) + 1
+    }
+  } catch (e) {
+    console.error('Failed to assign role:', e)
+  }
+}
+
+// Handle removing a role from the function
+const handleRemoveRole = async (roleId: string) => {
+  if (!editingFunction.value) return
+  try {
+    await unassignRoleFromFunction(editingFunction.value.id, roleId)
+    assignedRoles.value = assignedRoles.value.filter(rf => rf.roleId !== roleId)
+    // Update the role count in the local function data
+    const funcIndex = functions.value.findIndex(f => f.id === editingFunction.value?.id)
+    if (funcIndex !== -1 && (functions.value[funcIndex].roleCount || 0) > 0) {
+      functions.value[funcIndex].roleCount = (functions.value[funcIndex].roleCount || 1) - 1
+    }
+  } catch (e) {
+    console.error('Failed to unassign role:', e)
+  }
+}
 
 // Coverage status colors
 const statusColor = (status: string) => {
@@ -590,6 +679,22 @@ const statusLabel = (status: string) => {
               class="orbitos-input"
               placeholder="Additional details..."
             ></textarea>
+          </div>
+
+          <!-- Role Assignment -->
+          <div class="pt-2 border-t border-white/10">
+            <SearchableAssigner
+              :assigned="assignedRolesForAssigner"
+              :available="availableRolesForAssigner"
+              label="Assigned Roles"
+              search-placeholder="Search roles to add..."
+              :loading="loadingRoles"
+              empty-assigned-text="No roles assigned to this function"
+              empty-available-text="All roles are already assigned"
+              no-results-text="No matching roles found"
+              @add="handleAddRole"
+              @remove="handleRemoveRole"
+            />
           </div>
         </div>
 

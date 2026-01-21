@@ -1,0 +1,252 @@
+{
+  "$schema": "./schema.json",
+  "id": "ENT019",
+  "name": "Message",
+  "description": "A message in a multi-agent conversation, sent by either a human user or an AI agent",
+  "table": "Messages",
+  "status": "implemented",
+  "created_at": "2026-01-17",
+  "updated_at": "2026-01-17",
+
+  "fields": [
+    {
+      "name": "ConversationId",
+      "type": "Guid",
+      "nullable": false,
+      "description": "Conversation this message belongs to"
+    },
+    {
+      "name": "SenderType",
+      "type": "string",
+      "nullable": false,
+      "max_length": 10,
+      "description": "Type of sender: 'user' or 'ai'",
+      "enum": ["user", "ai"]
+    },
+    {
+      "name": "SenderUserId",
+      "type": "Guid",
+      "nullable": true,
+      "description": "User ID if sender is human (null for AI messages)"
+    },
+    {
+      "name": "SenderAiAgentId",
+      "type": "Guid",
+      "nullable": true,
+      "description": "AI Agent ID if sender is AI (null for human messages)"
+    },
+    {
+      "name": "Content",
+      "type": "text",
+      "nullable": false,
+      "description": "Message content (supports markdown)"
+    },
+    {
+      "name": "ContentHtml",
+      "type": "text",
+      "nullable": true,
+      "description": "Pre-rendered HTML for rich content (metrics cards, charts)"
+    },
+    {
+      "name": "MentionedAgentIdsJson",
+      "type": "jsonb",
+      "nullable": true,
+      "description": "JSON array of AI agent IDs that were @mentioned in this message"
+    },
+    {
+      "name": "ReferencedItemsJson",
+      "type": "jsonb",
+      "nullable": true,
+      "description": "JSON array of referenced items (canvases, processes, etc.) with type and ID"
+    },
+    {
+      "name": "SourcesJson",
+      "type": "jsonb",
+      "nullable": true,
+      "description": "JSON array of data sources used by AI to generate this response"
+    },
+    {
+      "name": "TokensUsed",
+      "type": "int",
+      "nullable": true,
+      "description": "Tokens consumed for AI response (null for human messages)"
+    },
+    {
+      "name": "ResponseTimeMs",
+      "type": "int",
+      "nullable": true,
+      "description": "AI response time in milliseconds (null for human messages)"
+    },
+    {
+      "name": "CostCents",
+      "type": "int",
+      "nullable": true,
+      "description": "Cost in cents for this AI response (null for human messages)"
+    },
+    {
+      "name": "ModelUsed",
+      "type": "string",
+      "nullable": true,
+      "max_length": 100,
+      "description": "Model ID used for AI response (e.g., 'claude-sonnet-4-20250514')"
+    },
+    {
+      "name": "Status",
+      "type": "string",
+      "nullable": false,
+      "max_length": 20,
+      "default": "sent",
+      "description": "Message status: 'pending', 'sent', 'streaming', 'failed'",
+      "enum": ["pending", "sent", "streaming", "failed"]
+    },
+    {
+      "name": "ParentMessageId",
+      "type": "Guid",
+      "nullable": true,
+      "description": "Parent message ID for threaded replies"
+    },
+    {
+      "name": "SequenceNumber",
+      "type": "int",
+      "nullable": false,
+      "description": "Order of message within the conversation"
+    }
+  ],
+
+  "validation_rules": [
+    {
+      "id": "R-MSG-001",
+      "field": "Content",
+      "rule": "Required, minimum 1 character",
+      "error_code": "CONTENT_REQUIRED",
+      "error_message": "Message content is required"
+    },
+    {
+      "id": "R-MSG-002",
+      "rule": "Either SenderUserId or SenderAiAgentId must be set, not both",
+      "error_code": "INVALID_SENDER",
+      "error_message": "Message must have exactly one sender"
+    },
+    {
+      "id": "R-MSG-003",
+      "field": "SenderType",
+      "rule": "Must match the sender ID field (user ID for 'user', agent ID for 'ai')",
+      "error_code": "SENDER_TYPE_MISMATCH",
+      "error_message": "Sender type does not match sender ID"
+    }
+  ],
+
+  "relationships": [
+    {
+      "type": "many-to-one",
+      "entity": "ENT018",
+      "foreign_key": "ConversationId",
+      "navigation": "Conversation",
+      "description": "Conversation this message belongs to"
+    },
+    {
+      "type": "many-to-one",
+      "entity": "ENT001",
+      "foreign_key": "SenderUserId",
+      "navigation": "SenderUser",
+      "description": "User who sent the message (if human)"
+    },
+    {
+      "type": "many-to-one",
+      "entity": "ENT017",
+      "foreign_key": "SenderAiAgentId",
+      "navigation": "SenderAiAgent",
+      "description": "AI agent that sent the message (if AI)"
+    },
+    {
+      "type": "many-to-one",
+      "entity": "ENT019",
+      "foreign_key": "ParentMessageId",
+      "navigation": "ParentMessage",
+      "description": "Parent message for threaded replies"
+    },
+    {
+      "type": "one-to-many",
+      "entity": "ENT019",
+      "inverse_key": "ParentMessageId",
+      "navigation": "Replies",
+      "description": "Reply messages to this message"
+    }
+  ],
+
+  "indexes": [
+    {
+      "name": "IX_Messages_ConversationId",
+      "columns": ["ConversationId"]
+    },
+    {
+      "name": "IX_Messages_ConversationId_SequenceNumber",
+      "columns": ["ConversationId", "SequenceNumber"]
+    },
+    {
+      "name": "IX_Messages_ConversationId_CreatedAt",
+      "columns": ["ConversationId", "CreatedAt"]
+    },
+    {
+      "name": "IX_Messages_SenderUserId",
+      "columns": ["SenderUserId"],
+      "filter": "SenderUserId IS NOT NULL"
+    },
+    {
+      "name": "IX_Messages_SenderAiAgentId",
+      "columns": ["SenderAiAgentId"],
+      "filter": "SenderAiAgentId IS NOT NULL"
+    }
+  ],
+
+  "api_representation": {
+    "dto_name": "MessageDto",
+    "include_fields": ["Id", "ConversationId", "SenderType", "Content", "ContentHtml", "TokensUsed", "ResponseTimeMs", "CostCents", "ModelUsed", "Status", "SequenceNumber", "CreatedAt"],
+    "exclude_fields": [],
+    "computed_fields": [
+      {
+        "name": "SenderUser",
+        "type": "UserSummaryDto",
+        "computation": "Load from SenderUser if SenderType == 'user'"
+      },
+      {
+        "name": "SenderAiAgent",
+        "type": "AiAgentSummaryDto",
+        "computation": "Load from SenderAiAgent if SenderType == 'ai'"
+      },
+      {
+        "name": "MentionedAgentIds",
+        "type": "Guid[]",
+        "computation": "Deserialize MentionedAgentIdsJson"
+      },
+      {
+        "name": "ReferencedItems",
+        "type": "ReferencedItemDto[]",
+        "computation": "Deserialize ReferencedItemsJson"
+      },
+      {
+        "name": "Sources",
+        "type": "SourceDto[]",
+        "computation": "Deserialize SourcesJson"
+      },
+      {
+        "name": "Cost",
+        "type": "decimal",
+        "computation": "CostCents / 100.0"
+      }
+    ]
+  },
+
+  "audit_requirements": {
+    "log_create": true,
+    "log_update": false,
+    "log_delete": true,
+    "sensitive_fields": []
+  },
+
+  "code_location": {
+    "entity": "orbitos-api/src/OrbitOS.Domain/Entities/Message.cs",
+    "dto": "orbitos-api/src/OrbitOS.Api/Controllers/ConversationsController.cs",
+    "frontend_type": "orbitos-web/app/types/ai-agents.ts"
+  }
+}

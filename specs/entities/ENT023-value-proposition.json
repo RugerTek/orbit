@@ -1,0 +1,389 @@
+{
+  "$schema": "./schema.json",
+  "id": "ENT023",
+  "name": "ValueProposition",
+  "description": "A specific value proposition that describes how a product or service creates value for a customer segment. Based on the Value Proposition Canvas methodology - captures customer jobs, pains, gains and how the offering addresses them.",
+  "table": "ValuePropositions",
+  "status": "draft",
+  "created_at": "2026-01-17",
+  "updated_at": "2026-01-17",
+
+  "fields": [
+    {
+      "name": "OrganizationId",
+      "type": "Guid",
+      "nullable": false,
+      "references": "ENT002",
+      "description": "Organization that owns this value proposition"
+    },
+    {
+      "name": "Name",
+      "type": "string",
+      "nullable": false,
+      "max_length": 255,
+      "description": "Value proposition title"
+    },
+    {
+      "name": "Slug",
+      "type": "string",
+      "nullable": false,
+      "max_length": 100,
+      "description": "URL-friendly unique identifier within organization"
+    },
+    {
+      "name": "Headline",
+      "type": "string",
+      "nullable": false,
+      "max_length": 500,
+      "description": "One-line value proposition statement"
+    },
+    {
+      "name": "Description",
+      "type": "string",
+      "nullable": true,
+      "max_length": 2000,
+      "description": "Detailed explanation of the value proposition"
+    },
+    {
+      "name": "Status",
+      "type": "enum",
+      "nullable": false,
+      "enum_values": ["Draft", "Validated", "Active", "Testing", "Retired"],
+      "description": "Validation and lifecycle status"
+    },
+    {
+      "name": "ProductId",
+      "type": "Guid",
+      "nullable": true,
+      "references": "ENT008",
+      "description": "Primary product this value proposition relates to"
+    },
+    {
+      "name": "SegmentId",
+      "type": "Guid",
+      "nullable": true,
+      "references": "ENT009",
+      "description": "Primary customer segment this value proposition targets"
+    },
+    {
+      "name": "CustomerJobs",
+      "type": "json",
+      "nullable": true,
+      "description": "Jobs the customer is trying to get done",
+      "json_schema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["job"],
+          "properties": {
+            "job": { "type": "string", "description": "What the customer is trying to accomplish" },
+            "type": { "type": "string", "enum": ["functional", "social", "emotional"], "description": "Type of job" },
+            "importance": { "type": "string", "enum": ["critical", "important", "nice_to_have"] },
+            "current_solution": { "type": "string", "description": "How they currently solve this" }
+          }
+        }
+      }
+    },
+    {
+      "name": "Pains",
+      "type": "json",
+      "nullable": true,
+      "description": "Customer pains, frustrations, and obstacles",
+      "json_schema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["pain"],
+          "properties": {
+            "pain": { "type": "string", "description": "The pain or frustration" },
+            "severity": { "type": "string", "enum": ["extreme", "severe", "moderate", "minor"] },
+            "frequency": { "type": "string", "enum": ["constant", "frequent", "occasional", "rare"] }
+          }
+        }
+      }
+    },
+    {
+      "name": "Gains",
+      "type": "json",
+      "nullable": true,
+      "description": "Outcomes and benefits customers want",
+      "json_schema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["gain"],
+          "properties": {
+            "gain": { "type": "string", "description": "The desired outcome or benefit" },
+            "type": { "type": "string", "enum": ["required", "expected", "desired", "unexpected"] },
+            "relevance": { "type": "string", "enum": ["essential", "important", "nice_to_have"] }
+          }
+        }
+      }
+    },
+    {
+      "name": "PainRelievers",
+      "type": "json",
+      "nullable": true,
+      "description": "How our product/service alleviates customer pains",
+      "json_schema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["reliever"],
+          "properties": {
+            "reliever": { "type": "string", "description": "How we relieve the pain" },
+            "addresses_pain": { "type": "string", "description": "Which pain this addresses" },
+            "effectiveness": { "type": "string", "enum": ["eliminates", "reduces", "minimizes"] }
+          }
+        }
+      }
+    },
+    {
+      "name": "GainCreators",
+      "type": "json",
+      "nullable": true,
+      "description": "How our product/service creates customer gains",
+      "json_schema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["creator"],
+          "properties": {
+            "creator": { "type": "string", "description": "How we create the gain" },
+            "addresses_gain": { "type": "string", "description": "Which gain this creates" },
+            "impact": { "type": "string", "enum": ["major", "moderate", "minor"] }
+          }
+        }
+      }
+    },
+    {
+      "name": "ProductsServices",
+      "type": "json",
+      "nullable": true,
+      "description": "Specific products and services that deliver this value proposition",
+      "json_schema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "type": { "type": "string", "enum": ["physical", "digital", "service", "financial"] },
+            "role": { "type": "string", "enum": ["core", "supporting", "add_on"] }
+          }
+        }
+      }
+    },
+    {
+      "name": "Differentiators",
+      "type": "json",
+      "nullable": true,
+      "description": "What makes this value proposition unique vs competitors",
+      "json_schema": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    },
+    {
+      "name": "Validation",
+      "type": "json",
+      "nullable": true,
+      "description": "Evidence that validates this value proposition",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "customer_interviews": { "type": "integer", "description": "Number of customer interviews conducted" },
+          "conversion_rate": { "type": "number", "description": "Landing page or sales conversion rate" },
+          "nps_score": { "type": "number", "description": "Net Promoter Score" },
+          "testimonials": { "type": "integer", "description": "Number of testimonials collected" },
+          "validation_date": { "type": "string", "format": "date" },
+          "confidence_level": { "type": "string", "enum": ["hypothesis", "tested", "validated", "proven"] }
+        }
+      }
+    },
+    {
+      "name": "Tags",
+      "type": "json",
+      "nullable": true,
+      "description": "Tags for categorization and filtering",
+      "json_schema": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    }
+  ],
+
+  "validation_rules": [
+    {
+      "id": "R-VPR-001",
+      "field": "Slug",
+      "rule": "Must be unique within the organization",
+      "error_code": "VALUE_PROP_SLUG_EXISTS",
+      "error_message": "A value proposition with this slug already exists in this organization"
+    },
+    {
+      "id": "R-VPR-002",
+      "field": "Slug",
+      "rule": "Must be URL-safe (lowercase, alphanumeric, hyphens only)",
+      "error_code": "VALUE_PROP_SLUG_INVALID",
+      "error_message": "Slug must contain only lowercase letters, numbers, and hyphens"
+    },
+    {
+      "id": "R-VPR-003",
+      "field": "Name",
+      "rule": "Required, 1-255 characters",
+      "error_code": "VALUE_PROP_NAME_REQUIRED",
+      "error_message": "Value proposition name is required"
+    },
+    {
+      "id": "R-VPR-004",
+      "field": "Headline",
+      "rule": "Required, 1-500 characters",
+      "error_code": "VALUE_PROP_HEADLINE_REQUIRED",
+      "error_message": "Value proposition headline is required"
+    },
+    {
+      "id": "R-VPR-005",
+      "field": "ProductId",
+      "rule": "If provided, product must belong to the same organization",
+      "error_code": "VALUE_PROP_PRODUCT_ORG_MISMATCH",
+      "error_message": "Product does not belong to this organization"
+    },
+    {
+      "id": "R-VPR-006",
+      "field": "SegmentId",
+      "rule": "If provided, segment must belong to the same organization",
+      "error_code": "VALUE_PROP_SEGMENT_ORG_MISMATCH",
+      "error_message": "Segment does not belong to this organization"
+    }
+  ],
+
+  "relationships": [
+    {
+      "type": "many-to-one",
+      "entity": "ENT002",
+      "foreign_key": "OrganizationId",
+      "navigation": "Organization",
+      "description": "Organization that owns this value proposition"
+    },
+    {
+      "type": "many-to-one",
+      "entity": "ENT008",
+      "foreign_key": "ProductId",
+      "navigation": "Product",
+      "description": "Primary product (optional)"
+    },
+    {
+      "type": "many-to-one",
+      "entity": "ENT009",
+      "foreign_key": "SegmentId",
+      "navigation": "Segment",
+      "description": "Primary customer segment (optional)"
+    },
+    {
+      "type": "one-to-many",
+      "entity": "ENT013",
+      "inverse_key": "EntityId",
+      "navigation": "BlockReferences",
+      "description": "Canvas block references that point to this value proposition",
+      "polymorphic_filter": "EntityType = 'ValueProposition'"
+    }
+  ],
+
+  "indexes": [
+    {
+      "name": "IX_ValuePropositions_OrganizationId_Slug",
+      "columns": ["OrganizationId", "Slug"],
+      "unique": true
+    },
+    {
+      "name": "IX_ValuePropositions_OrganizationId_Status",
+      "columns": ["OrganizationId", "Status"],
+      "unique": false
+    },
+    {
+      "name": "IX_ValuePropositions_ProductId",
+      "columns": ["ProductId"],
+      "unique": false,
+      "filter": "ProductId IS NOT NULL"
+    },
+    {
+      "name": "IX_ValuePropositions_SegmentId",
+      "columns": ["SegmentId"],
+      "unique": false,
+      "filter": "SegmentId IS NOT NULL"
+    }
+  ],
+
+  "api_representation": {
+    "dto_name": "ValuePropositionDto",
+    "include_fields": ["Id", "OrganizationId", "Name", "Slug", "Headline", "Description", "Status", "ProductId", "SegmentId", "CustomerJobs", "Pains", "Gains", "PainRelievers", "GainCreators", "ProductsServices", "Differentiators", "Validation", "Tags", "CreatedAt", "UpdatedAt"],
+    "computed_fields": [
+      {
+        "name": "ProductName",
+        "type": "string",
+        "computation": "Product.Name if ProductId is set"
+      },
+      {
+        "name": "SegmentName",
+        "type": "string",
+        "computation": "Segment.Name if SegmentId is set"
+      },
+      {
+        "name": "CanvasReferenceCount",
+        "type": "int",
+        "computation": "Count of BlockReferences pointing to this value proposition"
+      },
+      {
+        "name": "FitScore",
+        "type": "decimal",
+        "computation": "Calculated fit between pains/gains and relievers/creators"
+      }
+    ]
+  },
+
+  "audit_requirements": {
+    "log_create": true,
+    "log_update": true,
+    "log_delete": true,
+    "sensitive_fields": ["Validation"]
+  },
+
+  "multi_tenancy": {
+    "is_tenant_root": false,
+    "scope_field": "OrganizationId",
+    "scoping_behavior": "All queries must be filtered by OrganizationId"
+  },
+
+  "ai_capabilities": {
+    "description": "AI can analyze value propositions to assess product-market fit, identify gaps, and suggest improvements",
+    "analyzable_fields": ["CustomerJobs", "Pains", "Gains", "PainRelievers", "GainCreators", "Differentiators", "Validation"],
+    "cross_entity_analysis": [
+      "Calculate product-market fit score",
+      "Identify unaddressed customer pains",
+      "Find gaps between gains and gain creators",
+      "Compare value propositions across products",
+      "Suggest differentiation opportunities",
+      "Analyze validation strength"
+    ],
+    "ai_actions": [
+      {
+        "action": "generate_headline",
+        "description": "Generate value proposition headline from jobs, pains, gains"
+      },
+      {
+        "action": "suggest_pain_relievers",
+        "description": "Suggest pain relievers based on identified pains"
+      },
+      {
+        "action": "assess_fit",
+        "description": "Assess fit between customer profile and value map"
+      }
+    ]
+  },
+
+  "code_location": {
+    "entity": "orbitos-api/src/OrbitOS.Domain/Entities/ValueProposition.cs",
+    "dto": "orbitos-api/src/OrbitOS.Api/Controllers/ValuePropositionsController.cs",
+    "frontend_type": "orbitos-web/app/types/entities/value-proposition.ts"
+  }
+}

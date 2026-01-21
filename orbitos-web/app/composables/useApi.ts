@@ -53,6 +53,12 @@ export const useApi = () => {
       body: JSON.stringify(data),
     })
 
+  const patch = <T>(endpoint: string, data: unknown) =>
+    apiFetch<T>(endpoint, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
+
   const del = <T>(endpoint: string) => apiFetch<T>(endpoint, { method: 'DELETE' })
 
   return {
@@ -60,6 +66,7 @@ export const useApi = () => {
     get,
     post,
     put,
+    patch,
     delete: del,
     isAuthenticated,
   }

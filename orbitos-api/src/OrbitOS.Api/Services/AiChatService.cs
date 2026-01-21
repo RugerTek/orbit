@@ -49,6 +49,7 @@ public class AiChatError
 public class AiChatService : IAiChatService
 {
     private readonly OrbitOSDbContext _dbContext;
+    private readonly IOrganizationContextService _contextService;
     private readonly ILogger<AiChatService> _logger;
     private readonly HttpClient _httpClient;
     private readonly string _apiKey;
@@ -56,11 +57,13 @@ public class AiChatService : IAiChatService
 
     public AiChatService(
         OrbitOSDbContext dbContext,
+        IOrganizationContextService contextService,
         ILogger<AiChatService> logger,
         IConfiguration configuration,
         IHttpClientFactory httpClientFactory)
     {
         _dbContext = dbContext;
+        _contextService = contextService;
         _logger = logger;
         _httpClient = httpClientFactory.CreateClient("Anthropic");
         _apiKey = configuration["ANTHROPIC_API_KEY"]
@@ -72,8 +75,9 @@ public class AiChatService : IAiChatService
     {
         try
         {
-            var orgContext = await BuildOrganizationContextAsync(organizationId, request.Context, cancellationToken);
-            var systemPrompt = BuildSystemPrompt(orgContext);
+            // Use shared context service
+            var orgContext = await _contextService.BuildContextAsync(organizationId, cancellationToken);
+            var systemPrompt = _contextService.BuildSystemPrompt(orgContext);
             var messages = new List<ClaudeMessage>();
 
             if (request.History != null)
@@ -141,188 +145,6 @@ public class AiChatService : IAiChatService
         {
             PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
         }) ?? throw new Exception("Failed to parse Claude response");
-    }
-
-    private async Task<OrganizationContext> BuildOrganizationContextAsync(
-        Guid organizationId,
-        string? contextType,
-        CancellationToken cancellationToken)
-    {
-        var context = new OrganizationContext();
-
-        var org = await _dbContext.Organizations
-            .FirstOrDefaultAsync(o => o.Id == organizationId, cancellationToken);
-
-        if (org != null)
-        {
-            context.OrganizationName = org.Name;
-        }
-
-        var people = await _dbContext.Resources
-            .Include(r => r.ResourceSubtype)
-            .Include(r => r.RoleAssignments)
-                .ThenInclude(ra => ra.Role)
-            .Include(r => r.FunctionCapabilities)
-                .ThenInclude(fc => fc.Function)
-            .Where(r => r.OrganizationId == organizationId && r.ResourceSubtype.ResourceType == ResourceType.Person)
-            .ToListAsync(cancellationToken);
-
-        context.People = people.Select(p => new PersonContext
-        {
-            Id = p.Id,
-            Name = p.Name,
-            Description = p.Description,
-            Status = p.Status.ToString(),
-            Roles = p.RoleAssignments.Select(ra => new RoleContext
-            {
-                Id = ra.RoleId,
-                Name = ra.Role.Name,
-                AllocationPercentage = ra.AllocationPercentage,
-                IsPrimary = ra.IsPrimary
-            }).ToList(),
-            Capabilities = p.FunctionCapabilities.Select(fc => new CapabilityContext
-            {
-                FunctionId = fc.FunctionId,
-                FunctionName = fc.Function.Name,
-                Level = fc.Level.ToString()
-            }).ToList()
-        }).ToList();
-
-        var roles = await _dbContext.Roles
-            .Where(r => r.OrganizationId == organizationId)
-            .Select(r => new RoleSummary
-            {
-                Id = r.Id,
-                Name = r.Name,
-                Description = r.Description,
-                Department = r.Department,
-                AssignmentCount = _dbContext.RoleAssignments.Count(ra => ra.RoleId == r.Id)
-            })
-            .ToListAsync(cancellationToken);
-
-        context.Roles = roles;
-
-        var functions = await _dbContext.Functions
-            .Where(f => f.OrganizationId == organizationId)
-            .Select(f => new FunctionSummary
-            {
-                Id = f.Id,
-                Name = f.Name,
-                Description = f.Description,
-                Category = f.Category,
-                CapabilityCount = f.FunctionCapabilities.Count
-            })
-            .ToListAsync(cancellationToken);
-
-        context.Functions = functions;
-
-        var subtypes = await _dbContext.ResourceSubtypes
-            .Where(s => s.OrganizationId == organizationId && s.ResourceType == ResourceType.Person)
-            .Select(s => new SubtypeContext { Id = s.Id, Name = s.Name })
-            .ToListAsync(cancellationToken);
-
-        context.PersonSubtypes = subtypes;
-
-        return context;
-    }
-
-    private string BuildSystemPrompt(OrganizationContext context)
-    {
-        var sb = new StringBuilder();
-
-        sb.AppendLine("You are an AI assistant for OrbitOS, a business operating system that helps organizations manage their operations.");
-        sb.AppendLine();
-        sb.AppendLine($"You are helping the organization: {context.OrganizationName ?? "Unknown Organization"}");
-        sb.AppendLine();
-        sb.AppendLine("## Your Capabilities");
-        sb.AppendLine("You can help with:");
-        sb.AppendLine();
-        sb.AppendLine("### People Management");
-        sb.AppendLine("- Viewing and understanding the organization's people, roles, and functions");
-        sb.AppendLine("- Adding new people to the organization");
-        sb.AppendLine("- Updating existing people's information");
-        sb.AppendLine("- Assigning roles to people");
-        sb.AppendLine("- Adding function capabilities to people");
-        sb.AppendLine();
-        sb.AppendLine("### Function Management");
-        sb.AppendLine("- Creating new business functions (capabilities/skills)");
-        sb.AppendLine("- Updating existing functions (name, description, category)");
-        sb.AppendLine("- Bulk creating multiple functions at once");
-        sb.AppendLine("- Suggesting new functions based on organization context");
-        sb.AppendLine("- Analyzing and suggesting improvements for existing functions");
-        sb.AppendLine("- Deleting functions");
-        sb.AppendLine();
-        sb.AppendLine("### Analysis");
-        sb.AppendLine("- Analyzing organizational health (coverage gaps, single points of failure)");
-        sb.AppendLine();
-        sb.AppendLine("## Current Organization Data");
-        sb.AppendLine();
-
-        sb.AppendLine($"### People ({context.People.Count} total)");
-        if (context.People.Any())
-        {
-            foreach (var person in context.People)
-            {
-                sb.AppendLine($"- **{person.Name}** (ID: {person.Id}, Status: {person.Status})");
-                if (person.Roles.Any())
-                    sb.AppendLine($"  - Roles: {string.Join(", ", person.Roles.Select(r => r.Name + (r.IsPrimary ? " (Primary)" : "")))}");
-                if (person.Capabilities.Any())
-                    sb.AppendLine($"  - Capabilities: {string.Join(", ", person.Capabilities.Select(c => c.FunctionName))}");
-            }
-        }
-        else
-        {
-            sb.AppendLine("No people have been added yet.");
-        }
-        sb.AppendLine();
-
-        sb.AppendLine($"### Roles ({context.Roles.Count} total)");
-        if (context.Roles.Any())
-        {
-            foreach (var role in context.Roles)
-            {
-                sb.AppendLine($"- **{role.Name}** (ID: {role.Id}) - {role.AssignmentCount} people assigned");
-                if (!string.IsNullOrEmpty(role.Department))
-                    sb.AppendLine($"  - Department: {role.Department}");
-            }
-        }
-        else
-        {
-            sb.AppendLine("No roles have been defined yet.");
-        }
-        sb.AppendLine();
-
-        sb.AppendLine($"### Functions ({context.Functions.Count} total)");
-        if (context.Functions.Any())
-        {
-            foreach (var func in context.Functions)
-            {
-                sb.AppendLine($"- **{func.Name}** (ID: {func.Id}) - {func.CapabilityCount} people capable");
-                if (!string.IsNullOrEmpty(func.Category))
-                    sb.AppendLine($"  - Category: {func.Category}");
-            }
-        }
-        else
-        {
-            sb.AppendLine("No functions have been defined yet.");
-        }
-        sb.AppendLine();
-
-        if (context.PersonSubtypes.Any())
-        {
-            sb.AppendLine("### Available Person Types");
-            foreach (var subtype in context.PersonSubtypes)
-                sb.AppendLine($"- {subtype.Name} (ID: {subtype.Id})");
-            sb.AppendLine();
-        }
-
-        sb.AppendLine("## Response Guidelines");
-        sb.AppendLine("- Be concise and helpful");
-        sb.AppendLine("- When asked to make changes, use the appropriate tool");
-        sb.AppendLine("- Provide actionable insights about organizational health");
-        sb.AppendLine("- Format responses nicely with bullet points and bold text");
-
-        return sb.ToString();
     }
 
     private List<ClaudeTool> BuildTools()
@@ -495,6 +317,264 @@ public class AiChatService : IAiChatService
                     },
                     Required = new[] { "functionId" }
                 }
+            },
+            // Process Management Tools
+            new ClaudeTool
+            {
+                Name = "create_process",
+                Description = "Create a new business process",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["name"] = new ClaudeToolProperty { Type = "string", Description = "The process name" },
+                        ["purpose"] = new ClaudeToolProperty { Type = "string", Description = "The purpose of this process" },
+                        ["description"] = new ClaudeToolProperty { Type = "string", Description = "Detailed description" },
+                        ["trigger"] = new ClaudeToolProperty { Type = "string", Description = "What triggers this process" },
+                        ["output"] = new ClaudeToolProperty { Type = "string", Description = "Expected output" },
+                        ["frequency"] = new ClaudeToolProperty { Type = "string", Description = "Frequency: Daily, Weekly, Monthly, OnDemand, Continuous" }
+                    },
+                    Required = new[] { "name" }
+                }
+            },
+            new ClaudeTool
+            {
+                Name = "bulk_create_processes",
+                Description = "Create multiple business processes at once",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["processes"] = new ClaudeToolProperty { Type = "array", Description = "Array of process objects with name, purpose, description, trigger, output, frequency" }
+                    },
+                    Required = new[] { "processes" }
+                }
+            },
+            // Goal Management Tools
+            new ClaudeTool
+            {
+                Name = "create_goal",
+                Description = "Create a new goal, objective, or key result",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["name"] = new ClaudeToolProperty { Type = "string", Description = "The goal name" },
+                        ["description"] = new ClaudeToolProperty { Type = "string", Description = "Description of the goal" },
+                        ["goalType"] = new ClaudeToolProperty { Type = "string", Description = "Type: Objective, KeyResult, Initiative" },
+                        ["targetValue"] = new ClaudeToolProperty { Type = "number", Description = "Target value to achieve" },
+                        ["unit"] = new ClaudeToolProperty { Type = "string", Description = "Unit (%, $, count, etc.)" },
+                        ["parentId"] = new ClaudeToolProperty { Type = "string", Description = "Parent goal ID for hierarchy" }
+                    },
+                    Required = new[] { "name", "goalType" }
+                }
+            },
+            new ClaudeTool
+            {
+                Name = "bulk_create_goals",
+                Description = "Create multiple goals at once (useful for OKR sets)",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["goals"] = new ClaudeToolProperty { Type = "array", Description = "Array of goal objects with name, description, goalType, targetValue, unit" }
+                    },
+                    Required = new[] { "goals" }
+                }
+            },
+            // Partner Management Tools
+            new ClaudeTool
+            {
+                Name = "create_partner",
+                Description = "Create a new partner (supplier, distributor, strategic partner)",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["name"] = new ClaudeToolProperty { Type = "string", Description = "The partner name" },
+                        ["description"] = new ClaudeToolProperty { Type = "string", Description = "Description of the partnership" },
+                        ["type"] = new ClaudeToolProperty { Type = "string", Description = "Type: Supplier, Distributor, Strategic, Technology, Agency, Reseller, Affiliate, JointVenture" },
+                        ["strategicValue"] = new ClaudeToolProperty { Type = "string", Description = "Value: Critical, High, Medium, Low" }
+                    },
+                    Required = new[] { "name", "type" }
+                }
+            },
+            new ClaudeTool
+            {
+                Name = "bulk_create_partners",
+                Description = "Create multiple partners at once",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["partners"] = new ClaudeToolProperty { Type = "array", Description = "Array of partner objects with name, description, type, strategicValue" }
+                    },
+                    Required = new[] { "partners" }
+                }
+            },
+            // Channel Management Tools
+            new ClaudeTool
+            {
+                Name = "create_channel",
+                Description = "Create a new channel (sales, marketing, distribution)",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["name"] = new ClaudeToolProperty { Type = "string", Description = "The channel name" },
+                        ["description"] = new ClaudeToolProperty { Type = "string", Description = "Description" },
+                        ["type"] = new ClaudeToolProperty { Type = "string", Description = "Type: Direct, Indirect, Digital, Physical, Hybrid" },
+                        ["category"] = new ClaudeToolProperty { Type = "string", Description = "Category: Sales, Marketing, Distribution, Support, Communication" },
+                        ["ownership"] = new ClaudeToolProperty { Type = "string", Description = "Ownership: Owned, Partner, ThirdParty" }
+                    },
+                    Required = new[] { "name", "type", "category" }
+                }
+            },
+            new ClaudeTool
+            {
+                Name = "bulk_create_channels",
+                Description = "Create multiple channels at once",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["channels"] = new ClaudeToolProperty { Type = "array", Description = "Array of channel objects with name, description, type, category, ownership" }
+                    },
+                    Required = new[] { "channels" }
+                }
+            },
+            // Value Proposition Management Tools
+            new ClaudeTool
+            {
+                Name = "create_value_proposition",
+                Description = "Create a new value proposition",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["name"] = new ClaudeToolProperty { Type = "string", Description = "The value proposition name" },
+                        ["headline"] = new ClaudeToolProperty { Type = "string", Description = "Short headline" },
+                        ["description"] = new ClaudeToolProperty { Type = "string", Description = "Detailed description" }
+                    },
+                    Required = new[] { "name", "headline" }
+                }
+            },
+            new ClaudeTool
+            {
+                Name = "bulk_create_value_propositions",
+                Description = "Create multiple value propositions at once",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["valuePropositions"] = new ClaudeToolProperty { Type = "array", Description = "Array of value proposition objects with name, headline, description" }
+                    },
+                    Required = new[] { "valuePropositions" }
+                }
+            },
+            // Customer Relationship Management Tools
+            new ClaudeTool
+            {
+                Name = "create_customer_relationship",
+                Description = "Create a new customer relationship type",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["name"] = new ClaudeToolProperty { Type = "string", Description = "The relationship name" },
+                        ["description"] = new ClaudeToolProperty { Type = "string", Description = "Description" },
+                        ["type"] = new ClaudeToolProperty { Type = "string", Description = "Type: PersonalAssistance, DedicatedAssistance, SelfService, AutomatedService, Communities, CoCreation" }
+                    },
+                    Required = new[] { "name", "type" }
+                }
+            },
+            new ClaudeTool
+            {
+                Name = "bulk_create_customer_relationships",
+                Description = "Create multiple customer relationship types at once",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["customerRelationships"] = new ClaudeToolProperty { Type = "array", Description = "Array of customer relationship objects with name, description, type" }
+                    },
+                    Required = new[] { "customerRelationships" }
+                }
+            },
+            // Revenue Stream Management Tools
+            new ClaudeTool
+            {
+                Name = "create_revenue_stream",
+                Description = "Create a new revenue stream",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["name"] = new ClaudeToolProperty { Type = "string", Description = "The revenue stream name" },
+                        ["description"] = new ClaudeToolProperty { Type = "string", Description = "Description" },
+                        ["type"] = new ClaudeToolProperty { Type = "string", Description = "Type: AssetSale, UsageFee, Subscription, Licensing, Brokerage, Advertising, Leasing, Commission" },
+                        ["pricingMechanism"] = new ClaudeToolProperty { Type = "string", Description = "Pricing: Fixed, Dynamic, Negotiated, Auction, MarketDependent, VolumeDependent" }
+                    },
+                    Required = new[] { "name", "type" }
+                }
+            },
+            new ClaudeTool
+            {
+                Name = "bulk_create_revenue_streams",
+                Description = "Create multiple revenue streams at once",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["revenueStreams"] = new ClaudeToolProperty { Type = "array", Description = "Array of revenue stream objects with name, description, type, pricingMechanism" }
+                    },
+                    Required = new[] { "revenueStreams" }
+                }
+            },
+            // Role Management Tool
+            new ClaudeTool
+            {
+                Name = "create_role",
+                Description = "Create a new organizational role",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["name"] = new ClaudeToolProperty { Type = "string", Description = "The role name" },
+                        ["description"] = new ClaudeToolProperty { Type = "string", Description = "Description of responsibilities" },
+                        ["department"] = new ClaudeToolProperty { Type = "string", Description = "Department this role belongs to" }
+                    },
+                    Required = new[] { "name" }
+                }
+            },
+            new ClaudeTool
+            {
+                Name = "bulk_create_roles",
+                Description = "Create multiple roles at once",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["roles"] = new ClaudeToolProperty { Type = "array", Description = "Array of role objects with name, description, department" }
+                    },
+                    Required = new[] { "roles" }
+                }
             }
         };
     }
@@ -601,6 +681,30 @@ public class AiChatService : IAiChatService
                 "suggest_functions" => await SuggestFunctionsAsync(organizationId, input, cancellationToken),
                 "suggest_improvements" => await SuggestImprovementsAsync(organizationId, cancellationToken),
                 "delete_function" => await DeleteFunctionAsync(organizationId, input, cancellationToken),
+                // Process management tools
+                "create_process" => await CreateProcessAsync(organizationId, input, cancellationToken),
+                "bulk_create_processes" => await BulkCreateProcessesAsync(organizationId, input, cancellationToken),
+                // Goal management tools
+                "create_goal" => await CreateGoalAsync(organizationId, input, cancellationToken),
+                "bulk_create_goals" => await BulkCreateGoalsAsync(organizationId, input, cancellationToken),
+                // Partner management tools
+                "create_partner" => await CreatePartnerAsync(organizationId, input, cancellationToken),
+                "bulk_create_partners" => await BulkCreatePartnersAsync(organizationId, input, cancellationToken),
+                // Channel management tools
+                "create_channel" => await CreateChannelAsync(organizationId, input, cancellationToken),
+                "bulk_create_channels" => await BulkCreateChannelsAsync(organizationId, input, cancellationToken),
+                // Value proposition management tools
+                "create_value_proposition" => await CreateValuePropositionAsync(organizationId, input, cancellationToken),
+                "bulk_create_value_propositions" => await BulkCreateValuePropositionsAsync(organizationId, input, cancellationToken),
+                // Customer relationship management tools
+                "create_customer_relationship" => await CreateCustomerRelationshipAsync(organizationId, input, cancellationToken),
+                "bulk_create_customer_relationships" => await BulkCreateCustomerRelationshipsAsync(organizationId, input, cancellationToken),
+                // Revenue stream management tools
+                "create_revenue_stream" => await CreateRevenueStreamAsync(organizationId, input, cancellationToken),
+                "bulk_create_revenue_streams" => await BulkCreateRevenueStreamsAsync(organizationId, input, cancellationToken),
+                // Role management tools
+                "create_role" => await CreateRoleAsync(organizationId, input, cancellationToken),
+                "bulk_create_roles" => await BulkCreateRolesAsync(organizationId, input, cancellationToken),
                 _ => new ToolResult { Action = "unknown", Message = $"Unknown tool: {toolName}" }
             };
         }
@@ -1246,7 +1350,8 @@ public class AiChatService : IAiChatService
             };
         }
 
-        _dbContext.Functions.Remove(func);
+        // Soft delete - CLAUDE.md compliance
+        func.SoftDelete();
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return new ToolResult
@@ -1254,6 +1359,572 @@ public class AiChatService : IAiChatService
             Action = "deleted",
             Message = $"Successfully deleted function **{name}**."
         };
+    }
+
+    #endregion
+
+    #region Process Management Tools
+
+    private async Task<ToolResult> CreateProcessAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        if (input == null) return new ToolResult { Action = "error", Message = "No input provided" };
+
+        var name = input.Value.GetProperty("name").GetString()!;
+        var purpose = input.Value.TryGetProperty("purpose", out var purposeProp) ? purposeProp.GetString() : null;
+        var description = input.Value.TryGetProperty("description", out var descProp) ? descProp.GetString() : null;
+        var trigger = input.Value.TryGetProperty("trigger", out var triggerProp) ? triggerProp.GetString() : null;
+        var output = input.Value.TryGetProperty("output", out var outputProp) ? outputProp.GetString() : null;
+        var frequencyStr = input.Value.TryGetProperty("frequency", out var freqProp) ? freqProp.GetString() : "OnDemand";
+
+        if (!Enum.TryParse<ProcessFrequency>(frequencyStr, true, out var frequency))
+            frequency = ProcessFrequency.OnDemand;
+
+        var process = new Process
+        {
+            Name = name,
+            Purpose = purpose,
+            Description = description,
+            Trigger = trigger,
+            Output = output,
+            Frequency = frequency,
+            Status = ProcessStatus.Active,
+            StateType = ProcessStateType.Current,
+            OrganizationId = organizationId
+        };
+
+        _dbContext.Processes.Add(process);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new ToolResult
+        {
+            Action = "created",
+            Message = $"Successfully created process **{name}**.",
+            Data = JsonSerializer.SerializeToElement(new { id = process.Id, name = process.Name })
+        };
+    }
+
+    private async Task<ToolResult> BulkCreateProcessesAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        if (input == null) return new ToolResult { Action = "error", Message = "No input provided" };
+
+        var processesArray = input.Value.GetProperty("processes");
+        var created = new List<string>();
+
+        foreach (var procData in processesArray.EnumerateArray())
+        {
+            var name = procData.GetProperty("name").GetString()!;
+            var purpose = procData.TryGetProperty("purpose", out var purposeProp) ? purposeProp.GetString() : null;
+            var description = procData.TryGetProperty("description", out var descProp) ? descProp.GetString() : null;
+            var frequencyStr = procData.TryGetProperty("frequency", out var freqProp) ? freqProp.GetString() : "OnDemand";
+
+            if (!Enum.TryParse<ProcessFrequency>(frequencyStr, true, out var frequency))
+                frequency = ProcessFrequency.OnDemand;
+
+            var process = new Process
+            {
+                Name = name,
+                Purpose = purpose,
+                Description = description,
+                Frequency = frequency,
+                Status = ProcessStatus.Active,
+                StateType = ProcessStateType.Current,
+                OrganizationId = organizationId
+            };
+
+            _dbContext.Processes.Add(process);
+            created.Add(name);
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return new ToolResult { Action = "bulk_created", Message = $"Successfully created {created.Count} processes: {string.Join(", ", created)}" };
+    }
+
+    #endregion
+
+    #region Goal Management Tools
+
+    private async Task<ToolResult> CreateGoalAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        if (input == null) return new ToolResult { Action = "error", Message = "No input provided" };
+
+        var name = input.Value.GetProperty("name").GetString()!;
+        var goalTypeStr = input.Value.GetProperty("goalType").GetString()!;
+        var description = input.Value.TryGetProperty("description", out var descProp) ? descProp.GetString() : null;
+        var targetValue = input.Value.TryGetProperty("targetValue", out var tvProp) ? (decimal?)tvProp.GetDecimal() : null;
+        var unit = input.Value.TryGetProperty("unit", out var unitProp) ? unitProp.GetString() : null;
+        var parentId = input.Value.TryGetProperty("parentId", out var pidProp) ? Guid.Parse(pidProp.GetString()!) : (Guid?)null;
+
+        if (!Enum.TryParse<GoalType>(goalTypeStr, true, out var goalType))
+            goalType = GoalType.Objective;
+
+        var goal = new Goal
+        {
+            Name = name,
+            Description = description,
+            GoalType = goalType,
+            TargetValue = targetValue,
+            Unit = unit,
+            ParentId = parentId,
+            Status = GoalStatus.Active,
+            OrganizationId = organizationId
+        };
+
+        _dbContext.Goals.Add(goal);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new ToolResult
+        {
+            Action = "created",
+            Message = $"Successfully created {goalType} **{name}**.",
+            Data = JsonSerializer.SerializeToElement(new { id = goal.Id, name = goal.Name, type = goal.GoalType.ToString() })
+        };
+    }
+
+    private async Task<ToolResult> BulkCreateGoalsAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        if (input == null) return new ToolResult { Action = "error", Message = "No input provided" };
+
+        var goalsArray = input.Value.GetProperty("goals");
+        var created = new List<string>();
+
+        foreach (var goalData in goalsArray.EnumerateArray())
+        {
+            var name = goalData.GetProperty("name").GetString()!;
+            var goalTypeStr = goalData.TryGetProperty("goalType", out var gtProp) ? gtProp.GetString() : "Objective";
+
+            if (!Enum.TryParse<GoalType>(goalTypeStr, true, out var goalType))
+                goalType = GoalType.Objective;
+
+            var goal = new Goal
+            {
+                Name = name,
+                Description = goalData.TryGetProperty("description", out var descProp) ? descProp.GetString() : null,
+                GoalType = goalType,
+                Status = GoalStatus.Active,
+                OrganizationId = organizationId
+            };
+
+            _dbContext.Goals.Add(goal);
+            created.Add(name);
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return new ToolResult { Action = "bulk_created", Message = $"Successfully created {created.Count} goals: {string.Join(", ", created)}" };
+    }
+
+    #endregion
+
+    #region Partner Management Tools
+
+    private async Task<ToolResult> CreatePartnerAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        if (input == null) return new ToolResult { Action = "error", Message = "No input provided" };
+
+        var name = input.Value.GetProperty("name").GetString()!;
+        var typeStr = input.Value.GetProperty("type").GetString()!;
+        var description = input.Value.TryGetProperty("description", out var descProp) ? descProp.GetString() : null;
+        var strategicValueStr = input.Value.TryGetProperty("strategicValue", out var svProp) ? svProp.GetString() : "Medium";
+
+        if (!Enum.TryParse<PartnerType>(typeStr, true, out var partnerType))
+            partnerType = PartnerType.Strategic;
+
+        if (!Enum.TryParse<StrategicValue>(strategicValueStr, true, out var strategicValue))
+            strategicValue = StrategicValue.Medium;
+
+        var partner = new Partner
+        {
+            Name = name,
+            Description = description,
+            Type = partnerType,
+            StrategicValue = strategicValue,
+            Status = PartnerStatus.Active,
+            OrganizationId = organizationId
+        };
+
+        _dbContext.Partners.Add(partner);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new ToolResult
+        {
+            Action = "created",
+            Message = $"Successfully created partner **{name}** ({partnerType}).",
+            Data = JsonSerializer.SerializeToElement(new { id = partner.Id, name = partner.Name })
+        };
+    }
+
+    private async Task<ToolResult> BulkCreatePartnersAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        if (input == null) return new ToolResult { Action = "error", Message = "No input provided" };
+
+        var partnersArray = input.Value.GetProperty("partners");
+        var created = new List<string>();
+
+        foreach (var partnerData in partnersArray.EnumerateArray())
+        {
+            var name = partnerData.GetProperty("name").GetString()!;
+            var typeStr = partnerData.TryGetProperty("type", out var tProp) ? tProp.GetString() : "Strategic";
+
+            if (!Enum.TryParse<PartnerType>(typeStr, true, out var partnerType))
+                partnerType = PartnerType.Strategic;
+
+            var partner = new Partner
+            {
+                Name = name,
+                Description = partnerData.TryGetProperty("description", out var descProp) ? descProp.GetString() : null,
+                Type = partnerType,
+                StrategicValue = StrategicValue.Medium,
+                Status = PartnerStatus.Active,
+                OrganizationId = organizationId
+            };
+
+            _dbContext.Partners.Add(partner);
+            created.Add(name);
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return new ToolResult { Action = "bulk_created", Message = $"Successfully created {created.Count} partners: {string.Join(", ", created)}" };
+    }
+
+    #endregion
+
+    #region Channel Management Tools
+
+    private async Task<ToolResult> CreateChannelAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        if (input == null) return new ToolResult { Action = "error", Message = "No input provided" };
+
+        var name = input.Value.GetProperty("name").GetString()!;
+        var typeStr = input.Value.GetProperty("type").GetString()!;
+        var categoryStr = input.Value.GetProperty("category").GetString()!;
+        var description = input.Value.TryGetProperty("description", out var descProp) ? descProp.GetString() : null;
+        var ownershipStr = input.Value.TryGetProperty("ownership", out var ownProp) ? ownProp.GetString() : "Owned";
+
+        if (!Enum.TryParse<ChannelType>(typeStr, true, out var channelType))
+            channelType = ChannelType.Digital;
+
+        if (!Enum.TryParse<ChannelCategory>(categoryStr, true, out var category))
+            category = ChannelCategory.Sales;
+
+        if (!Enum.TryParse<ChannelOwnership>(ownershipStr, true, out var ownership))
+            ownership = ChannelOwnership.Owned;
+
+        var channel = new Channel
+        {
+            Name = name,
+            Description = description,
+            Type = channelType,
+            Category = category,
+            Ownership = ownership,
+            Status = ChannelStatus.Active,
+            OrganizationId = organizationId
+        };
+
+        _dbContext.Channels.Add(channel);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new ToolResult
+        {
+            Action = "created",
+            Message = $"Successfully created channel **{name}** ({channelType}, {category}).",
+            Data = JsonSerializer.SerializeToElement(new { id = channel.Id, name = channel.Name })
+        };
+    }
+
+    private async Task<ToolResult> BulkCreateChannelsAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        if (input == null) return new ToolResult { Action = "error", Message = "No input provided" };
+
+        var channelsArray = input.Value.GetProperty("channels");
+        var created = new List<string>();
+
+        foreach (var channelData in channelsArray.EnumerateArray())
+        {
+            var name = channelData.GetProperty("name").GetString()!;
+            var typeStr = channelData.TryGetProperty("type", out var tProp) ? tProp.GetString() : "Digital";
+            var categoryStr = channelData.TryGetProperty("category", out var cProp) ? cProp.GetString() : "Sales";
+
+            if (!Enum.TryParse<ChannelType>(typeStr, true, out var channelType))
+                channelType = ChannelType.Digital;
+
+            if (!Enum.TryParse<ChannelCategory>(categoryStr, true, out var category))
+                category = ChannelCategory.Sales;
+
+            var channel = new Channel
+            {
+                Name = name,
+                Description = channelData.TryGetProperty("description", out var descProp) ? descProp.GetString() : null,
+                Type = channelType,
+                Category = category,
+                Ownership = ChannelOwnership.Owned,
+                Status = ChannelStatus.Active,
+                OrganizationId = organizationId
+            };
+
+            _dbContext.Channels.Add(channel);
+            created.Add(name);
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return new ToolResult { Action = "bulk_created", Message = $"Successfully created {created.Count} channels: {string.Join(", ", created)}" };
+    }
+
+    #endregion
+
+    #region Value Proposition Management Tools
+
+    private async Task<ToolResult> CreateValuePropositionAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        if (input == null) return new ToolResult { Action = "error", Message = "No input provided" };
+
+        var name = input.Value.GetProperty("name").GetString()!;
+        var headline = input.Value.GetProperty("headline").GetString()!;
+        var description = input.Value.TryGetProperty("description", out var descProp) ? descProp.GetString() : null;
+
+        var vp = new ValueProposition
+        {
+            Name = name,
+            Headline = headline,
+            Description = description,
+            Status = ValuePropositionStatus.Active,
+            OrganizationId = organizationId
+        };
+
+        _dbContext.ValuePropositions.Add(vp);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new ToolResult
+        {
+            Action = "created",
+            Message = $"Successfully created value proposition **{name}**.",
+            Data = JsonSerializer.SerializeToElement(new { id = vp.Id, name = vp.Name })
+        };
+    }
+
+    private async Task<ToolResult> BulkCreateValuePropositionsAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        if (input == null) return new ToolResult { Action = "error", Message = "No input provided" };
+
+        var vpArray = input.Value.GetProperty("valuePropositions");
+        var created = new List<string>();
+
+        foreach (var vpData in vpArray.EnumerateArray())
+        {
+            var name = vpData.GetProperty("name").GetString()!;
+            var headline = vpData.TryGetProperty("headline", out var hProp) ? hProp.GetString() : name;
+
+            var vp = new ValueProposition
+            {
+                Name = name,
+                Headline = headline ?? name,
+                Description = vpData.TryGetProperty("description", out var descProp) ? descProp.GetString() : null,
+                Status = ValuePropositionStatus.Active,
+                OrganizationId = organizationId
+            };
+
+            _dbContext.ValuePropositions.Add(vp);
+            created.Add(name);
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return new ToolResult { Action = "bulk_created", Message = $"Successfully created {created.Count} value propositions: {string.Join(", ", created)}" };
+    }
+
+    #endregion
+
+    #region Customer Relationship Management Tools
+
+    private async Task<ToolResult> CreateCustomerRelationshipAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        if (input == null) return new ToolResult { Action = "error", Message = "No input provided" };
+
+        var name = input.Value.GetProperty("name").GetString()!;
+        var typeStr = input.Value.GetProperty("type").GetString()!;
+        var description = input.Value.TryGetProperty("description", out var descProp) ? descProp.GetString() : null;
+
+        if (!Enum.TryParse<CustomerRelationshipType>(typeStr, true, out var crType))
+            crType = CustomerRelationshipType.PersonalAssistance;
+
+        var cr = new CustomerRelationship
+        {
+            Name = name,
+            Description = description,
+            Type = crType,
+            Status = CustomerRelationshipStatus.Active,
+            OrganizationId = organizationId
+        };
+
+        _dbContext.CustomerRelationships.Add(cr);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new ToolResult
+        {
+            Action = "created",
+            Message = $"Successfully created customer relationship **{name}** ({crType}).",
+            Data = JsonSerializer.SerializeToElement(new { id = cr.Id, name = cr.Name })
+        };
+    }
+
+    private async Task<ToolResult> BulkCreateCustomerRelationshipsAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        if (input == null) return new ToolResult { Action = "error", Message = "No input provided" };
+
+        var crArray = input.Value.GetProperty("customerRelationships");
+        var created = new List<string>();
+
+        foreach (var crData in crArray.EnumerateArray())
+        {
+            var name = crData.GetProperty("name").GetString()!;
+            var typeStr = crData.TryGetProperty("type", out var tProp) ? tProp.GetString() : "PersonalAssistance";
+
+            if (!Enum.TryParse<CustomerRelationshipType>(typeStr, true, out var crType))
+                crType = CustomerRelationshipType.PersonalAssistance;
+
+            var cr = new CustomerRelationship
+            {
+                Name = name,
+                Description = crData.TryGetProperty("description", out var descProp) ? descProp.GetString() : null,
+                Type = crType,
+                Status = CustomerRelationshipStatus.Active,
+                OrganizationId = organizationId
+            };
+
+            _dbContext.CustomerRelationships.Add(cr);
+            created.Add(name);
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return new ToolResult { Action = "bulk_created", Message = $"Successfully created {created.Count} customer relationships: {string.Join(", ", created)}" };
+    }
+
+    #endregion
+
+    #region Revenue Stream Management Tools
+
+    private async Task<ToolResult> CreateRevenueStreamAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        if (input == null) return new ToolResult { Action = "error", Message = "No input provided" };
+
+        var name = input.Value.GetProperty("name").GetString()!;
+        var typeStr = input.Value.GetProperty("type").GetString()!;
+        var description = input.Value.TryGetProperty("description", out var descProp) ? descProp.GetString() : null;
+        var pricingStr = input.Value.TryGetProperty("pricingMechanism", out var pProp) ? pProp.GetString() : "Fixed";
+
+        if (!Enum.TryParse<RevenueStreamType>(typeStr, true, out var rsType))
+            rsType = RevenueStreamType.AssetSale;
+
+        if (!Enum.TryParse<PricingMechanism>(pricingStr, true, out var pricing))
+            pricing = PricingMechanism.Fixed;
+
+        var rs = new RevenueStream
+        {
+            Name = name,
+            Description = description,
+            Type = rsType,
+            PricingMechanism = pricing,
+            Status = RevenueStreamStatus.Active,
+            OrganizationId = organizationId
+        };
+
+        _dbContext.RevenueStreams.Add(rs);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new ToolResult
+        {
+            Action = "created",
+            Message = $"Successfully created revenue stream **{name}** ({rsType}).",
+            Data = JsonSerializer.SerializeToElement(new { id = rs.Id, name = rs.Name })
+        };
+    }
+
+    private async Task<ToolResult> BulkCreateRevenueStreamsAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        if (input == null) return new ToolResult { Action = "error", Message = "No input provided" };
+
+        var rsArray = input.Value.GetProperty("revenueStreams");
+        var created = new List<string>();
+
+        foreach (var rsData in rsArray.EnumerateArray())
+        {
+            var name = rsData.GetProperty("name").GetString()!;
+            var typeStr = rsData.TryGetProperty("type", out var tProp) ? tProp.GetString() : "AssetSale";
+
+            if (!Enum.TryParse<RevenueStreamType>(typeStr, true, out var rsType))
+                rsType = RevenueStreamType.AssetSale;
+
+            var rs = new RevenueStream
+            {
+                Name = name,
+                Description = rsData.TryGetProperty("description", out var descProp) ? descProp.GetString() : null,
+                Type = rsType,
+                PricingMechanism = PricingMechanism.Fixed,
+                Status = RevenueStreamStatus.Active,
+                OrganizationId = organizationId
+            };
+
+            _dbContext.RevenueStreams.Add(rs);
+            created.Add(name);
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return new ToolResult { Action = "bulk_created", Message = $"Successfully created {created.Count} revenue streams: {string.Join(", ", created)}" };
+    }
+
+    #endregion
+
+    #region Role Management Tools
+
+    private async Task<ToolResult> CreateRoleAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        if (input == null) return new ToolResult { Action = "error", Message = "No input provided" };
+
+        var name = input.Value.GetProperty("name").GetString()!;
+        var description = input.Value.TryGetProperty("description", out var descProp) ? descProp.GetString() : null;
+        var department = input.Value.TryGetProperty("department", out var deptProp) ? deptProp.GetString() : null;
+
+        var role = new Role
+        {
+            Name = name,
+            Description = description,
+            Department = department,
+            OrganizationId = organizationId
+        };
+
+        _dbContext.Roles.Add(role);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new ToolResult
+        {
+            Action = "created",
+            Message = $"Successfully created role **{name}**" + (department != null ? $" in {department}" : "") + ".",
+            Data = JsonSerializer.SerializeToElement(new { id = role.Id, name = role.Name })
+        };
+    }
+
+    private async Task<ToolResult> BulkCreateRolesAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        if (input == null) return new ToolResult { Action = "error", Message = "No input provided" };
+
+        var rolesArray = input.Value.GetProperty("roles");
+        var created = new List<string>();
+
+        foreach (var roleData in rolesArray.EnumerateArray())
+        {
+            var name = roleData.GetProperty("name").GetString()!;
+
+            var role = new Role
+            {
+                Name = name,
+                Description = roleData.TryGetProperty("description", out var descProp) ? descProp.GetString() : null,
+                Department = roleData.TryGetProperty("department", out var deptProp) ? deptProp.GetString() : null,
+                OrganizationId = organizationId
+            };
+
+            _dbContext.Roles.Add(role);
+            created.Add(name);
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return new ToolResult { Action = "bulk_created", Message = $"Successfully created {created.Count} roles: {string.Join(", ", created)}" };
     }
 
     #endregion
@@ -1317,63 +1988,5 @@ public class AiChatService : IAiChatService
         public required string Action { get; set; }
         public string? Message { get; set; }
         public JsonElement? Data { get; set; }
-    }
-
-    private class OrganizationContext
-    {
-        public string? OrganizationName { get; set; }
-        public List<PersonContext> People { get; set; } = new();
-        public List<RoleSummary> Roles { get; set; } = new();
-        public List<FunctionSummary> Functions { get; set; } = new();
-        public List<SubtypeContext> PersonSubtypes { get; set; } = new();
-    }
-
-    private class PersonContext
-    {
-        public Guid Id { get; set; }
-        public string Name { get; set; } = "";
-        public string? Description { get; set; }
-        public string Status { get; set; } = "";
-        public List<RoleContext> Roles { get; set; } = new();
-        public List<CapabilityContext> Capabilities { get; set; } = new();
-    }
-
-    private class RoleContext
-    {
-        public Guid Id { get; set; }
-        public string Name { get; set; } = "";
-        public decimal? AllocationPercentage { get; set; }
-        public bool IsPrimary { get; set; }
-    }
-
-    private class CapabilityContext
-    {
-        public Guid FunctionId { get; set; }
-        public string FunctionName { get; set; } = "";
-        public string Level { get; set; } = "";
-    }
-
-    private class RoleSummary
-    {
-        public Guid Id { get; set; }
-        public string Name { get; set; } = "";
-        public string? Description { get; set; }
-        public string? Department { get; set; }
-        public int AssignmentCount { get; set; }
-    }
-
-    private class FunctionSummary
-    {
-        public Guid Id { get; set; }
-        public string Name { get; set; } = "";
-        public string? Description { get; set; }
-        public string? Category { get; set; }
-        public int CapabilityCount { get; set; }
-    }
-
-    private class SubtypeContext
-    {
-        public Guid Id { get; set; }
-        public string Name { get; set; } = "";
     }
 }

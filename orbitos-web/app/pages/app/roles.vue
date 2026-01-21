@@ -1,14 +1,33 @@
 <script setup lang="ts">
+import type { AssignableItem } from '~/components/SearchableAssigner.vue'
+import type { RoleFunction } from '~/composables/useOperations'
+
 definePageMeta({
   layout: 'app'
 })
 
-const { roles, isLoading, fetchRoles, createRole, updateRole, deleteRole } = useOperations()
+const {
+  roles,
+  functions,
+  isLoading,
+  fetchRoles,
+  fetchFunctions,
+  createRole,
+  updateRole,
+  deleteRole,
+  fetchRoleFunctions,
+  assignFunctionToRole,
+  unassignFunctionFromRole,
+} = useOperations()
 
 // Dialog state
 const showAddDialog = ref(false)
 const showEditDialog = ref(false)
 const isSubmitting = ref(false)
+
+// Search and filter
+const searchQuery = ref('')
+const departmentFilter = ref('')
 
 const newRole = ref({
   name: '',
@@ -25,10 +44,49 @@ const editingRole = ref<{
   description: string
 } | null>(null)
 
+// Function assignment state (for edit mode)
+const assignedFunctions = ref<RoleFunction[]>([])
+const loadingFunctions = ref(false)
+
 // Fetch roles on mount
 onMounted(async () => {
   await fetchRoles()
+  await fetchFunctions()
 })
+
+// Get unique departments for filter
+const departments = computed(() => {
+  const depts = new Set(roles.value.map(r => r.department).filter(Boolean))
+  return Array.from(depts).sort()
+})
+
+// Filtered roles
+const filteredRoles = computed(() => {
+  let result = roles.value
+
+  if (searchQuery.value) {
+    const query = searchQuery.value.toLowerCase()
+    result = result.filter(r =>
+      r.name.toLowerCase().includes(query) ||
+      r.purpose?.toLowerCase().includes(query) ||
+      r.department?.toLowerCase().includes(query)
+    )
+  }
+
+  if (departmentFilter.value) {
+    result = result.filter(r => r.department === departmentFilter.value)
+  }
+
+  return result
+})
+
+// Stats
+const stats = computed(() => ({
+  total: roles.value.length,
+  covered: roles.value.filter(r => r.coverageStatus === 'covered').length,
+  atRisk: roles.value.filter(r => r.coverageStatus === 'at_risk').length,
+  uncovered: roles.value.filter(r => r.coverageStatus === 'uncovered' || !r.coverageStatus).length
+}))
 
 // Add role
 const handleAddRole = async () => {
@@ -54,7 +112,7 @@ const handleAddRole = async () => {
 }
 
 // Open edit dialog
-const openEditDialog = (role: { id: string; name: string; purpose?: string; department?: string; description?: string }) => {
+const openEditDialog = async (role: { id: string; name: string; purpose?: string; department?: string; description?: string }) => {
   editingRole.value = {
     id: role.id,
     name: role.name,
@@ -62,7 +120,11 @@ const openEditDialog = (role: { id: string; name: string; purpose?: string; depa
     department: role.department || '',
     description: role.description || ''
   }
+  assignedFunctions.value = []
   showEditDialog.value = true
+
+  // Load assigned functions for this role
+  await loadAssignedFunctions(role.id)
 }
 
 // Edit role
@@ -142,6 +204,71 @@ const handleDialogKeydown = (e: KeyboardEvent, closeDialog: () => void) => {
   }
 }
 
+// Computed properties for SearchableAssigner
+const assignedFunctionsForAssigner = computed<AssignableItem[]>(() =>
+  assignedFunctions.value.map(rf => ({
+    id: rf.functionId,
+    name: rf.functionName,
+    subtitle: rf.functionCategory || undefined,
+  }))
+)
+
+const availableFunctionsForAssigner = computed<AssignableItem[]>(() => {
+  const assignedIds = new Set(assignedFunctions.value.map(rf => rf.functionId))
+  return functions.value
+    .filter(f => !assignedIds.has(f.id))
+    .map(f => ({
+      id: f.id,
+      name: f.name,
+      subtitle: f.category || undefined,
+    }))
+})
+
+// Load assigned functions for a role
+const loadAssignedFunctions = async (roleId: string) => {
+  loadingFunctions.value = true
+  try {
+    assignedFunctions.value = await fetchRoleFunctions(roleId)
+  } catch (e) {
+    console.error('Failed to load assigned functions:', e)
+    assignedFunctions.value = []
+  } finally {
+    loadingFunctions.value = false
+  }
+}
+
+// Handle adding a function to the role
+const handleAddFunction = async (functionId: string) => {
+  if (!editingRole.value) return
+  try {
+    const newAssignment = await assignFunctionToRole(editingRole.value.id, functionId)
+    assignedFunctions.value.push(newAssignment)
+    // Update the function count in the local role data
+    const roleIndex = roles.value.findIndex(r => r.id === editingRole.value?.id)
+    if (roleIndex !== -1) {
+      roles.value[roleIndex].functionCount = (roles.value[roleIndex].functionCount || 0) + 1
+    }
+  } catch (e) {
+    console.error('Failed to assign function:', e)
+  }
+}
+
+// Handle removing a function from the role
+const handleRemoveFunction = async (functionId: string) => {
+  if (!editingRole.value) return
+  try {
+    await unassignFunctionFromRole(editingRole.value.id, functionId)
+    assignedFunctions.value = assignedFunctions.value.filter(rf => rf.functionId !== functionId)
+    // Update the function count in the local role data
+    const roleIndex = roles.value.findIndex(r => r.id === editingRole.value?.id)
+    if (roleIndex !== -1 && (roles.value[roleIndex].functionCount || 0) > 0) {
+      roles.value[roleIndex].functionCount = (roles.value[roleIndex].functionCount || 1) - 1
+    }
+  } catch (e) {
+    console.error('Failed to unassign function:', e)
+  }
+}
+
 // Coverage status colors
 const statusColor = (status: string) => {
   switch (status) {
@@ -164,7 +291,7 @@ const statusLabel = (status: string) => {
 
 <template>
   <div class="space-y-6">
-    <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
       <div>
         <h1 class="orbitos-heading-lg">Roles</h1>
         <p class="orbitos-text">Operational roles and their coverage status.</p>
@@ -174,6 +301,9 @@ const statusLabel = (status: string) => {
         @click="showAddDialog = true"
         class="orbitos-btn-primary py-2 px-4 text-sm"
       >
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
         Add Role
       </button>
     </div>
@@ -182,26 +312,42 @@ const statusLabel = (status: string) => {
     <div class="grid gap-4 md:grid-cols-4">
       <div class="orbitos-card-static">
         <div class="text-xs uppercase text-white/40">Total Roles</div>
-        <div class="mt-1 text-2xl font-semibold text-white">{{ roles.length }}</div>
+        <div class="mt-1 text-2xl font-semibold text-white">{{ stats.total }}</div>
       </div>
       <div class="orbitos-card-static">
         <div class="text-xs uppercase text-white/40">Covered</div>
-        <div class="mt-1 text-2xl font-semibold text-emerald-300">
-          {{ roles.filter(r => r.coverageStatus === 'covered').length }}
-        </div>
+        <div class="mt-1 text-2xl font-semibold text-emerald-300">{{ stats.covered }}</div>
       </div>
       <div class="orbitos-card-static">
         <div class="text-xs uppercase text-white/40">At Risk</div>
-        <div class="mt-1 text-2xl font-semibold text-amber-300">
-          {{ roles.filter(r => r.coverageStatus === 'at_risk').length }}
-        </div>
+        <div class="mt-1 text-2xl font-semibold text-amber-300">{{ stats.atRisk }}</div>
       </div>
       <div class="orbitos-card-static">
         <div class="text-xs uppercase text-white/40">Uncovered</div>
-        <div class="mt-1 text-2xl font-semibold text-red-300">
-          {{ roles.filter(r => r.coverageStatus === 'uncovered').length }}
-        </div>
+        <div class="mt-1 text-2xl font-semibold text-red-300">{{ stats.uncovered }}</div>
       </div>
+    </div>
+
+    <!-- Search and Filters -->
+    <div class="flex flex-col gap-3 md:flex-row md:items-center">
+      <div class="relative flex-1 max-w-md">
+        <svg class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <input
+          v-model="searchQuery"
+          type="text"
+          class="orbitos-input pl-10"
+          placeholder="Search roles..."
+        />
+      </div>
+      <select
+        v-model="departmentFilter"
+        class="orbitos-input w-auto min-w-[150px]"
+      >
+        <option value="">All Departments</option>
+        <option v-for="dept in departments" :key="dept" :value="dept">{{ dept }}</option>
+      </select>
     </div>
 
     <!-- Loading State -->
@@ -221,46 +367,86 @@ const statusLabel = (status: string) => {
       </button>
     </div>
 
-    <!-- Roles Grid -->
-    <div v-else class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      <div
-        v-for="role in roles"
-        :key="role.id"
-        class="orbitos-card p-5"
-      >
-        <div class="flex items-start justify-between">
-          <div class="flex-1">
-            <h3 class="font-semibold text-white">{{ role.name }}</h3>
-            <p v-if="role.purpose" class="mt-1 text-sm text-white/50 line-clamp-2">{{ role.purpose }}</p>
-          </div>
-          <span :class="['rounded-full px-2.5 py-1 text-xs font-medium flex-shrink-0', statusColor(role.coverageStatus || 'uncovered')]">
-            {{ statusLabel(role.coverageStatus || 'uncovered') }}
-          </span>
-        </div>
-
-        <div class="mt-4 flex flex-wrap items-center gap-3 text-xs text-white/40">
-          <span v-if="role.department" class="rounded bg-white/10 px-2 py-1">{{ role.department }}</span>
-          <span>{{ role.assignmentCount || 0 }} assigned</span>
-          <span>•</span>
-          <span>{{ role.functionCount || 0 }} functions</span>
-        </div>
-
-        <div class="mt-4 flex gap-2 border-t border-white/10 pt-3">
-          <button
-            type="button"
-            @click="openEditDialog(role)"
-            class="flex-1 rounded-lg bg-white/5 px-3 py-2 text-center text-xs text-white/70 hover:bg-white/10 transition-colors"
-          >
-            Edit
-          </button>
-          <button
-            type="button"
-            @click="handleDeleteRole(role.id)"
-            class="rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-400 hover:bg-red-500/20 transition-colors"
-          >
-            Delete
-          </button>
-        </div>
+    <!-- Roles Table -->
+    <div v-else class="orbitos-glass-subtle overflow-hidden">
+      <div class="flex items-center justify-between border-b border-white/10 px-6 py-4">
+        <div class="text-sm text-white/70">{{ filteredRoles.length }} roles</div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-black/20 text-xs uppercase text-white/40">
+            <tr>
+              <th class="px-6 py-3">Role</th>
+              <th class="px-6 py-3">Department</th>
+              <th class="px-6 py-3">Assigned People</th>
+              <th class="px-6 py-3">Functions</th>
+              <th class="px-6 py-3">Status</th>
+              <th class="px-6 py-3 w-24">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-white/10">
+            <tr
+              v-for="role in filteredRoles"
+              :key="role.id"
+              class="hover:bg-white/5 transition-colors cursor-pointer"
+              @click="navigateTo(`/app/roles/${role.id}`)"
+            >
+              <td class="px-6 py-4">
+                <NuxtLink :to="`/app/roles/${role.id}`" class="block hover:text-purple-300 transition-colors" @click.stop>
+                  <div class="font-semibold text-white">{{ role.name }}</div>
+                  <div v-if="role.purpose" class="text-xs text-white/40 mt-0.5 line-clamp-1">{{ role.purpose }}</div>
+                </NuxtLink>
+              </td>
+              <td class="px-6 py-4">
+                <span v-if="role.department" class="rounded bg-white/10 px-2 py-1 text-xs text-white/70">
+                  {{ role.department }}
+                </span>
+                <span v-else class="text-white/30 text-xs">—</span>
+              </td>
+              <td class="px-6 py-4">
+                <div class="flex items-center gap-2">
+                  <span class="text-white">{{ role.assignmentCount || 0 }}</span>
+                  <span class="text-white/40 text-xs">people</span>
+                </div>
+              </td>
+              <td class="px-6 py-4">
+                <div class="flex items-center gap-2">
+                  <span class="text-white">{{ role.functionCount || 0 }}</span>
+                  <span class="text-white/40 text-xs">functions</span>
+                </div>
+              </td>
+              <td class="px-6 py-4">
+                <span :class="['rounded-full px-2.5 py-1 text-xs font-medium', statusColor(role.coverageStatus || 'uncovered')]">
+                  {{ statusLabel(role.coverageStatus || 'uncovered') }}
+                </span>
+              </td>
+              <td class="px-6 py-4" @click.stop>
+                <div class="flex gap-1">
+                  <button
+                    type="button"
+                    @click="openEditDialog(role)"
+                    class="rounded-lg p-2 text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+                    title="Edit role"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    @click="handleDeleteRole(role.id)"
+                    class="rounded-lg p-2 text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                    title="Delete role"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
@@ -393,6 +579,22 @@ const statusLabel = (status: string) => {
               class="orbitos-input"
               placeholder="Additional details about this role..."
             ></textarea>
+          </div>
+
+          <!-- Function Assignment -->
+          <div class="pt-2 border-t border-white/10">
+            <SearchableAssigner
+              :assigned="assignedFunctionsForAssigner"
+              :available="availableFunctionsForAssigner"
+              label="Assigned Functions"
+              search-placeholder="Search functions to add..."
+              :loading="loadingFunctions"
+              empty-assigned-text="No functions assigned to this role"
+              empty-available-text="All functions are already assigned"
+              no-results-text="No matching functions found"
+              @add="handleAddFunction"
+              @remove="handleRemoveFunction"
+            />
           </div>
         </div>
 

@@ -1,0 +1,368 @@
+{
+  "$schema": "./schema.json",
+  "id": "ENT024",
+  "name": "CustomerRelationship",
+  "description": "A type of relationship that the organization establishes with customer segments. Defines how the company acquires, retains, and grows customers through different relationship models.",
+  "table": "CustomerRelationships",
+  "status": "draft",
+  "created_at": "2026-01-17",
+  "updated_at": "2026-01-17",
+
+  "fields": [
+    {
+      "name": "OrganizationId",
+      "type": "Guid",
+      "nullable": false,
+      "references": "ENT002",
+      "description": "Organization that owns this relationship type"
+    },
+    {
+      "name": "Name",
+      "type": "string",
+      "nullable": false,
+      "max_length": 255,
+      "description": "Relationship type name"
+    },
+    {
+      "name": "Slug",
+      "type": "string",
+      "nullable": false,
+      "max_length": 100,
+      "description": "URL-friendly unique identifier within organization"
+    },
+    {
+      "name": "Description",
+      "type": "string",
+      "nullable": true,
+      "max_length": 2000,
+      "description": "Description of how this relationship model works"
+    },
+    {
+      "name": "Type",
+      "type": "enum",
+      "nullable": false,
+      "enum_values": ["PersonalAssistance", "DedicatedAssistance", "SelfService", "AutomatedService", "Communities", "CoCreation"],
+      "description": "Primary relationship model type"
+    },
+    {
+      "name": "Status",
+      "type": "enum",
+      "nullable": false,
+      "enum_values": ["Planned", "Active", "Optimizing", "Sunset"],
+      "description": "Current operational status"
+    },
+    {
+      "name": "SegmentId",
+      "type": "Guid",
+      "nullable": true,
+      "references": "ENT009",
+      "description": "Primary customer segment this relationship targets (optional, can be org-wide)"
+    },
+    {
+      "name": "Purpose",
+      "type": "json",
+      "nullable": false,
+      "description": "What this relationship aims to achieve",
+      "json_schema": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": ["Acquisition", "Retention", "Upselling", "Support", "Community", "Feedback"]
+        },
+        "minItems": 1
+      }
+    },
+    {
+      "name": "Touchpoints",
+      "type": "json",
+      "nullable": true,
+      "description": "Customer touchpoints in this relationship",
+      "json_schema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "channel": { "type": "string" },
+            "frequency": { "type": "string", "enum": ["continuous", "daily", "weekly", "monthly", "as_needed", "one_time"] },
+            "owner": { "type": "string" },
+            "automation_level": { "type": "string", "enum": ["manual", "semi_automated", "fully_automated"] }
+          }
+        }
+      }
+    },
+    {
+      "name": "Lifecycle",
+      "type": "json",
+      "nullable": true,
+      "description": "Customer lifecycle stages and activities",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "onboarding": {
+            "type": "object",
+            "properties": {
+              "activities": { "type": "array", "items": { "type": "string" } },
+              "duration_days": { "type": "integer" },
+              "success_criteria": { "type": "string" }
+            }
+          },
+          "activation": {
+            "type": "object",
+            "properties": {
+              "activities": { "type": "array", "items": { "type": "string" } },
+              "milestones": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "engagement": {
+            "type": "object",
+            "properties": {
+              "activities": { "type": "array", "items": { "type": "string" } },
+              "frequency": { "type": "string" }
+            }
+          },
+          "renewal": {
+            "type": "object",
+            "properties": {
+              "trigger_days_before": { "type": "integer" },
+              "activities": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "offboarding": {
+            "type": "object",
+            "properties": {
+              "activities": { "type": "array", "items": { "type": "string" } },
+              "exit_survey": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Metrics",
+      "type": "json",
+      "nullable": true,
+      "description": "KPIs for this relationship type",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "satisfaction_score": { "type": "number", "minimum": 0, "maximum": 5 },
+          "nps_score": { "type": "number", "minimum": -100, "maximum": 100 },
+          "retention_rate": { "type": "number", "minimum": 0, "maximum": 100 },
+          "churn_rate": { "type": "number", "minimum": 0, "maximum": 100 },
+          "response_time_hours": { "type": "number" },
+          "resolution_rate": { "type": "number", "minimum": 0, "maximum": 100 },
+          "upsell_rate": { "type": "number", "minimum": 0, "maximum": 100 },
+          "customer_effort_score": { "type": "number", "minimum": 1, "maximum": 7 }
+        }
+      }
+    },
+    {
+      "name": "Cost",
+      "type": "json",
+      "nullable": true,
+      "description": "Cost to serve for this relationship type",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "cost_per_customer": { "type": "number" },
+          "currency": { "type": "string", "default": "USD" },
+          "period": { "type": "string", "enum": ["monthly", "annually"] },
+          "staff_required": { "type": "number" },
+          "tools_cost": { "type": "number" },
+          "cost_center": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "Expectations",
+      "type": "json",
+      "nullable": true,
+      "description": "What customers expect from this relationship",
+      "json_schema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "expectation": { "type": "string" },
+            "importance": { "type": "string", "enum": ["critical", "important", "nice_to_have"] },
+            "currently_met": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    {
+      "name": "Tags",
+      "type": "json",
+      "nullable": true,
+      "description": "Tags for categorization and filtering",
+      "json_schema": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    }
+  ],
+
+  "validation_rules": [
+    {
+      "id": "R-CRL-001",
+      "field": "Slug",
+      "rule": "Must be unique within the organization",
+      "error_code": "RELATIONSHIP_SLUG_EXISTS",
+      "error_message": "A customer relationship with this slug already exists in this organization"
+    },
+    {
+      "id": "R-CRL-002",
+      "field": "Slug",
+      "rule": "Must be URL-safe (lowercase, alphanumeric, hyphens only)",
+      "error_code": "RELATIONSHIP_SLUG_INVALID",
+      "error_message": "Slug must contain only lowercase letters, numbers, and hyphens"
+    },
+    {
+      "id": "R-CRL-003",
+      "field": "Name",
+      "rule": "Required, 1-255 characters",
+      "error_code": "RELATIONSHIP_NAME_REQUIRED",
+      "error_message": "Customer relationship name is required"
+    },
+    {
+      "id": "R-CRL-004",
+      "field": "Purpose",
+      "rule": "Must have at least one purpose selected",
+      "error_code": "RELATIONSHIP_PURPOSE_REQUIRED",
+      "error_message": "Customer relationship must have at least one purpose"
+    },
+    {
+      "id": "R-CRL-005",
+      "field": "SegmentId",
+      "rule": "If provided, segment must belong to the same organization",
+      "error_code": "RELATIONSHIP_SEGMENT_ORG_MISMATCH",
+      "error_message": "Segment does not belong to this organization"
+    }
+  ],
+
+  "relationships": [
+    {
+      "type": "many-to-one",
+      "entity": "ENT002",
+      "foreign_key": "OrganizationId",
+      "navigation": "Organization",
+      "description": "Organization that owns this relationship type"
+    },
+    {
+      "type": "many-to-one",
+      "entity": "ENT009",
+      "foreign_key": "SegmentId",
+      "navigation": "Segment",
+      "description": "Primary customer segment (optional)"
+    },
+    {
+      "type": "one-to-many",
+      "entity": "ENT013",
+      "inverse_key": "EntityId",
+      "navigation": "BlockReferences",
+      "description": "Canvas block references that point to this relationship",
+      "polymorphic_filter": "EntityType = 'CustomerRelationship'"
+    }
+  ],
+
+  "indexes": [
+    {
+      "name": "IX_CustomerRelationships_OrganizationId_Slug",
+      "columns": ["OrganizationId", "Slug"],
+      "unique": true
+    },
+    {
+      "name": "IX_CustomerRelationships_OrganizationId_Type",
+      "columns": ["OrganizationId", "Type"],
+      "unique": false
+    },
+    {
+      "name": "IX_CustomerRelationships_OrganizationId_Status",
+      "columns": ["OrganizationId", "Status"],
+      "unique": false
+    },
+    {
+      "name": "IX_CustomerRelationships_SegmentId",
+      "columns": ["SegmentId"],
+      "unique": false,
+      "filter": "SegmentId IS NOT NULL"
+    }
+  ],
+
+  "api_representation": {
+    "dto_name": "CustomerRelationshipDto",
+    "include_fields": ["Id", "OrganizationId", "Name", "Slug", "Description", "Type", "Status", "SegmentId", "Purpose", "Touchpoints", "Lifecycle", "Metrics", "Cost", "Expectations", "Tags", "CreatedAt", "UpdatedAt"],
+    "computed_fields": [
+      {
+        "name": "SegmentName",
+        "type": "string",
+        "computation": "Segment.Name if SegmentId is set"
+      },
+      {
+        "name": "CanvasReferenceCount",
+        "type": "int",
+        "computation": "Count of BlockReferences pointing to this relationship"
+      },
+      {
+        "name": "TouchpointCount",
+        "type": "int",
+        "computation": "Count of touchpoints"
+      },
+      {
+        "name": "HealthScore",
+        "type": "decimal",
+        "computation": "Calculated from satisfaction, retention, and NPS"
+      }
+    ]
+  },
+
+  "audit_requirements": {
+    "log_create": true,
+    "log_update": true,
+    "log_delete": true,
+    "sensitive_fields": ["Metrics", "Cost"]
+  },
+
+  "multi_tenancy": {
+    "is_tenant_root": false,
+    "scope_field": "OrganizationId",
+    "scoping_behavior": "All queries must be filtered by OrganizationId"
+  },
+
+  "ai_capabilities": {
+    "description": "AI can analyze customer relationships to optimize engagement, predict churn, and improve satisfaction",
+    "analyzable_fields": ["Type", "Purpose", "Touchpoints", "Lifecycle", "Metrics", "Cost", "Expectations"],
+    "cross_entity_analysis": [
+      "Identify at-risk relationships (high churn indicators)",
+      "Calculate cost-to-serve vs lifetime value",
+      "Find gaps in lifecycle touchpoints",
+      "Compare relationship effectiveness across segments",
+      "Suggest automation opportunities",
+      "Predict satisfaction trends"
+    ],
+    "ai_alerts": [
+      {
+        "alert": "satisfaction_drop",
+        "condition": "Metrics.satisfaction_score decreased >10% from previous period",
+        "description": "Alert when satisfaction score drops significantly"
+      },
+      {
+        "alert": "high_churn_risk",
+        "condition": "Metrics.churn_rate > 10%",
+        "description": "Flag relationships with high churn rates"
+      },
+      {
+        "alert": "unmet_expectations",
+        "condition": "Expectations where currently_met = false AND importance = 'critical'",
+        "description": "Flag critical unmet customer expectations"
+      }
+    ]
+  },
+
+  "code_location": {
+    "entity": "orbitos-api/src/OrbitOS.Domain/Entities/CustomerRelationship.cs",
+    "dto": "orbitos-api/src/OrbitOS.Api/Controllers/CustomerRelationshipsController.cs",
+    "frontend_type": "orbitos-web/app/types/entities/customer-relationship.ts"
+  }
+}

@@ -14,10 +14,17 @@ public class Resource : BaseEntity
     // For person resources - optional link to platform user
     public Guid? LinkedUserId { get; set; }
 
+    // Org Chart hierarchy - for person resources
+    public Guid? ReportsToResourceId { get; set; }
+    public bool IsVacant { get; set; } = false;
+    public string? VacantPositionTitle { get; set; }
+
     // Navigation properties
     public Organization Organization { get; set; } = null!;
     public ResourceSubtype ResourceSubtype { get; set; } = null!;
     public User? LinkedUser { get; set; }
+    public Resource? ReportsToResource { get; set; }
+    public ICollection<Resource> DirectReports { get; set; } = new List<Resource>();
     public ICollection<RoleAssignment> RoleAssignments { get; set; } = new List<RoleAssignment>();
     public ICollection<FunctionCapability> FunctionCapabilities { get; set; } = new List<FunctionCapability>();
     public ICollection<Activity> AssignedActivities { get; set; } = new List<Activity>();

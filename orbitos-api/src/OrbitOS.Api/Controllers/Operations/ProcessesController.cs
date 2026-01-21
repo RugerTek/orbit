@@ -77,6 +77,7 @@ public class ProcessesController : ControllerBase
                 .ThenInclude(a => a.AssignedResource)
             .Include(p => p.Activities)
                 .ThenInclude(a => a.LinkedProcess)
+                    .ThenInclude(lp => lp!.Activities)
             .Include(p => p.Edges)
             .Where(p => p.Id == id && p.OrganizationId == organizationId)
             .FirstOrDefaultAsync();
@@ -100,6 +101,9 @@ public class ProcessesController : ControllerBase
             OwnerName = process.Owner?.Name,
             LinkedProcessId = process.LinkedProcessId,
             LinkedProcessName = process.LinkedProcess?.Name,
+            EntryActivityId = process.EntryActivityId,
+            ExitActivityId = process.ExitActivityId,
+            UseExplicitFlow = process.UseExplicitFlow,
             CreatedAt = process.CreatedAt,
             UpdatedAt = process.UpdatedAt,
             ActivityCount = process.Activities.Count,
@@ -119,6 +123,16 @@ public class ProcessesController : ControllerBase
                 AssignedResourceName = a.AssignedResource?.Name,
                 LinkedProcessId = a.LinkedProcessId,
                 LinkedProcessName = a.LinkedProcess?.Name,
+                // Full subprocess summary for "portal" display
+                LinkedProcess = a.LinkedProcess != null ? new LinkedProcessSummaryDto
+                {
+                    Id = a.LinkedProcess.Id,
+                    Name = a.LinkedProcess.Name,
+                    Purpose = a.LinkedProcess.Purpose,
+                    Trigger = a.LinkedProcess.Trigger,
+                    Output = a.LinkedProcess.Output,
+                    ActivityCount = a.LinkedProcess.Activities.Count
+                } : null,
                 CreatedAt = a.CreatedAt,
                 PositionX = a.PositionX,
                 PositionY = a.PositionY
@@ -207,6 +221,8 @@ public class ProcessesController : ControllerBase
         process.StateType = request.StateType;
         process.OwnerId = request.OwnerId;
         process.LinkedProcessId = request.LinkedProcessId;
+        process.EntryActivityId = request.EntryActivityId;
+        process.ExitActivityId = request.ExitActivityId;
 
         await _dbContext.SaveChangesAsync();
 
@@ -225,6 +241,8 @@ public class ProcessesController : ControllerBase
             OwnerId = process.OwnerId,
             OwnerName = process.Owner?.Name,
             LinkedProcessId = process.LinkedProcessId,
+            EntryActivityId = process.EntryActivityId,
+            ExitActivityId = process.ExitActivityId,
             CreatedAt = process.CreatedAt,
             UpdatedAt = process.UpdatedAt
         });
@@ -239,10 +257,65 @@ public class ProcessesController : ControllerBase
         if (process == null)
             return NotFound();
 
-        _dbContext.Processes.Remove(process);
+        // Soft delete - CLAUDE.md compliance
+        process.SoftDelete();
         await _dbContext.SaveChangesAsync();
 
         return NoContent();
+    }
+
+    /// <summary>
+    /// Update the entry and/or exit activity for a process flow.
+    /// Used when connecting from Start node or to End node in the flow editor.
+    /// </summary>
+    [HttpPatch("{id}/flow-endpoints")]
+    public async Task<IActionResult> UpdateFlowEndpoints(
+        Guid organizationId,
+        Guid id,
+        [FromBody] UpdateFlowEndpointsRequest request)
+    {
+        var process = await _dbContext.Processes
+            .FirstOrDefaultAsync(p => p.Id == id && p.OrganizationId == organizationId);
+
+        if (process == null)
+            return NotFound();
+
+        // Validate that the referenced activities exist and belong to this process
+        if (request.EntryActivityId.HasValue)
+        {
+            var activityExists = await _dbContext.Activities
+                .AnyAsync(a => a.Id == request.EntryActivityId.Value && a.ProcessId == id);
+            if (!activityExists)
+                return BadRequest("Entry activity not found in this process");
+            process.EntryActivityId = request.EntryActivityId;
+        }
+
+        if (request.ExitActivityId.HasValue)
+        {
+            var activityExists = await _dbContext.Activities
+                .AnyAsync(a => a.Id == request.ExitActivityId.Value && a.ProcessId == id);
+            if (!activityExists)
+                return BadRequest("Exit activity not found in this process");
+            process.ExitActivityId = request.ExitActivityId;
+        }
+
+        // Allow clearing the fields by explicitly passing null
+        if (request.ClearEntry)
+            process.EntryActivityId = null;
+        if (request.ClearExit)
+            process.ExitActivityId = null;
+
+        // Mark as explicit flow mode when user sets flow endpoints
+        process.UseExplicitFlow = true;
+
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new
+        {
+            EntryActivityId = process.EntryActivityId,
+            ExitActivityId = process.ExitActivityId,
+            UseExplicitFlow = process.UseExplicitFlow
+        });
     }
 
     #endregion
@@ -369,7 +442,8 @@ public class ProcessesController : ControllerBase
         if (activity == null)
             return NotFound();
 
-        _dbContext.Activities.Remove(activity);
+        // Soft delete - CLAUDE.md compliance
+        activity.SoftDelete();
         await _dbContext.SaveChangesAsync();
 
         return NoContent();
@@ -509,6 +583,10 @@ public class ProcessesController : ControllerBase
         };
 
         _dbContext.ActivityEdges.Add(edge);
+
+        // Mark as explicit flow mode when user creates edges
+        process.UseExplicitFlow = true;
+
         await _dbContext.SaveChangesAsync();
 
         return CreatedAtAction(nameof(GetEdges), new { organizationId, processId },
@@ -582,7 +660,12 @@ public class ProcessesController : ControllerBase
         if (edge == null)
             return NotFound("Edge not found");
 
-        _dbContext.ActivityEdges.Remove(edge);
+        // Soft delete - CLAUDE.md compliance
+        edge.SoftDelete();
+
+        // Mark as explicit flow mode when user deletes edges (keeps the process in explicit mode)
+        edge.Process.UseExplicitFlow = true;
+
         await _dbContext.SaveChangesAsync();
 
         return NoContent();

@@ -390,4 +390,132 @@ public class AuthController : ControllerBase
             Timestamp = DateTime.UtcNow
         });
     }
+
+    [HttpGet("my-organizations")]
+    [Authorize]
+    public async Task<IActionResult> GetMyOrganizations()
+    {
+        if (!_currentUserService.IsAuthenticated)
+        {
+            return Unauthorized();
+        }
+
+        // Get user by email
+        var user = await _dbContext.Users
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == _currentUserService.Email.ToLower());
+
+        if (user == null)
+        {
+            return Ok(new List<UserOrganizationDto>());
+        }
+
+        var organizations = await _dbContext.OrganizationMemberships
+            .Include(m => m.Organization)
+            .Where(m => m.UserId == user.Id && m.DeletedAt == null)
+            .Select(m => new UserOrganizationDto
+            {
+                Id = m.Organization.Id,
+                Name = m.Organization.Name,
+                Slug = m.Organization.Slug,
+                Description = m.Organization.Description,
+                LogoUrl = m.Organization.LogoUrl,
+                Role = m.Role,
+                CreatedAt = m.Organization.CreatedAt
+            })
+            .OrderBy(o => o.Name)
+            .ToListAsync();
+
+        return Ok(organizations);
+    }
+
+    [HttpPost("organizations")]
+    [Authorize]
+    public async Task<IActionResult> CreateOrganization([FromBody] UserCreateOrganizationRequest request)
+    {
+        if (!_currentUserService.IsAuthenticated)
+        {
+            return Unauthorized();
+        }
+
+        // Get user by email
+        var user = await _dbContext.Users
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == _currentUserService.Email.ToLower());
+
+        if (user == null)
+        {
+            return Unauthorized(new { Message = "User not found" });
+        }
+
+        // Generate slug from name
+        var slug = GenerateSlug(request.Name);
+
+        // Check if slug is unique
+        var slugExists = await _dbContext.Organizations.AnyAsync(o => o.Slug == slug && o.DeletedAt == null);
+        if (slugExists)
+        {
+            // Append random suffix
+            slug = $"{slug}-{Guid.NewGuid().ToString()[..6]}";
+        }
+
+        var organization = new Organization
+        {
+            Name = request.Name,
+            Slug = slug,
+            Description = request.Description,
+            LogoUrl = request.LogoUrl
+        };
+
+        _dbContext.Organizations.Add(organization);
+
+        // Add current user as owner
+        var membership = new OrganizationMembership
+        {
+            UserId = user.Id,
+            OrganizationId = organization.Id,
+            Role = MembershipRole.Owner
+        };
+
+        _dbContext.OrganizationMemberships.Add(membership);
+
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new UserOrganizationDto
+        {
+            Id = organization.Id,
+            Name = organization.Name,
+            Slug = organization.Slug,
+            Description = organization.Description,
+            LogoUrl = organization.LogoUrl,
+            Role = MembershipRole.Owner,
+            CreatedAt = organization.CreatedAt
+        });
+    }
+
+    private static string GenerateSlug(string name)
+    {
+        // Simple slug generation - lowercase, replace spaces with dashes, remove special chars
+        return System.Text.RegularExpressions.Regex.Replace(
+            name.ToLower().Replace(" ", "-"),
+            "[^a-z0-9-]",
+            ""
+        );
+    }
+}
+
+public class UserOrganizationDto
+{
+    public Guid Id { get; set; }
+    public required string Name { get; set; }
+    public required string Slug { get; set; }
+    public string? Description { get; set; }
+    public string? LogoUrl { get; set; }
+    public MembershipRole Role { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+public class UserCreateOrganizationRequest
+{
+    public required string Name { get; set; }
+    public string? Description { get; set; }
+    public string? LogoUrl { get; set; }
 }

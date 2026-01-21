@@ -1,0 +1,221 @@
+{
+  "$schema": "./schema.json",
+  "id": "ENT017",
+  "name": "AiAgent",
+  "description": "Configurable AI agent with specific model, role, and capabilities that can participate in multi-agent conversations",
+  "table": "AiAgents",
+  "status": "implemented",
+  "created_at": "2026-01-17",
+  "updated_at": "2026-01-17",
+
+  "fields": [
+    {
+      "name": "OrganizationId",
+      "type": "Guid",
+      "nullable": false,
+      "description": "Organization this agent belongs to (multi-tenancy)"
+    },
+    {
+      "name": "Name",
+      "type": "string",
+      "nullable": false,
+      "max_length": 100,
+      "description": "Display name of the agent (e.g., 'CFO-AI', 'Ops-AI')"
+    },
+    {
+      "name": "RoleTitle",
+      "type": "string",
+      "nullable": false,
+      "max_length": 100,
+      "description": "Role title shown under name (e.g., 'Chief Financial Officer', 'Operations Manager')"
+    },
+    {
+      "name": "AvatarUrl",
+      "type": "string",
+      "nullable": true,
+      "max_length": 2048,
+      "description": "URL to the agent's avatar image"
+    },
+    {
+      "name": "AvatarColor",
+      "type": "string",
+      "nullable": true,
+      "max_length": 7,
+      "description": "Hex color for avatar background if no image (e.g., '#4CAF50')"
+    },
+    {
+      "name": "ModelProvider",
+      "type": "string",
+      "nullable": false,
+      "max_length": 50,
+      "description": "AI provider: 'anthropic', 'openai', 'google'",
+      "enum": ["anthropic", "openai", "google"]
+    },
+    {
+      "name": "ModelId",
+      "type": "string",
+      "nullable": false,
+      "max_length": 100,
+      "description": "Specific model ID (e.g., 'claude-sonnet-4-20250514', 'gpt-4o', 'gemini-pro')"
+    },
+    {
+      "name": "ModelDisplayName",
+      "type": "string",
+      "nullable": false,
+      "max_length": 50,
+      "description": "Display name for model badge (e.g., 'Claude Sonnet', 'GPT-4', 'Gemini')"
+    },
+    {
+      "name": "SystemPrompt",
+      "type": "text",
+      "nullable": false,
+      "description": "System prompt that defines the agent's personality, expertise, and behavior"
+    },
+    {
+      "name": "ContextAccessJson",
+      "type": "jsonb",
+      "nullable": false,
+      "default": "{}",
+      "description": "JSON defining what organizational data the agent can access (canvases, processes, roles, resources, goals, metrics)"
+    },
+    {
+      "name": "ToolsEnabledJson",
+      "type": "jsonb",
+      "nullable": false,
+      "default": "[]",
+      "description": "JSON array of tool IDs this agent can use"
+    },
+    {
+      "name": "MaxTokensPerResponse",
+      "type": "int",
+      "nullable": false,
+      "default": 4096,
+      "description": "Maximum tokens the agent can use per response"
+    },
+    {
+      "name": "Temperature",
+      "type": "decimal",
+      "nullable": false,
+      "default": 0.7,
+      "precision": 3,
+      "scale": 2,
+      "description": "Model temperature setting (0.0-2.0)"
+    },
+    {
+      "name": "IsActive",
+      "type": "bool",
+      "nullable": false,
+      "default": true,
+      "description": "Whether the agent is active and can participate in conversations"
+    },
+    {
+      "name": "SortOrder",
+      "type": "int",
+      "nullable": false,
+      "default": 0,
+      "description": "Display order in the agents list"
+    }
+  ],
+
+  "validation_rules": [
+    {
+      "id": "R-AIA-001",
+      "field": "Name",
+      "rule": "Must be unique within the organization",
+      "error_code": "AGENT_NAME_EXISTS",
+      "error_message": "An agent with this name already exists"
+    },
+    {
+      "id": "R-AIA-002",
+      "field": "ModelProvider",
+      "rule": "Must be one of: anthropic, openai, google",
+      "error_code": "INVALID_PROVIDER",
+      "error_message": "Invalid AI model provider"
+    },
+    {
+      "id": "R-AIA-003",
+      "field": "Temperature",
+      "rule": "Must be between 0.0 and 2.0",
+      "error_code": "INVALID_TEMPERATURE",
+      "error_message": "Temperature must be between 0.0 and 2.0"
+    },
+    {
+      "id": "R-AIA-004",
+      "field": "SystemPrompt",
+      "rule": "Required, minimum 10 characters",
+      "error_code": "SYSTEM_PROMPT_REQUIRED",
+      "error_message": "System prompt is required"
+    }
+  ],
+
+  "relationships": [
+    {
+      "type": "many-to-one",
+      "entity": "ENT002",
+      "foreign_key": "OrganizationId",
+      "navigation": "Organization",
+      "description": "Organization that owns this agent"
+    },
+    {
+      "type": "one-to-many",
+      "entity": "ENT020",
+      "inverse_key": "AiAgentId",
+      "navigation": "ConversationParticipants",
+      "description": "Conversations this agent participates in"
+    },
+    {
+      "type": "one-to-many",
+      "entity": "ENT019",
+      "inverse_key": "SenderAiAgentId",
+      "navigation": "Messages",
+      "description": "Messages sent by this agent"
+    }
+  ],
+
+  "indexes": [
+    {
+      "name": "IX_AiAgents_OrganizationId",
+      "columns": ["OrganizationId"]
+    },
+    {
+      "name": "IX_AiAgents_OrganizationId_Name",
+      "columns": ["OrganizationId", "Name"],
+      "unique": true
+    },
+    {
+      "name": "IX_AiAgents_OrganizationId_IsActive",
+      "columns": ["OrganizationId", "IsActive"]
+    }
+  ],
+
+  "api_representation": {
+    "dto_name": "AiAgentDto",
+    "include_fields": ["Id", "Name", "RoleTitle", "AvatarUrl", "AvatarColor", "ModelProvider", "ModelDisplayName", "IsActive", "SortOrder", "CreatedAt", "UpdatedAt"],
+    "exclude_fields": ["SystemPrompt", "ContextAccessJson", "ToolsEnabledJson"],
+    "computed_fields": [
+      {
+        "name": "ContextAccess",
+        "type": "ContextAccessDto",
+        "computation": "Deserialize ContextAccessJson"
+      },
+      {
+        "name": "ToolsEnabled",
+        "type": "string[]",
+        "computation": "Deserialize ToolsEnabledJson"
+      }
+    ]
+  },
+
+  "audit_requirements": {
+    "log_create": true,
+    "log_update": true,
+    "log_delete": true,
+    "sensitive_fields": ["SystemPrompt"]
+  },
+
+  "code_location": {
+    "entity": "orbitos-api/src/OrbitOS.Domain/Entities/AiAgent.cs",
+    "dto": "orbitos-api/src/OrbitOS.Api/Controllers/AiAgentsController.cs",
+    "frontend_type": "orbitos-web/app/types/ai-agents.ts"
+  }
+}

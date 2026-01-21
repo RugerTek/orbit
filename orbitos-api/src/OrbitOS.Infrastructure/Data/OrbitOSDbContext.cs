@@ -41,9 +41,24 @@ public class OrbitOSDbContext : DbContext
     // Canvas entities
     public DbSet<Canvas> Canvases => Set<Canvas>();
     public DbSet<CanvasBlock> CanvasBlocks => Set<CanvasBlock>();
+    public DbSet<BlockReference> BlockReferences => Set<BlockReference>();
+
+    // Business Model Canvas entities
+    public DbSet<Partner> Partners => Set<Partner>();
+    public DbSet<Channel> Channels => Set<Channel>();
+    public DbSet<ValueProposition> ValuePropositions => Set<ValueProposition>();
+    public DbSet<CustomerRelationship> CustomerRelationships => Set<CustomerRelationship>();
+    public DbSet<RevenueStream> RevenueStreams => Set<RevenueStream>();
 
     // Goal entities
     public DbSet<Goal> Goals => Set<Goal>();
+
+    // AI entities
+    public DbSet<AiAgent> AiAgents => Set<AiAgent>();
+    public DbSet<Conversation> Conversations => Set<Conversation>();
+    public DbSet<Message> Messages => Set<Message>();
+    public DbSet<ConversationParticipant> ConversationParticipants => Set<ConversationParticipant>();
+    public DbSet<PendingAction> PendingActions => Set<PendingAction>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -120,7 +135,10 @@ public class OrbitOSDbContext : DbContext
         modelBuilder.Entity<RoleFunction>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.HasIndex(e => new { e.RoleId, e.FunctionId }).IsUnique();
+            // Unique constraint only for non-deleted records
+            entity.HasIndex(e => new { e.RoleId, e.FunctionId })
+                .IsUnique()
+                .HasFilter("[DeletedAt] IS NULL");
             entity.HasOne(e => e.Role)
                 .WithMany(r => r.RoleFunctions)
                 .HasForeignKey(e => e.RoleId)
@@ -230,13 +248,26 @@ public class OrbitOSDbContext : DbContext
                 .WithMany(u => u.LinkedResources)
                 .HasForeignKey(e => e.LinkedUserId)
                 .OnDelete(DeleteBehavior.SetNull);
+            // Org chart self-reference: reporting hierarchy
+            entity.HasOne(e => e.ReportsToResource)
+                .WithMany(e => e.DirectReports)
+                .HasForeignKey(e => e.ReportsToResourceId)
+                .OnDelete(DeleteBehavior.NoAction); // Prevent cascade cycles
+            entity.HasIndex(e => e.ReportsToResourceId)
+                .HasFilter("[ReportsToResourceId] IS NOT NULL");
+            entity.HasIndex(e => new { e.OrganizationId, e.IsVacant });
+            entity.Property(e => e.IsVacant).HasDefaultValue(false);
+            entity.Property(e => e.VacantPositionTitle).HasMaxLength(255);
         });
 
         // RoleAssignment configuration
         modelBuilder.Entity<RoleAssignment>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.HasIndex(e => new { e.ResourceId, e.RoleId }).IsUnique();
+            // Unique constraint only for non-deleted records (supports soft delete + re-assignment)
+            entity.HasIndex(e => new { e.ResourceId, e.RoleId })
+                .IsUnique()
+                .HasFilter("[DeletedAt] IS NULL");
             entity.HasOne(e => e.Resource)
                 .WithMany(r => r.RoleAssignments)
                 .HasForeignKey(e => e.ResourceId)
@@ -251,7 +282,10 @@ public class OrbitOSDbContext : DbContext
         modelBuilder.Entity<FunctionCapability>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.HasIndex(e => new { e.ResourceId, e.FunctionId }).IsUnique();
+            // Unique constraint only for non-deleted records (supports soft delete + re-assignment)
+            entity.HasIndex(e => new { e.ResourceId, e.FunctionId })
+                .IsUnique()
+                .HasFilter("[DeletedAt] IS NULL");
             entity.HasOne(e => e.Resource)
                 .WithMany(r => r.FunctionCapabilities)
                 .HasForeignKey(e => e.ResourceId)
@@ -279,6 +313,16 @@ public class OrbitOSDbContext : DbContext
             entity.HasOne(e => e.LinkedProcess)
                 .WithMany()
                 .HasForeignKey(e => e.LinkedProcessId)
+                .OnDelete(DeleteBehavior.NoAction);
+            // Entry and exit activity for flow visualization
+            // Use NoAction to avoid cascade cycles with Activities->Process relationship
+            entity.HasOne(e => e.EntryActivity)
+                .WithMany()
+                .HasForeignKey(e => e.EntryActivityId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.ExitActivity)
+                .WithMany()
+                .HasForeignKey(e => e.ExitActivityId)
                 .OnDelete(DeleteBehavior.NoAction);
         });
 
@@ -338,21 +382,187 @@ public class OrbitOSDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Name).HasMaxLength(255);
+            entity.Property(e => e.Slug).HasMaxLength(100);
+            entity.HasIndex(e => new { e.OrganizationId, e.Slug })
+                .IsUnique()
+                .HasFilter("[Slug] IS NOT NULL");
+            entity.HasIndex(e => new { e.OrganizationId, e.ScopeType });
+            entity.HasIndex(e => e.ParentCanvasId).HasFilter("[ParentCanvasId] IS NOT NULL");
+            entity.HasIndex(e => e.ProductId).HasFilter("[ProductId] IS NOT NULL");
+            entity.HasIndex(e => e.SegmentId).HasFilter("[SegmentId] IS NOT NULL");
             entity.HasOne(e => e.Organization)
                 .WithMany(o => o.Canvases)
                 .HasForeignKey(e => e.OrganizationId)
                 .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.ParentCanvas)
+                .WithMany(c => c.ChildCanvases)
+                .HasForeignKey(e => e.ParentCanvasId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.Product)
+                .WithMany(p => p.Canvases)
+                .HasForeignKey(e => e.ProductId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.Segment)
+                .WithMany(s => s.Canvases)
+                .HasForeignKey(e => e.SegmentId)
+                .OnDelete(DeleteBehavior.NoAction);
         });
 
         // CanvasBlock configuration
         modelBuilder.Entity<CanvasBlock>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.HasIndex(e => new { e.CanvasId, e.BlockType }).IsUnique();
+            entity.Property(e => e.Title).HasMaxLength(255);
+            // Unique constraint only for non-deleted records
+            entity.HasIndex(e => new { e.CanvasId, e.BlockType })
+                .IsUnique()
+                .HasFilter("[DeletedAt] IS NULL");
+            entity.HasIndex(e => e.OrganizationId);
             entity.HasOne(e => e.Canvas)
                 .WithMany(c => c.Blocks)
                 .HasForeignKey(e => e.CanvasId)
                 .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Organization)
+                .WithMany(o => o.CanvasBlocks)
+                .HasForeignKey(e => e.OrganizationId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        // BlockReference configuration
+        modelBuilder.Entity<BlockReference>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            // Unique constraint only for non-deleted records
+            entity.HasIndex(e => new { e.CanvasBlockId, e.EntityType, e.EntityId })
+                .IsUnique()
+                .HasFilter("[DeletedAt] IS NULL");
+            entity.HasIndex(e => new { e.EntityType, e.EntityId });
+            entity.HasIndex(e => e.OrganizationId);
+            entity.HasOne(e => e.Organization)
+                .WithMany(o => o.BlockReferences)
+                .HasForeignKey(e => e.OrganizationId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.CanvasBlock)
+                .WithMany(b => b.References)
+                .HasForeignKey(e => e.CanvasBlockId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Partner configuration
+        modelBuilder.Entity<Partner>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).HasMaxLength(255);
+            entity.Property(e => e.Slug).HasMaxLength(100);
+            entity.Property(e => e.Website).HasMaxLength(2048);
+            entity.HasIndex(e => new { e.OrganizationId, e.Slug })
+                .IsUnique()
+                .HasFilter("[Slug] IS NOT NULL");
+            entity.HasIndex(e => new { e.OrganizationId, e.Type });
+            entity.HasIndex(e => new { e.OrganizationId, e.Status });
+            entity.HasOne(e => e.Organization)
+                .WithMany(o => o.Partners)
+                .HasForeignKey(e => e.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Channel configuration
+        modelBuilder.Entity<Channel>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).HasMaxLength(255);
+            entity.Property(e => e.Slug).HasMaxLength(100);
+            entity.HasIndex(e => new { e.OrganizationId, e.Slug })
+                .IsUnique()
+                .HasFilter("[Slug] IS NOT NULL");
+            entity.HasIndex(e => new { e.OrganizationId, e.Type });
+            entity.HasIndex(e => new { e.OrganizationId, e.Category });
+            entity.HasIndex(e => new { e.OrganizationId, e.Status });
+            entity.HasIndex(e => e.PartnerId).HasFilter("[PartnerId] IS NOT NULL");
+            entity.HasOne(e => e.Organization)
+                .WithMany(o => o.Channels)
+                .HasForeignKey(e => e.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Partner)
+                .WithMany(p => p.Channels)
+                .HasForeignKey(e => e.PartnerId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        // ValueProposition configuration
+        modelBuilder.Entity<ValueProposition>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).HasMaxLength(255);
+            entity.Property(e => e.Slug).HasMaxLength(100);
+            entity.Property(e => e.Headline).HasMaxLength(500);
+            entity.HasIndex(e => new { e.OrganizationId, e.Slug })
+                .IsUnique()
+                .HasFilter("[Slug] IS NOT NULL");
+            entity.HasIndex(e => new { e.OrganizationId, e.Status });
+            entity.HasIndex(e => e.ProductId).HasFilter("[ProductId] IS NOT NULL");
+            entity.HasIndex(e => e.SegmentId).HasFilter("[SegmentId] IS NOT NULL");
+            entity.HasOne(e => e.Organization)
+                .WithMany(o => o.ValuePropositions)
+                .HasForeignKey(e => e.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Product)
+                .WithMany(p => p.ValuePropositions)
+                .HasForeignKey(e => e.ProductId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.Segment)
+                .WithMany(s => s.ValuePropositions)
+                .HasForeignKey(e => e.SegmentId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        // CustomerRelationship configuration
+        modelBuilder.Entity<CustomerRelationship>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).HasMaxLength(255);
+            entity.Property(e => e.Slug).HasMaxLength(100);
+            entity.HasIndex(e => new { e.OrganizationId, e.Slug })
+                .IsUnique()
+                .HasFilter("[Slug] IS NOT NULL");
+            entity.HasIndex(e => new { e.OrganizationId, e.Type });
+            entity.HasIndex(e => new { e.OrganizationId, e.Status });
+            entity.HasIndex(e => e.SegmentId).HasFilter("[SegmentId] IS NOT NULL");
+            entity.HasOne(e => e.Organization)
+                .WithMany(o => o.CustomerRelationships)
+                .HasForeignKey(e => e.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Segment)
+                .WithMany(s => s.CustomerRelationships)
+                .HasForeignKey(e => e.SegmentId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        // RevenueStream configuration
+        modelBuilder.Entity<RevenueStream>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).HasMaxLength(255);
+            entity.Property(e => e.Slug).HasMaxLength(100);
+            entity.HasIndex(e => new { e.OrganizationId, e.Slug })
+                .IsUnique()
+                .HasFilter("[Slug] IS NOT NULL");
+            entity.HasIndex(e => new { e.OrganizationId, e.Type });
+            entity.HasIndex(e => new { e.OrganizationId, e.Status });
+            entity.HasIndex(e => e.ProductId).HasFilter("[ProductId] IS NOT NULL");
+            entity.HasIndex(e => e.SegmentId).HasFilter("[SegmentId] IS NOT NULL");
+            entity.HasOne(e => e.Organization)
+                .WithMany(o => o.RevenueStreams)
+                .HasForeignKey(e => e.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Product)
+                .WithMany(p => p.RevenueStreams)
+                .HasForeignKey(e => e.ProductId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.Segment)
+                .WithMany(s => s.RevenueStreams)
+                .HasForeignKey(e => e.SegmentId)
+                .OnDelete(DeleteBehavior.NoAction);
         });
 
         // Goal configuration
@@ -382,6 +592,157 @@ public class OrbitOSDbContext : DbContext
         {
             entity.Property(e => e.AllocationPercentage).HasPrecision(5, 2);
         });
+
+        // AiAgent configuration
+        modelBuilder.Entity<AiAgent>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).HasMaxLength(100);
+            entity.Property(e => e.RoleTitle).HasMaxLength(100);
+            entity.Property(e => e.AvatarUrl).HasMaxLength(2048);
+            entity.Property(e => e.AvatarColor).HasMaxLength(7);
+            entity.Property(e => e.ModelId).HasMaxLength(100);
+            entity.Property(e => e.ModelDisplayName).HasMaxLength(50);
+            entity.Property(e => e.Temperature).HasPrecision(3, 2);
+            entity.HasIndex(e => new { e.OrganizationId, e.Name }).IsUnique();
+            entity.HasOne(e => e.Organization)
+                .WithMany(o => o.AiAgents)
+                .HasForeignKey(e => e.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Conversation configuration
+        modelBuilder.Entity<Conversation>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Title).HasMaxLength(255);
+            entity.Property(e => e.Mode).HasConversion<string>().HasMaxLength(20);
+            entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(20);
+            entity.HasIndex(e => e.OrganizationId);
+            entity.HasIndex(e => new { e.OrganizationId, e.Status });
+            entity.HasIndex(e => e.CreatedByUserId);
+            entity.HasIndex(e => e.LastMessageAt).IsDescending();
+            entity.HasOne(e => e.Organization)
+                .WithMany(o => o.Conversations)
+                .HasForeignKey(e => e.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.CreatedByUser)
+                .WithMany()
+                .HasForeignKey(e => e.CreatedByUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        // Message configuration
+        modelBuilder.Entity<Message>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.SenderType).HasConversion<string>().HasMaxLength(10);
+            entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(20);
+            entity.Property(e => e.ModelUsed).HasMaxLength(100);
+            entity.Property(e => e.MentionedAgentIdsJson).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.ReferencedItemsJson).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.SourcesJson).HasColumnType("nvarchar(max)");
+            entity.HasIndex(e => e.ConversationId);
+            entity.HasIndex(e => new { e.ConversationId, e.SequenceNumber });
+            entity.HasIndex(e => new { e.ConversationId, e.CreatedAt });
+            entity.HasIndex(e => e.SenderUserId).HasFilter("[SenderUserId] IS NOT NULL");
+            entity.HasIndex(e => e.SenderAiAgentId).HasFilter("[SenderAiAgentId] IS NOT NULL");
+            entity.HasOne(e => e.Conversation)
+                .WithMany(c => c.Messages)
+                .HasForeignKey(e => e.ConversationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.SenderUser)
+                .WithMany()
+                .HasForeignKey(e => e.SenderUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.SenderAiAgent)
+                .WithMany()
+                .HasForeignKey(e => e.SenderAiAgentId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.ParentMessage)
+                .WithMany(m => m.Replies)
+                .HasForeignKey(e => e.ParentMessageId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        // ConversationParticipant configuration
+        modelBuilder.Entity<ConversationParticipant>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.ParticipantType).HasConversion<string>().HasMaxLength(10);
+            entity.Property(e => e.Role).HasConversion<string>().HasMaxLength(20);
+            entity.HasIndex(e => e.ConversationId);
+            entity.HasIndex(e => e.UserId).HasFilter("[UserId] IS NOT NULL");
+            entity.HasIndex(e => e.AiAgentId).HasFilter("[AiAgentId] IS NOT NULL");
+            entity.HasIndex(e => new { e.ConversationId, e.UserId })
+                .IsUnique()
+                .HasFilter("[UserId] IS NOT NULL");
+            entity.HasIndex(e => new { e.ConversationId, e.AiAgentId })
+                .IsUnique()
+                .HasFilter("[AiAgentId] IS NOT NULL");
+            entity.HasOne(e => e.Conversation)
+                .WithMany(c => c.Participants)
+                .HasForeignKey(e => e.ConversationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.AiAgent)
+                .WithMany()
+                .HasForeignKey(e => e.AiAgentId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.LastSeenMessage)
+                .WithMany()
+                .HasForeignKey(e => e.LastSeenMessageId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        // PendingAction configuration
+        modelBuilder.Entity<PendingAction>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.ActionType).HasConversion<string>().HasMaxLength(20);
+            entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(20);
+            entity.Property(e => e.EntityType).HasMaxLength(100);
+            entity.Property(e => e.EntityName).HasMaxLength(255);
+            entity.Property(e => e.ProposedDataJson).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.PreviousDataJson).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.UserModificationsJson).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.FinalDataJson).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.ExecutionResultJson).HasColumnType("nvarchar(max)");
+            entity.HasIndex(e => new { e.OrganizationId, e.Status });
+            entity.HasIndex(e => new { e.ConversationId, e.Status })
+                .HasFilter("[ConversationId] IS NOT NULL");
+            entity.HasIndex(e => e.MessageId).HasFilter("[MessageId] IS NOT NULL");
+            entity.HasIndex(e => e.AgentId).HasFilter("[AgentId] IS NOT NULL");
+            entity.HasIndex(e => new { e.EntityType, e.EntityId })
+                .HasFilter("[EntityId] IS NOT NULL");
+            entity.HasIndex(e => e.ExpiresAt).HasFilter("[ExpiresAt] IS NOT NULL AND [Status] = 'Pending'");
+            entity.HasOne(e => e.Organization)
+                .WithMany()
+                .HasForeignKey(e => e.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Conversation)
+                .WithMany()
+                .HasForeignKey(e => e.ConversationId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.Message)
+                .WithMany()
+                .HasForeignKey(e => e.MessageId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.Agent)
+                .WithMany()
+                .HasForeignKey(e => e.AgentId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.ReviewedByUser)
+                .WithMany()
+                .HasForeignKey(e => e.ReviewedByUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        // Apply soft delete query filters to all entities
+        ApplySoftDeleteFilters(modelBuilder);
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -401,5 +762,57 @@ public class OrbitOSDbContext : DbContext
         }
 
         return base.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Applies global query filters to exclude soft-deleted entities.
+    /// Call this method at the end of OnModelCreating.
+    /// CLAUDE.md Compliance: Soft delete support for all BaseEntity types.
+    /// </summary>
+    private void ApplySoftDeleteFilters(ModelBuilder modelBuilder)
+    {
+        // Apply soft delete filter to all entities that inherit from BaseEntity
+        modelBuilder.Entity<Function>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.Entity<Role>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.Entity<ResourceSubtype>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.Entity<Resource>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.Entity<RoleAssignment>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.Entity<FunctionCapability>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.Entity<Process>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.Entity<Activity>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.Entity<ActivityEdge>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.Entity<Canvas>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.Entity<CanvasBlock>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.Entity<BlockReference>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.Entity<Partner>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.Entity<Channel>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.Entity<ValueProposition>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.Entity<CustomerRelationship>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.Entity<RevenueStream>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.Entity<Goal>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.Entity<AiAgent>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.Entity<Conversation>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.Entity<Message>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.Entity<ConversationParticipant>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.Entity<PendingAction>().HasQueryFilter(e => e.DeletedAt == null);
+
+        // Core entities
+        modelBuilder.Entity<User>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.Entity<Organization>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.Entity<OrganizationMembership>().HasQueryFilter(e => e.DeletedAt == null);
+
+        // System permission entities
+        modelBuilder.Entity<Permission>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.Entity<SystemRole>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.Entity<SystemRolePermission>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.Entity<UserSystemRole>().HasQueryFilter(e => e.DeletedAt == null);
+
+        // Junction tables
+        modelBuilder.Entity<RoleFunction>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.Entity<UserRole>().HasQueryFilter(e => e.DeletedAt == null);
+
+        // Additional entities
+        modelBuilder.Entity<Product>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.Entity<Segment>().HasQueryFilter(e => e.DeletedAt == null);
     }
 }

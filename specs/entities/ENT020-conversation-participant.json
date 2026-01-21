@@ -1,0 +1,204 @@
+{
+  "$schema": "./schema.json",
+  "id": "ENT020",
+  "name": "ConversationParticipant",
+  "description": "Junction entity linking users and AI agents to conversations they participate in",
+  "table": "ConversationParticipants",
+  "status": "implemented",
+  "created_at": "2026-01-17",
+  "updated_at": "2026-01-17",
+
+  "fields": [
+    {
+      "name": "ConversationId",
+      "type": "Guid",
+      "nullable": false,
+      "description": "Conversation this participant belongs to"
+    },
+    {
+      "name": "ParticipantType",
+      "type": "string",
+      "nullable": false,
+      "max_length": 10,
+      "description": "Type of participant: 'user' or 'ai'",
+      "enum": ["user", "ai"]
+    },
+    {
+      "name": "UserId",
+      "type": "Guid",
+      "nullable": true,
+      "description": "User ID if participant is human (null for AI agents)"
+    },
+    {
+      "name": "AiAgentId",
+      "type": "Guid",
+      "nullable": true,
+      "description": "AI Agent ID if participant is AI (null for humans)"
+    },
+    {
+      "name": "Role",
+      "type": "string",
+      "nullable": false,
+      "max_length": 20,
+      "default": "participant",
+      "description": "Role in conversation: 'owner', 'moderator', 'participant'",
+      "enum": ["owner", "moderator", "participant"]
+    },
+    {
+      "name": "JoinedAt",
+      "type": "DateTime",
+      "nullable": false,
+      "description": "When the participant joined the conversation"
+    },
+    {
+      "name": "LeftAt",
+      "type": "DateTime",
+      "nullable": true,
+      "description": "When the participant left the conversation (null if still active)"
+    },
+    {
+      "name": "IsActive",
+      "type": "bool",
+      "nullable": false,
+      "default": true,
+      "description": "Whether the participant is currently active in the conversation"
+    },
+    {
+      "name": "LastSeenMessageId",
+      "type": "Guid",
+      "nullable": true,
+      "description": "Last message the participant has seen (for unread count)"
+    },
+    {
+      "name": "NotificationsEnabled",
+      "type": "bool",
+      "nullable": false,
+      "default": true,
+      "description": "Whether the participant receives notifications for this conversation"
+    }
+  ],
+
+  "validation_rules": [
+    {
+      "id": "R-CPT-001",
+      "rule": "Either UserId or AiAgentId must be set, not both",
+      "error_code": "INVALID_PARTICIPANT",
+      "error_message": "Participant must be either a user or an AI agent"
+    },
+    {
+      "id": "R-CPT-002",
+      "field": "ParticipantType",
+      "rule": "Must match the participant ID field (user ID for 'user', agent ID for 'ai')",
+      "error_code": "PARTICIPANT_TYPE_MISMATCH",
+      "error_message": "Participant type does not match participant ID"
+    },
+    {
+      "id": "R-CPT-003",
+      "rule": "Conversation must have exactly one owner",
+      "error_code": "OWNER_REQUIRED",
+      "error_message": "Conversation must have an owner"
+    },
+    {
+      "id": "R-CPT-004",
+      "rule": "A participant cannot be added to the same conversation twice",
+      "error_code": "DUPLICATE_PARTICIPANT",
+      "error_message": "This participant is already in the conversation"
+    }
+  ],
+
+  "relationships": [
+    {
+      "type": "many-to-one",
+      "entity": "ENT018",
+      "foreign_key": "ConversationId",
+      "navigation": "Conversation",
+      "description": "Conversation this participant belongs to"
+    },
+    {
+      "type": "many-to-one",
+      "entity": "ENT001",
+      "foreign_key": "UserId",
+      "navigation": "User",
+      "description": "User participant (if human)"
+    },
+    {
+      "type": "many-to-one",
+      "entity": "ENT017",
+      "foreign_key": "AiAgentId",
+      "navigation": "AiAgent",
+      "description": "AI agent participant (if AI)"
+    },
+    {
+      "type": "many-to-one",
+      "entity": "ENT019",
+      "foreign_key": "LastSeenMessageId",
+      "navigation": "LastSeenMessage",
+      "description": "Last message seen by this participant"
+    }
+  ],
+
+  "indexes": [
+    {
+      "name": "IX_ConversationParticipants_ConversationId",
+      "columns": ["ConversationId"]
+    },
+    {
+      "name": "IX_ConversationParticipants_UserId",
+      "columns": ["UserId"],
+      "filter": "UserId IS NOT NULL"
+    },
+    {
+      "name": "IX_ConversationParticipants_AiAgentId",
+      "columns": ["AiAgentId"],
+      "filter": "AiAgentId IS NOT NULL"
+    },
+    {
+      "name": "IX_ConversationParticipants_ConversationId_UserId",
+      "columns": ["ConversationId", "UserId"],
+      "unique": true,
+      "filter": "UserId IS NOT NULL"
+    },
+    {
+      "name": "IX_ConversationParticipants_ConversationId_AiAgentId",
+      "columns": ["ConversationId", "AiAgentId"],
+      "unique": true,
+      "filter": "AiAgentId IS NOT NULL"
+    }
+  ],
+
+  "api_representation": {
+    "dto_name": "ParticipantDto",
+    "include_fields": ["Id", "ConversationId", "ParticipantType", "Role", "JoinedAt", "IsActive"],
+    "exclude_fields": ["LeftAt", "LastSeenMessageId", "NotificationsEnabled"],
+    "computed_fields": [
+      {
+        "name": "User",
+        "type": "UserSummaryDto",
+        "computation": "Load from User if ParticipantType == 'user'"
+      },
+      {
+        "name": "AiAgent",
+        "type": "AiAgentSummaryDto",
+        "computation": "Load from AiAgent if ParticipantType == 'ai'"
+      },
+      {
+        "name": "UnreadCount",
+        "type": "int",
+        "computation": "Count messages after LastSeenMessageId"
+      }
+    ]
+  },
+
+  "audit_requirements": {
+    "log_create": true,
+    "log_update": true,
+    "log_delete": true,
+    "sensitive_fields": []
+  },
+
+  "code_location": {
+    "entity": "orbitos-api/src/OrbitOS.Domain/Entities/ConversationParticipant.cs",
+    "dto": "orbitos-api/src/OrbitOS.Api/Controllers/ConversationsController.cs",
+    "frontend_type": "orbitos-web/app/types/ai-agents.ts"
+  }
+}

@@ -1,0 +1,251 @@
+{
+  "$schema": "./schema.json",
+  "id": "F007",
+  "name": "Contextual Help System",
+  "description": "Integrated help system providing context-aware documentation, spotlight search, interactive walkthroughs, and a persistent help sidebar",
+  "status": "implemented",
+  "priority": "should-have",
+  "created_at": "2026-01-21",
+  "updated_at": "2026-01-21",
+  "owner": "platform-team",
+
+  "capabilities": [
+    {
+      "id": "F007-C01",
+      "description": "As a user, I want a persistent help sidebar that shows documentation relevant to my current page so that I can learn features while using them",
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "Given I am on any app page, when I click the '?' button on the right edge, then the help sidebar opens",
+        "Given the sidebar is open, when I navigate to a different page, then the help content updates automatically",
+        "Given the sidebar is open, when I click the close button or press Escape, then the sidebar closes",
+        "Given I close/open the sidebar, when I refresh the page, then my preference is remembered"
+      ]
+    },
+    {
+      "id": "F007-C02",
+      "description": "As a user, I want to search for help using Cmd+K so that I can quickly find documentation",
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "Given I am on any page, when I press Cmd+K (Mac) or Ctrl+K (Windows), then the spotlight search opens",
+        "Given the spotlight is open, when I type a query, then relevant features, concepts, and fields are shown",
+        "Given search results are shown, when I select a result, then I navigate to that help content"
+      ]
+    },
+    {
+      "id": "F007-C03",
+      "description": "As a user, I want the help sidebar to have multiple tabs so that I can access different types of information",
+      "priority": "should-have",
+      "acceptance_criteria": [
+        "Given the sidebar is open, when I view it, then I see tabs for Overview, Fields, Actions, and Tips",
+        "Given I am on the Overview tab, when I view it, then I see a description of the current page and related pages",
+        "Given I am on the Fields tab, when I view it, then I see explanations for each form field on the page",
+        "Given I am on the Actions tab, when I view it, then I see available actions and their descriptions",
+        "Given I am on the Tips tab, when I view it, then I see numbered best practices and tips"
+      ]
+    },
+    {
+      "id": "F007-C04",
+      "description": "As a user, I want interactive walkthroughs so that I can learn complex features step-by-step",
+      "priority": "could-have",
+      "acceptance_criteria": [
+        "Given I am on a feature page, when I start a walkthrough, then highlighted elements guide me through the feature",
+        "Given I am in a walkthrough, when I press arrow keys, then I navigate between steps",
+        "Given I am in a walkthrough, when I press Escape, then the walkthrough ends"
+      ]
+    },
+    {
+      "id": "F007-C05",
+      "description": "As a user, I want a floating help button so that I can quickly access help options",
+      "priority": "should-have",
+      "acceptance_criteria": [
+        "Given I am on any app page, when I look at the bottom-left corner, then I see a help button",
+        "Given I click the help button, when the menu expands, then I see contextual help, search, and documentation links"
+      ]
+    }
+  ],
+
+  "components": [
+    {
+      "name": "HelpSidebar",
+      "path": "components/help/HelpSidebar.vue",
+      "description": "Persistent right sidebar with contextual help content"
+    },
+    {
+      "name": "HelpSpotlight",
+      "path": "components/help/HelpSpotlight.vue",
+      "description": "Cmd+K spotlight search for help content"
+    },
+    {
+      "name": "HelpPanel",
+      "path": "components/help/HelpPanel.vue",
+      "description": "Slide-out panel for detailed help content"
+    },
+    {
+      "name": "HelpButton",
+      "path": "components/help/HelpButton.vue",
+      "description": "Floating button for quick help access"
+    },
+    {
+      "name": "WalkthroughOverlay",
+      "path": "components/help/WalkthroughOverlay.vue",
+      "description": "Interactive walkthrough overlay with step highlighting"
+    },
+    {
+      "name": "FieldHelpTooltip",
+      "path": "components/help/FieldHelpTooltip.vue",
+      "description": "Inline tooltips for form fields"
+    }
+  ],
+
+  "composables": [
+    {
+      "name": "useHelp",
+      "path": "composables/useHelp.ts",
+      "description": "Central composable for help system state and functionality",
+      "exports": [
+        "isSpotlightOpen",
+        "isHelpPanelOpen",
+        "currentFeatureId",
+        "currentWalkthrough",
+        "helpIndex",
+        "toggleSpotlight",
+        "openSpotlight",
+        "closeSpotlight",
+        "toggleHelpPanel",
+        "openHelpPanel",
+        "closeHelpPanel",
+        "searchHelp",
+        "getFieldHelp",
+        "startWalkthrough",
+        "nextWalkthroughStep",
+        "previousWalkthroughStep",
+        "endWalkthrough",
+        "detectCurrentFeature",
+        "getContextualHelp",
+        "setupKeyboardShortcuts",
+        "loadHelpIndex"
+      ]
+    }
+  ],
+
+  "help_content_pages": [
+    {
+      "route": "/app",
+      "title": "Dashboard Overview",
+      "description": "Key metrics about your organization"
+    },
+    {
+      "route": "/app/people",
+      "title": "People Management",
+      "description": "Manage team members and their capacity"
+    },
+    {
+      "route": "/app/people/org-chart",
+      "title": "Organization Chart",
+      "description": "Visualize reporting relationships"
+    },
+    {
+      "route": "/app/roles",
+      "title": "Roles Management",
+      "description": "Define organizational roles and their functions"
+    },
+    {
+      "route": "/app/functions",
+      "title": "Functions Catalog",
+      "description": "Atomic work units your organization performs"
+    },
+    {
+      "route": "/app/processes",
+      "title": "Process Management",
+      "description": "Define how work gets done"
+    },
+    {
+      "route": "/app/resources",
+      "title": "Resources Registry",
+      "description": "All organizational resources"
+    },
+    {
+      "route": "/app/goals",
+      "title": "Goals & OKRs",
+      "description": "Track objectives and key results"
+    },
+    {
+      "route": "/app/ai-agents",
+      "title": "AI Agents",
+      "description": "Configure AI assistants for your organization"
+    },
+    {
+      "route": "/app/canvases",
+      "title": "Business Model Canvas",
+      "description": "Strategic planning and visualization"
+    },
+    {
+      "route": "/app/assignments",
+      "title": "Pending Actions",
+      "description": "Review AI-proposed changes"
+    }
+  ],
+
+  "keyboard_shortcuts": [
+    {
+      "keys": ["Cmd+K", "Ctrl+K"],
+      "action": "Open spotlight search"
+    },
+    {
+      "keys": ["Escape"],
+      "action": "Close spotlight, help panel, or walkthrough"
+    },
+    {
+      "keys": ["?"],
+      "action": "Toggle help sidebar (when not in input)"
+    },
+    {
+      "keys": ["ArrowRight"],
+      "action": "Next walkthrough step (when in walkthrough)"
+    },
+    {
+      "keys": ["ArrowLeft"],
+      "action": "Previous walkthrough step (when in walkthrough)"
+    }
+  ],
+
+  "ui_screens": [
+    {
+      "id": "SCR-HELP-01",
+      "name": "Help Sidebar",
+      "description": "Right sidebar with contextual help, tabs for Overview/Fields/Actions/Tips"
+    },
+    {
+      "id": "SCR-HELP-02",
+      "name": "Spotlight Search",
+      "description": "Modal search interface for finding help content"
+    },
+    {
+      "id": "SCR-HELP-03",
+      "name": "Help Panel",
+      "description": "Full slide-out panel with detailed feature documentation"
+    }
+  ],
+
+  "security_requirements": [
+    "Help content is public (no authentication required to view docs)",
+    "User preferences stored in localStorage only"
+  ],
+
+  "performance_requirements": [
+    "Sidebar toggle animation < 300ms",
+    "Help content loads from static JSON for instant display",
+    "Search results return in < 50ms for local data"
+  ],
+
+  "dependencies": {
+    "features": [],
+    "external_services": []
+  },
+
+  "test_coverage": {
+    "unit_tests": [],
+    "integration_tests": [],
+    "e2e_tests": []
+  }
+}

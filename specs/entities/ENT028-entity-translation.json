@@ -1,0 +1,310 @@
+{
+  "$schema": "./schema.json",
+  "id": "ENT028",
+  "name": "EntityTranslation",
+  "description": "Stores translations for user-generated content across all translatable entities using a polymorphic pattern",
+  "table": "EntityTranslations",
+  "status": "draft",
+  "created_at": "2026-01-21",
+  "updated_at": "2026-01-21",
+
+  "fields": [
+    {
+      "name": "Id",
+      "type": "Guid",
+      "nullable": false,
+      "description": "Unique identifier"
+    },
+    {
+      "name": "OrganizationId",
+      "type": "Guid",
+      "nullable": false,
+      "description": "Organization that owns this translation",
+      "references": "ENT002"
+    },
+    {
+      "name": "EntityType",
+      "type": "string",
+      "max_length": 50,
+      "nullable": false,
+      "description": "Type of entity being translated (e.g., 'Process', 'Role', 'Function')"
+    },
+    {
+      "name": "EntityId",
+      "type": "Guid",
+      "nullable": false,
+      "description": "ID of the entity being translated"
+    },
+    {
+      "name": "FieldName",
+      "type": "string",
+      "max_length": 100,
+      "nullable": false,
+      "description": "Name of the field being translated (e.g., 'Name', 'Description', 'Purpose')"
+    },
+    {
+      "name": "LanguageCode",
+      "type": "string",
+      "max_length": 10,
+      "nullable": false,
+      "description": "Target language code (e.g., 'es', 'fr')"
+    },
+    {
+      "name": "SourceLanguageCode",
+      "type": "string",
+      "max_length": 10,
+      "nullable": false,
+      "description": "Source language code the translation was made from"
+    },
+    {
+      "name": "SourceContentHash",
+      "type": "string",
+      "max_length": 64,
+      "nullable": false,
+      "description": "SHA-256 hash of the source content for change detection"
+    },
+    {
+      "name": "TranslatedContent",
+      "type": "string",
+      "nullable": false,
+      "description": "The translated text content"
+    },
+    {
+      "name": "Status",
+      "type": "enum",
+      "enum_values": ["Missing", "AiGenerated", "HumanEdited", "Verified", "NeedsReview"],
+      "nullable": false,
+      "default": "AiGenerated",
+      "description": "Current status of the translation"
+    },
+    {
+      "name": "IsVerified",
+      "type": "bool",
+      "nullable": false,
+      "default": false,
+      "description": "Whether a human has verified this translation"
+    },
+    {
+      "name": "VerifiedBy",
+      "type": "Guid",
+      "nullable": true,
+      "description": "User who verified the translation",
+      "references": "ENT001"
+    },
+    {
+      "name": "VerifiedAt",
+      "type": "DateTime",
+      "nullable": true,
+      "description": "Timestamp when the translation was verified"
+    },
+    {
+      "name": "AiModel",
+      "type": "string",
+      "max_length": 100,
+      "nullable": true,
+      "description": "AI model used for translation (if AI-generated)"
+    },
+    {
+      "name": "AiConfidenceScore",
+      "type": "decimal",
+      "nullable": true,
+      "description": "Confidence score from AI translation (0.0-1.0)"
+    },
+    {
+      "name": "CreatedAt",
+      "type": "DateTime",
+      "nullable": false,
+      "description": "Timestamp when the translation was created"
+    },
+    {
+      "name": "UpdatedAt",
+      "type": "DateTime",
+      "nullable": false,
+      "description": "Timestamp when the translation was last updated"
+    },
+    {
+      "name": "CreatedBy",
+      "type": "Guid",
+      "nullable": true,
+      "description": "User who created the translation (null if AI-generated)",
+      "references": "ENT001"
+    },
+    {
+      "name": "UpdatedBy",
+      "type": "Guid",
+      "nullable": true,
+      "description": "User who last updated the translation",
+      "references": "ENT001"
+    },
+    {
+      "name": "DeletedAt",
+      "type": "DateTime",
+      "nullable": true,
+      "description": "Soft delete timestamp"
+    }
+  ],
+
+  "validation_rules": [
+    {
+      "id": "R-TRANS-001",
+      "field": "LanguageCode",
+      "rule": "Must reference an enabled language in the Languages table",
+      "error_code": "INVALID_LANGUAGE_CODE",
+      "error_message": "The specified language is not available"
+    },
+    {
+      "id": "R-TRANS-002",
+      "field": "EntityType",
+      "rule": "Must be a valid translatable entity type",
+      "error_code": "INVALID_ENTITY_TYPE",
+      "error_message": "The specified entity type does not support translation"
+    },
+    {
+      "id": "R-TRANS-003",
+      "field": "FieldName",
+      "rule": "Must be a valid translatable field for the entity type",
+      "error_code": "INVALID_FIELD_NAME",
+      "error_message": "The specified field is not translatable for this entity type"
+    },
+    {
+      "id": "R-TRANS-004",
+      "field": "TranslatedContent",
+      "rule": "Cannot be empty",
+      "error_code": "EMPTY_TRANSLATION",
+      "error_message": "Translation content cannot be empty"
+    },
+    {
+      "id": "R-TRANS-005",
+      "field": "LanguageCode",
+      "rule": "Cannot be the same as SourceLanguageCode",
+      "error_code": "SAME_SOURCE_TARGET",
+      "error_message": "Source and target language cannot be the same"
+    },
+    {
+      "id": "R-TRANS-006",
+      "field": "VerifiedBy",
+      "rule": "Required when IsVerified is true",
+      "error_code": "MISSING_VERIFIER",
+      "error_message": "Verified translation must have a verifier"
+    }
+  ],
+
+  "relationships": [
+    {
+      "type": "many-to-one",
+      "entity": "ENT002",
+      "foreign_key": "OrganizationId",
+      "navigation": "Organization"
+    },
+    {
+      "type": "many-to-one",
+      "entity": "ENT001",
+      "foreign_key": "VerifiedBy",
+      "navigation": "Verifier"
+    },
+    {
+      "type": "many-to-one",
+      "entity": "ENT001",
+      "foreign_key": "CreatedBy",
+      "navigation": "Creator"
+    },
+    {
+      "type": "many-to-one",
+      "entity": "ENT001",
+      "foreign_key": "UpdatedBy",
+      "navigation": "LastUpdater"
+    }
+  ],
+
+  "indexes": [
+    {
+      "name": "IX_EntityTranslations_Lookup",
+      "columns": ["OrganizationId", "EntityType", "EntityId", "FieldName", "LanguageCode"],
+      "unique": true,
+      "filter": "DeletedAt IS NULL",
+      "description": "Primary lookup index for fetching translations"
+    },
+    {
+      "name": "IX_EntityTranslations_Entity",
+      "columns": ["OrganizationId", "EntityType", "EntityId"],
+      "unique": false,
+      "filter": "DeletedAt IS NULL",
+      "description": "For fetching all translations of an entity"
+    },
+    {
+      "name": "IX_EntityTranslations_Language",
+      "columns": ["OrganizationId", "LanguageCode", "Status"],
+      "unique": false,
+      "filter": "DeletedAt IS NULL",
+      "description": "For coverage statistics by language"
+    },
+    {
+      "name": "IX_EntityTranslations_Status",
+      "columns": ["OrganizationId", "Status"],
+      "unique": false,
+      "filter": "DeletedAt IS NULL",
+      "description": "For filtering by translation status"
+    },
+    {
+      "name": "IX_EntityTranslations_NeedsReview",
+      "columns": ["OrganizationId", "Status"],
+      "unique": false,
+      "filter": "Status = 'NeedsReview' AND DeletedAt IS NULL",
+      "description": "For finding translations that need review"
+    }
+  ],
+
+  "api_representation": {
+    "dto_name": "EntityTranslationDto",
+    "include_fields": [
+      "Id", "EntityType", "EntityId", "FieldName", "LanguageCode",
+      "SourceLanguageCode", "TranslatedContent", "Status", "IsVerified",
+      "VerifiedAt", "AiModel", "AiConfidenceScore", "CreatedAt", "UpdatedAt"
+    ],
+    "computed_fields": [
+      {
+        "name": "VerifierName",
+        "type": "string",
+        "computation": "Verifier.DisplayName if VerifiedBy is set"
+      },
+      {
+        "name": "StatusDisplayName",
+        "type": "string",
+        "computation": "Human-readable status name"
+      }
+    ]
+  },
+
+  "multi_tenancy": {
+    "is_tenant_root": false,
+    "scope_field": "OrganizationId",
+    "notes": "All translations are scoped to the organization. Global query filter applies."
+  },
+
+  "valid_entity_types": {
+    "description": "List of entity types that support translation",
+    "types": [
+      { "type": "Process", "translatable_fields": ["Name", "Purpose", "Description", "Trigger", "Output", "VersionNote"] },
+      { "type": "Activity", "translatable_fields": ["Name", "Description", "Instructions"] },
+      { "type": "Role", "translatable_fields": ["Name", "Description", "Purpose"] },
+      { "type": "Function", "translatable_fields": ["Name", "Description", "Purpose", "Instructions"] },
+      { "type": "Resource", "translatable_fields": ["Name", "Description", "VacantPositionTitle"] },
+      { "type": "Canvas", "translatable_fields": ["Name", "Description", "VersionNote"] },
+      { "type": "CanvasBlock", "translatable_fields": ["Title", "SummaryNote"] },
+      { "type": "Organization", "translatable_fields": ["Name", "Description", "Purpose"] },
+      { "type": "AiAgent", "translatable_fields": ["Name", "RoleTitle"] },
+      { "type": "Partner", "translatable_fields": ["Name", "Description"] },
+      { "type": "Channel", "translatable_fields": ["Name", "Description"] },
+      { "type": "ValueProposition", "translatable_fields": ["Name", "Description"] },
+      { "type": "CustomerRelationship", "translatable_fields": ["Name", "Description"] },
+      { "type": "RevenueStream", "translatable_fields": ["Name", "Description"] }
+    ]
+  },
+
+  "code_location": {
+    "entity": "orbitos-api/src/OrbitOS.Domain/Entities/EntityTranslation.cs",
+    "dto": "orbitos-api/src/OrbitOS.Api/Controllers/TranslationsController.cs",
+    "frontend_type": "orbitos-web/app/types/i18n.ts",
+    "composable": "orbitos-web/app/composables/useTranslations.ts"
+  }
+}

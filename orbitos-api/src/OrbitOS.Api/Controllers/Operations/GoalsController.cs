@@ -241,7 +241,8 @@ public class GoalsController : ControllerBase
         if (goal == null)
             return NotFound();
 
-        _dbContext.Goals.Remove(goal);
+        // Soft delete - CLAUDE.md compliance
+        goal.SoftDelete();
         await _dbContext.SaveChangesAsync();
 
         return NoContent();

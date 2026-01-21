@@ -1,0 +1,359 @@
+{
+  "$schema": "./schema.json",
+  "id": "ENT022",
+  "name": "Channel",
+  "description": "A channel through which the organization communicates with, reaches, and delivers value to customer segments. Channels cover the customer journey phases: awareness, evaluation, purchase, delivery, and after-sales support.",
+  "table": "Channels",
+  "status": "draft",
+  "created_at": "2026-01-17",
+  "updated_at": "2026-01-17",
+
+  "fields": [
+    {
+      "name": "OrganizationId",
+      "type": "Guid",
+      "nullable": false,
+      "references": "ENT002",
+      "description": "Organization that owns this channel"
+    },
+    {
+      "name": "Name",
+      "type": "string",
+      "nullable": false,
+      "max_length": 255,
+      "description": "Channel display name"
+    },
+    {
+      "name": "Slug",
+      "type": "string",
+      "nullable": false,
+      "max_length": 100,
+      "description": "URL-friendly unique identifier within organization"
+    },
+    {
+      "name": "Description",
+      "type": "string",
+      "nullable": true,
+      "max_length": 2000,
+      "description": "Description of the channel and how it works"
+    },
+    {
+      "name": "Type",
+      "type": "enum",
+      "nullable": false,
+      "enum_values": ["Direct", "Indirect", "Digital", "Physical", "Hybrid"],
+      "description": "Primary channel type"
+    },
+    {
+      "name": "Category",
+      "type": "enum",
+      "nullable": false,
+      "enum_values": ["Sales", "Marketing", "Distribution", "Support", "Communication"],
+      "description": "Primary function of this channel"
+    },
+    {
+      "name": "Status",
+      "type": "enum",
+      "nullable": false,
+      "enum_values": ["Planned", "Active", "Optimizing", "Sunset", "Inactive"],
+      "description": "Current operational status"
+    },
+    {
+      "name": "Ownership",
+      "type": "enum",
+      "nullable": false,
+      "enum_values": ["Owned", "Partner", "ThirdParty"],
+      "description": "Who owns/operates this channel"
+    },
+    {
+      "name": "Phases",
+      "type": "json",
+      "nullable": false,
+      "description": "Which customer journey phases this channel covers",
+      "json_schema": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": ["Awareness", "Evaluation", "Purchase", "Delivery", "AfterSales"]
+        },
+        "minItems": 1
+      }
+    },
+    {
+      "name": "Metrics",
+      "type": "json",
+      "nullable": true,
+      "description": "Performance metrics for this channel",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "reach": {
+            "type": "number",
+            "description": "Number of people/impressions reached"
+          },
+          "conversion_rate": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Conversion percentage"
+          },
+          "cost_per_acquisition": {
+            "type": "number",
+            "description": "Average cost to acquire a customer through this channel"
+          },
+          "customer_satisfaction": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 5,
+            "description": "Customer satisfaction score for this channel"
+          },
+          "response_time_hours": {
+            "type": "number",
+            "description": "Average response time for support channels"
+          },
+          "attribution_percent": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Percentage of sales attributed to this channel"
+          }
+        }
+      }
+    },
+    {
+      "name": "Cost",
+      "type": "json",
+      "nullable": true,
+      "description": "Cost information for Cost Structure analysis",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string", "enum": ["fixed", "variable", "mixed"] },
+          "amount": { "type": "number" },
+          "currency": { "type": "string", "default": "USD" },
+          "period": { "type": "string", "enum": ["monthly", "annually", "per_acquisition", "per_transaction"] },
+          "budget_allocation": { "type": "number" },
+          "cost_center": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "Integration",
+      "type": "json",
+      "nullable": true,
+      "description": "How this channel integrates with other channels",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "upstream_channels": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Channels that feed into this one"
+          },
+          "downstream_channels": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Channels this one feeds into"
+          },
+          "integration_quality": {
+            "type": "string",
+            "enum": ["seamless", "good", "poor", "none"],
+            "description": "How well integrated with other channels"
+          }
+        }
+      }
+    },
+    {
+      "name": "PartnerId",
+      "type": "Guid",
+      "nullable": true,
+      "references": "ENT021",
+      "description": "Partner that operates this channel (for partner/third-party owned channels)"
+    },
+    {
+      "name": "Tags",
+      "type": "json",
+      "nullable": true,
+      "description": "Tags for categorization and filtering",
+      "json_schema": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    }
+  ],
+
+  "validation_rules": [
+    {
+      "id": "R-CHN-001",
+      "field": "Slug",
+      "rule": "Must be unique within the organization",
+      "error_code": "CHANNEL_SLUG_EXISTS",
+      "error_message": "A channel with this slug already exists in this organization"
+    },
+    {
+      "id": "R-CHN-002",
+      "field": "Slug",
+      "rule": "Must be URL-safe (lowercase, alphanumeric, hyphens only)",
+      "error_code": "CHANNEL_SLUG_INVALID",
+      "error_message": "Slug must contain only lowercase letters, numbers, and hyphens"
+    },
+    {
+      "id": "R-CHN-003",
+      "field": "Name",
+      "rule": "Required, 1-255 characters",
+      "error_code": "CHANNEL_NAME_REQUIRED",
+      "error_message": "Channel name is required"
+    },
+    {
+      "id": "R-CHN-004",
+      "field": "Phases",
+      "rule": "Must have at least one phase selected",
+      "error_code": "CHANNEL_PHASES_REQUIRED",
+      "error_message": "Channel must cover at least one customer journey phase"
+    },
+    {
+      "id": "R-CHN-005",
+      "field": "PartnerId",
+      "rule": "Required when Ownership is Partner or ThirdParty",
+      "error_code": "CHANNEL_PARTNER_REQUIRED",
+      "error_message": "Partner must be specified for partner or third-party owned channels"
+    },
+    {
+      "id": "R-CHN-006",
+      "field": "PartnerId",
+      "rule": "If provided, partner must belong to the same organization",
+      "error_code": "CHANNEL_PARTNER_ORG_MISMATCH",
+      "error_message": "Partner does not belong to this organization"
+    }
+  ],
+
+  "relationships": [
+    {
+      "type": "many-to-one",
+      "entity": "ENT002",
+      "foreign_key": "OrganizationId",
+      "navigation": "Organization",
+      "description": "Organization that owns this channel"
+    },
+    {
+      "type": "many-to-one",
+      "entity": "ENT021",
+      "foreign_key": "PartnerId",
+      "navigation": "Partner",
+      "description": "Partner that operates this channel (optional)"
+    },
+    {
+      "type": "one-to-many",
+      "entity": "ENT013",
+      "inverse_key": "EntityId",
+      "navigation": "BlockReferences",
+      "description": "Canvas block references that point to this channel",
+      "polymorphic_filter": "EntityType = 'Channel'"
+    }
+  ],
+
+  "indexes": [
+    {
+      "name": "IX_Channels_OrganizationId_Slug",
+      "columns": ["OrganizationId", "Slug"],
+      "unique": true
+    },
+    {
+      "name": "IX_Channels_OrganizationId_Type",
+      "columns": ["OrganizationId", "Type"],
+      "unique": false
+    },
+    {
+      "name": "IX_Channels_OrganizationId_Category",
+      "columns": ["OrganizationId", "Category"],
+      "unique": false
+    },
+    {
+      "name": "IX_Channels_OrganizationId_Status",
+      "columns": ["OrganizationId", "Status"],
+      "unique": false
+    },
+    {
+      "name": "IX_Channels_PartnerId",
+      "columns": ["PartnerId"],
+      "unique": false,
+      "filter": "PartnerId IS NOT NULL"
+    }
+  ],
+
+  "api_representation": {
+    "dto_name": "ChannelDto",
+    "include_fields": ["Id", "OrganizationId", "Name", "Slug", "Description", "Type", "Category", "Status", "Ownership", "Phases", "Metrics", "Cost", "Integration", "PartnerId", "Tags", "CreatedAt", "UpdatedAt"],
+    "computed_fields": [
+      {
+        "name": "PartnerName",
+        "type": "string",
+        "computation": "Partner.Name if PartnerId is set"
+      },
+      {
+        "name": "CanvasReferenceCount",
+        "type": "int",
+        "computation": "Count of BlockReferences pointing to this channel"
+      },
+      {
+        "name": "PhaseCount",
+        "type": "int",
+        "computation": "Count of phases covered"
+      },
+      {
+        "name": "EffectivenessScore",
+        "type": "decimal",
+        "computation": "Calculated from conversion_rate, cost_per_acquisition, customer_satisfaction"
+      }
+    ]
+  },
+
+  "audit_requirements": {
+    "log_create": true,
+    "log_update": true,
+    "log_delete": true,
+    "sensitive_fields": ["Metrics", "Cost"]
+  },
+
+  "multi_tenancy": {
+    "is_tenant_root": false,
+    "scope_field": "OrganizationId",
+    "scoping_behavior": "All queries must be filtered by OrganizationId"
+  },
+
+  "ai_capabilities": {
+    "description": "AI can analyze channels to optimize the customer journey, identify gaps, and improve conversion",
+    "analyzable_fields": ["Type", "Category", "Status", "Phases", "Metrics", "Cost", "Integration"],
+    "cross_entity_analysis": [
+      "Identify customer journey gaps (phases not covered)",
+      "Calculate channel ROI",
+      "Find channel integration opportunities",
+      "Compare channel effectiveness by type",
+      "Optimize channel mix for customer segments",
+      "Identify underperforming channels"
+    ],
+    "ai_queries": [
+      {
+        "query": "phase_coverage",
+        "description": "Identify which phases lack channel coverage",
+        "example": "Find phases not covered by any active channel"
+      },
+      {
+        "query": "channel_roi",
+        "description": "Calculate ROI for each channel",
+        "example": "Revenue attributed / Cost for each channel"
+      },
+      {
+        "query": "integration_gaps",
+        "description": "Find channels with poor integration",
+        "example": "Channels where integration_quality = 'poor' or 'none'"
+      }
+    ]
+  },
+
+  "code_location": {
+    "entity": "orbitos-api/src/OrbitOS.Domain/Entities/Channel.cs",
+    "dto": "orbitos-api/src/OrbitOS.Api/Controllers/ChannelsController.cs",
+    "frontend_type": "orbitos-web/app/types/entities/channel.ts"
+  }
+}

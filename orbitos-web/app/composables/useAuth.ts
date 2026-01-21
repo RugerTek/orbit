@@ -21,11 +21,17 @@ export const useAuth = () => {
   const isAuthenticated = computed(() => !!user.value)
   const isLoading = useState<boolean>('auth-loading', () => true)
 
-  const getMsalInstance = async (): Promise<PublicClientApplication> => {
+  const getMsalInstance = async (): Promise<PublicClientApplication | null> => {
     if (msalInstance) return msalInstance
 
+    // Don't initialize MSAL if not configured
+    const msalClientId = config.public.msalClientId
+    if (!msalClientId || msalClientId === 'your-client-id' || msalClientId === '') {
+      return null
+    }
+
     const msalConfig = createMsalConfig(
-      config.public.msalClientId,
+      msalClientId,
       config.public.msalAuthority,
       config.public.msalRedirectUri
     )
@@ -50,8 +56,18 @@ export const useAuth = () => {
         }
       }
 
+      // Only try MSAL if Azure AD is configured (clientId is not empty/placeholder)
+      const msalClientId = config.public.msalClientId
+      if (!msalClientId || msalClientId === 'your-client-id' || msalClientId === '') {
+        // MSAL not configured, skip Azure AD auth
+        return
+      }
+
       // Then check MSAL
       const instance = await getMsalInstance()
+      if (!instance) {
+        return
+      }
 
       // Handle redirect callback
       const response = await instance.handleRedirectPromise()
@@ -156,6 +172,9 @@ export const useAuth = () => {
   const login = async (): Promise<void> => {
     try {
       const instance = await getMsalInstance()
+      if (!instance) {
+        throw new Error('Azure AD authentication is not configured')
+      }
       const scopes = config.public.apiScopes ? [config.public.apiScopes] : ['User.Read']
       const loginRequest = createLoginRequest(scopes)
 
@@ -173,19 +192,27 @@ export const useAuth = () => {
       if (import.meta.client) {
         localStorage.removeItem('orbitos-token')
         localStorage.removeItem('orbitos-user')
+        localStorage.removeItem('currentOrganizationId')
       }
 
       // If using MSAL, logout from there too
       if (user.value && 'homeAccountId' in user.value) {
         const instance = await getMsalInstance()
-        await instance.logoutPopup({
-          account: user.value as AccountInfo,
-          postLogoutRedirectUri: config.public.msalRedirectUri,
-        })
+        if (instance) {
+          await instance.logoutPopup({
+            account: user.value as AccountInfo,
+            postLogoutRedirectUri: config.public.msalRedirectUri,
+          })
+        }
       }
 
       user.value = null
       authToken.value = null
+
+      // Redirect to home page after logout
+      if (import.meta.client) {
+        window.location.href = '/'
+      }
     } catch (error) {
       console.error('Logout error:', error)
       throw error
@@ -194,9 +221,23 @@ export const useAuth = () => {
 
   const getAccessToken = async (): Promise<string | null> => {
     try {
-      const instance = await getMsalInstance()
-
       if (!user.value) {
+        return null
+      }
+
+      // If using local JWT auth (email/password or Google), return the stored token
+      // Local users have 'token' property, MSAL users have 'homeAccountId'
+      if ('token' in user.value) {
+        return authToken.value
+      }
+
+      // Only use MSAL for Azure AD users (they have homeAccountId)
+      if (!('homeAccountId' in user.value)) {
+        return null
+      }
+
+      const instance = await getMsalInstance()
+      if (!instance) {
         return null
       }
 

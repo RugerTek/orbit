@@ -233,9 +233,125 @@ public class FunctionsController : ControllerBase
         if (func == null)
             return NotFound();
 
-        _dbContext.Functions.Remove(func);
+        // Soft delete - CLAUDE.md compliance
+        func.SoftDelete();
         await _dbContext.SaveChangesAsync();
 
         return NoContent();
     }
+
+    #region Function-Role Assignments
+
+    /// <summary>
+    /// Get all roles that have this function assigned.
+    /// </summary>
+    [HttpGet("{functionId}/roles")]
+    public async Task<ActionResult<List<RoleFunctionDto>>> GetFunctionRoles(Guid organizationId, Guid functionId)
+    {
+        // Verify function exists and belongs to this organization
+        var functionExists = await _dbContext.Functions
+            .AnyAsync(f => f.Id == functionId && f.OrganizationId == organizationId);
+
+        if (!functionExists)
+            return NotFound(new { Message = "Function not found" });
+
+        var roleFunctions = await _dbContext.RoleFunctions
+            .Where(rf => rf.FunctionId == functionId && rf.Function.OrganizationId == organizationId)
+            .Select(rf => new RoleFunctionDto
+            {
+                Id = rf.Id,
+                RoleId = rf.RoleId,
+                RoleName = rf.Role.Name,
+                RoleDepartment = rf.Role.Department,
+                FunctionId = rf.FunctionId,
+                FunctionName = rf.Function.Name,
+                FunctionCategory = rf.Function.Category,
+                CreatedAt = rf.CreatedAt
+            })
+            .OrderBy(rf => rf.RoleName)
+            .ToListAsync();
+
+        return Ok(roleFunctions);
+    }
+
+    /// <summary>
+    /// Assign a role to this function.
+    /// </summary>
+    [HttpPost("{functionId}/roles")]
+    public async Task<ActionResult<RoleFunctionDto>> AssignRoleToFunction(
+        Guid organizationId,
+        Guid functionId,
+        [FromBody] AssignRoleToFunctionRequest request)
+    {
+        // Verify function exists and belongs to this organization
+        var function = await _dbContext.Functions
+            .FirstOrDefaultAsync(f => f.Id == functionId && f.OrganizationId == organizationId);
+
+        if (function == null)
+            return NotFound(new { Message = "Function not found" });
+
+        // Verify role exists and belongs to the same organization
+        var role = await _dbContext.Roles
+            .FirstOrDefaultAsync(r => r.Id == request.RoleId && r.OrganizationId == organizationId);
+
+        if (role == null)
+            return NotFound(new { Message = "Role not found" });
+
+        // Check if assignment already exists
+        var existingAssignment = await _dbContext.RoleFunctions
+            .FirstOrDefaultAsync(rf => rf.RoleId == request.RoleId && rf.FunctionId == functionId);
+
+        if (existingAssignment != null)
+            return Conflict(new { Message = "Role is already assigned to this function" });
+
+        var roleFunction = new RoleFunction
+        {
+            RoleId = request.RoleId,
+            FunctionId = functionId
+        };
+
+        _dbContext.RoleFunctions.Add(roleFunction);
+        await _dbContext.SaveChangesAsync();
+
+        return CreatedAtAction(nameof(GetFunctionRoles), new { organizationId, functionId },
+            new RoleFunctionDto
+            {
+                Id = roleFunction.Id,
+                RoleId = roleFunction.RoleId,
+                RoleName = role.Name,
+                RoleDepartment = role.Department,
+                FunctionId = roleFunction.FunctionId,
+                FunctionName = function.Name,
+                FunctionCategory = function.Category,
+                CreatedAt = roleFunction.CreatedAt
+            });
+    }
+
+    /// <summary>
+    /// Remove a role from this function.
+    /// </summary>
+    [HttpDelete("{functionId}/roles/{roleId}")]
+    public async Task<IActionResult> UnassignRoleFromFunction(Guid organizationId, Guid functionId, Guid roleId)
+    {
+        // Verify function belongs to this organization
+        var functionExists = await _dbContext.Functions
+            .AnyAsync(f => f.Id == functionId && f.OrganizationId == organizationId);
+
+        if (!functionExists)
+            return NotFound(new { Message = "Function not found" });
+
+        var roleFunction = await _dbContext.RoleFunctions
+            .FirstOrDefaultAsync(rf => rf.FunctionId == functionId && rf.RoleId == roleId);
+
+        if (roleFunction == null)
+            return NotFound(new { Message = "Role is not assigned to this function" });
+
+        // Soft delete - CLAUDE.md compliance
+        roleFunction.SoftDelete();
+        await _dbContext.SaveChangesAsync();
+
+        return NoContent();
+    }
+
+    #endregion
 }

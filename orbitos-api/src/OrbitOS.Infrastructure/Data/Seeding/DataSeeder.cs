@@ -53,12 +53,16 @@ public class DataSeeder : IDataSeeder
             await SeedSampleOperationalDataAsync(cancellationToken);
         }
 
+        // Seed Torus organization with full org chart
+        await SeedTorusOrganizationAsync(cancellationToken);
+
         _logger.LogInformation("Data seeding completed successfully");
     }
 
     private async Task SeedOrganizationsAsync(CancellationToken cancellationToken)
     {
-        if (await _context.Organizations.AnyAsync(o => o.Id == SeedIds.Organizations.Rugertek, cancellationToken))
+        // Use IgnoreQueryFilters to check including soft-deleted records - check by ID or by Slug
+        if (await _context.Organizations.IgnoreQueryFilters().AnyAsync(o => o.Id == SeedIds.Organizations.Rugertek || o.Slug == "rugertek", cancellationToken))
         {
             _logger.LogDebug("Organizations already seeded");
             return;
@@ -82,7 +86,8 @@ public class DataSeeder : IDataSeeder
 
     private async Task SeedUsersAsync(CancellationToken cancellationToken)
     {
-        if (await _context.Users.AnyAsync(u => u.Id == SeedIds.Users.Rodrigo, cancellationToken))
+        // Use IgnoreQueryFilters to check including soft-deleted records
+        if (await _context.Users.IgnoreQueryFilters().AnyAsync(u => u.Id == SeedIds.Users.Rodrigo, cancellationToken))
         {
             _logger.LogDebug("Users already seeded");
             return;
@@ -108,7 +113,8 @@ public class DataSeeder : IDataSeeder
 
     private async Task SeedOrganizationMembershipsAsync(CancellationToken cancellationToken)
     {
-        if (await _context.OrganizationMemberships.AnyAsync(m => m.Id == SeedIds.Memberships.RodrigoRugertek, cancellationToken))
+        // Use IgnoreQueryFilters to check including soft-deleted records
+        if (await _context.OrganizationMemberships.IgnoreQueryFilters().AnyAsync(m => m.Id == SeedIds.Memberships.RodrigoRugertek, cancellationToken))
         {
             _logger.LogDebug("Organization memberships already seeded");
             return;
@@ -134,7 +140,8 @@ public class DataSeeder : IDataSeeder
 
     private async Task SeedPermissionsAsync(CancellationToken cancellationToken)
     {
-        if (await _context.Permissions.AnyAsync(p => p.Id == SeedIds.Permissions.UsersView, cancellationToken))
+        // Use IgnoreQueryFilters to check including soft-deleted records
+        if (await _context.Permissions.IgnoreQueryFilters().AnyAsync(p => p.Id == SeedIds.Permissions.UsersView, cancellationToken))
         {
             _logger.LogDebug("Permissions already seeded");
             return;
@@ -199,7 +206,8 @@ public class DataSeeder : IDataSeeder
 
     private async Task SeedSystemRolesAsync(CancellationToken cancellationToken)
     {
-        if (await _context.SystemRoles.AnyAsync(r => r.Id == SeedIds.SystemRoles.SuperAdmin, cancellationToken))
+        // Use IgnoreQueryFilters to check including soft-deleted records
+        if (await _context.SystemRoles.IgnoreQueryFilters().AnyAsync(r => r.Id == SeedIds.SystemRoles.SuperAdmin, cancellationToken))
         {
             _logger.LogDebug("System roles already seeded");
             return;
@@ -387,7 +395,8 @@ public class DataSeeder : IDataSeeder
 
     private async Task SeedUserSystemRolesAsync(CancellationToken cancellationToken)
     {
-        if (await _context.UserSystemRoles.AnyAsync(ur => ur.Id == SeedIds.UserSystemRoles.RodrigoSuperAdmin, cancellationToken))
+        // Use IgnoreQueryFilters to check including soft-deleted records
+        if (await _context.UserSystemRoles.IgnoreQueryFilters().AnyAsync(ur => ur.Id == SeedIds.UserSystemRoles.RodrigoSuperAdmin, cancellationToken))
         {
             _logger.LogDebug("User system roles already seeded");
             return;
@@ -415,7 +424,8 @@ public class DataSeeder : IDataSeeder
 
     private async Task SeedResourceSubtypesAsync(CancellationToken cancellationToken)
     {
-        if (await _context.ResourceSubtypes.AnyAsync(r => r.Id == SeedIds.ResourceSubtypes.Employee, cancellationToken))
+        // Use IgnoreQueryFilters to check including soft-deleted records
+        if (await _context.ResourceSubtypes.IgnoreQueryFilters().AnyAsync(r => r.Id == SeedIds.ResourceSubtypes.Employee, cancellationToken))
         {
             _logger.LogDebug("Resource subtypes already seeded");
             return;
@@ -455,7 +465,8 @@ public class DataSeeder : IDataSeeder
 
     private async Task SeedResourcesAsync(CancellationToken cancellationToken)
     {
-        if (await _context.Resources.AnyAsync(r => r.Id == SeedIds.Resources.RodrigoResource, cancellationToken))
+        // Use IgnoreQueryFilters to check including soft-deleted records
+        if (await _context.Resources.IgnoreQueryFilters().AnyAsync(r => r.Id == SeedIds.Resources.RodrigoResource, cancellationToken))
         {
             _logger.LogDebug("Resources already seeded");
             return;
@@ -483,7 +494,8 @@ public class DataSeeder : IDataSeeder
 
     private async Task SeedProcessesAsync(CancellationToken cancellationToken)
     {
-        if (await _context.Processes.AnyAsync(p => p.Id == SeedIds.Processes.CustomerOnboarding, cancellationToken))
+        // Use IgnoreQueryFilters to check including soft-deleted records
+        if (await _context.Processes.IgnoreQueryFilters().AnyAsync(p => p.Id == SeedIds.Processes.CustomerOnboarding, cancellationToken))
         {
             _logger.LogDebug("Processes already seeded");
             return;
@@ -581,7 +593,8 @@ public class DataSeeder : IDataSeeder
 
     private async Task SeedCanvasesAsync(CancellationToken cancellationToken)
     {
-        if (await _context.Canvases.AnyAsync(c => c.Id == SeedIds.Canvases.MainBusinessCanvas, cancellationToken))
+        // Use IgnoreQueryFilters to check including soft-deleted records
+        if (await _context.Canvases.IgnoreQueryFilters().AnyAsync(c => c.Id == SeedIds.Canvases.MainBusinessCanvas, cancellationToken))
         {
             _logger.LogDebug("Canvases already seeded");
             return;
@@ -596,6 +609,7 @@ public class DataSeeder : IDataSeeder
             Name = "OrbitOS Business Model",
             Description = "Business Model Canvas for OrbitOS platform",
             CanvasType = CanvasType.BusinessModel,
+            ScopeType = CanvasScopeType.Organization,
             Status = CanvasStatus.Active,
             OrganizationId = orgId,
             CreatedAt = now,
@@ -622,7 +636,8 @@ public class DataSeeder : IDataSeeder
 
     private async Task SeedGoalsAsync(CancellationToken cancellationToken)
     {
-        if (await _context.Goals.AnyAsync(g => g.Id == SeedIds.Goals.Q1Objective, cancellationToken))
+        // Use IgnoreQueryFilters to check including soft-deleted records
+        if (await _context.Goals.IgnoreQueryFilters().AnyAsync(g => g.Id == SeedIds.Goals.Q1Objective, cancellationToken))
         {
             _logger.LogDebug("Goals already seeded");
             return;
@@ -731,7 +746,8 @@ public class DataSeeder : IDataSeeder
 
     private async Task SeedSampleOperationalRolesAsync(CancellationToken cancellationToken)
     {
-        if (await _context.Roles.AnyAsync(r => r.Id == SeedIds.OperationalRoles.SalesManager, cancellationToken))
+        // Use IgnoreQueryFilters to check including soft-deleted records
+        if (await _context.Roles.IgnoreQueryFilters().AnyAsync(r => r.Id == SeedIds.OperationalRoles.SalesManager, cancellationToken))
         {
             _logger.LogDebug("Sample operational roles already seeded");
             return;
@@ -796,7 +812,8 @@ public class DataSeeder : IDataSeeder
 
     private async Task SeedSampleOperationalFunctionsAsync(CancellationToken cancellationToken)
     {
-        if (await _context.Functions.AnyAsync(f => f.Id == SeedIds.OperationalFunctions.CurateCrm, cancellationToken))
+        // Use IgnoreQueryFilters to check including soft-deleted records
+        if (await _context.Functions.IgnoreQueryFilters().AnyAsync(f => f.Id == SeedIds.OperationalFunctions.CurateCrm, cancellationToken))
         {
             _logger.LogDebug("Sample operational functions already seeded");
             return;
@@ -909,6 +926,116 @@ public class DataSeeder : IDataSeeder
         await _context.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Seeded {Count} sample operational functions (Development)", functions.Count);
+    }
+
+    #endregion
+
+    #region Torus Organization Seeding
+
+    /// <summary>
+    /// Seeds the Torus demo organization with a complete org chart structure.
+    /// This demonstrates the full hierarchy visualization capability.
+    /// </summary>
+    private async Task SeedTorusOrganizationAsync(CancellationToken cancellationToken)
+    {
+        // Use IgnoreQueryFilters to check including soft-deleted records - check by ID or by Slug
+        if (await _context.Organizations.IgnoreQueryFilters().AnyAsync(o => o.Id == SeedIds.Organizations.Torus || o.Slug == "torus", cancellationToken))
+        {
+            _logger.LogDebug("Torus organization already seeded");
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        var orgId = SeedIds.Organizations.Torus;
+
+        // Create Torus Organization
+        var torusOrg = new Organization
+        {
+            Id = orgId,
+            Name = "Torus",
+            Slug = "torus",
+            Description = "Torus Technologies - AI-Powered Business Solutions",
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+        _context.Organizations.Add(torusOrg);
+
+        // Add Rodrigo as member of Torus
+        var torusMembership = new OrganizationMembership
+        {
+            Id = SeedIds.Memberships.RodrigoTorus,
+            UserId = SeedIds.Users.Rodrigo,
+            OrganizationId = orgId,
+            Role = MembershipRole.Owner,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+        _context.OrganizationMemberships.Add(torusMembership);
+
+        // Seed resource subtypes for Torus
+        var subtypes = new List<ResourceSubtype>
+        {
+            new() { Id = SeedIds.TorusResourceSubtypes.Executive, Name = "Executive", Description = "C-level executive", ResourceType = ResourceType.Person, Icon = "mdi-account-star", OrganizationId = orgId, CreatedAt = now, UpdatedAt = now },
+            new() { Id = SeedIds.TorusResourceSubtypes.Employee, Name = "Employee", Description = "Full-time employee", ResourceType = ResourceType.Person, Icon = "mdi-account", OrganizationId = orgId, CreatedAt = now, UpdatedAt = now },
+            new() { Id = SeedIds.TorusResourceSubtypes.Contractor, Name = "Contractor", Description = "External contractor", ResourceType = ResourceType.Person, Icon = "mdi-account-outline", OrganizationId = orgId, CreatedAt = now, UpdatedAt = now },
+        };
+        _context.ResourceSubtypes.AddRange(subtypes);
+
+        // Create resources (people) with reporting relationships
+        var people = new List<Resource>
+        {
+            // Executive Team - CEO is root
+            new() { Id = SeedIds.TorusPeople.CEO, Name = "Sarah Chen", Description = "Chief Executive Officer", Status = ResourceStatus.Active, OrganizationId = orgId, ResourceSubtypeId = SeedIds.TorusResourceSubtypes.Executive, ReportsToResourceId = null, CreatedAt = now, UpdatedAt = now },
+
+            // C-Suite reporting to CEO
+            new() { Id = SeedIds.TorusPeople.COO, Name = "Michael Torres", Description = "Chief Operating Officer", Status = ResourceStatus.Active, OrganizationId = orgId, ResourceSubtypeId = SeedIds.TorusResourceSubtypes.Executive, ReportsToResourceId = SeedIds.TorusPeople.CEO, CreatedAt = now, UpdatedAt = now },
+            new() { Id = SeedIds.TorusPeople.CFO, Name = "Emily Watson", Description = "Chief Financial Officer", Status = ResourceStatus.Active, OrganizationId = orgId, ResourceSubtypeId = SeedIds.TorusResourceSubtypes.Executive, ReportsToResourceId = SeedIds.TorusPeople.CEO, CreatedAt = now, UpdatedAt = now },
+            new() { Id = SeedIds.TorusPeople.CTO, Name = "David Park", Description = "Chief Technology Officer", Status = ResourceStatus.Active, OrganizationId = orgId, ResourceSubtypeId = SeedIds.TorusResourceSubtypes.Executive, ReportsToResourceId = SeedIds.TorusPeople.CEO, CreatedAt = now, UpdatedAt = now },
+            new() { Id = SeedIds.TorusPeople.CMO, Name = "Lisa Johnson", Description = "Chief Marketing Officer", Status = ResourceStatus.Active, OrganizationId = orgId, ResourceSubtypeId = SeedIds.TorusResourceSubtypes.Executive, ReportsToResourceId = SeedIds.TorusPeople.CEO, CreatedAt = now, UpdatedAt = now },
+
+            // Engineering Team (reports to CTO)
+            new() { Id = SeedIds.TorusPeople.VPEngineering, Name = "James Wilson", Description = "VP of Engineering", Status = ResourceStatus.Active, OrganizationId = orgId, ResourceSubtypeId = SeedIds.TorusResourceSubtypes.Employee, ReportsToResourceId = SeedIds.TorusPeople.CTO, CreatedAt = now, UpdatedAt = now },
+            new() { Id = SeedIds.TorusPeople.EngineeringManager1, Name = "Anna Martinez", Description = "Engineering Manager - Platform", Status = ResourceStatus.Active, OrganizationId = orgId, ResourceSubtypeId = SeedIds.TorusResourceSubtypes.Employee, ReportsToResourceId = SeedIds.TorusPeople.VPEngineering, CreatedAt = now, UpdatedAt = now },
+            new() { Id = SeedIds.TorusPeople.EngineeringManager2, Name = "Kevin Brown", Description = "Engineering Manager - Product", Status = ResourceStatus.Active, OrganizationId = orgId, ResourceSubtypeId = SeedIds.TorusResourceSubtypes.Employee, ReportsToResourceId = SeedIds.TorusPeople.VPEngineering, CreatedAt = now, UpdatedAt = now },
+            new() { Id = SeedIds.TorusPeople.SeniorEngineer1, Name = "Rachel Kim", Description = "Senior Software Engineer", Status = ResourceStatus.Active, OrganizationId = orgId, ResourceSubtypeId = SeedIds.TorusResourceSubtypes.Employee, ReportsToResourceId = SeedIds.TorusPeople.EngineeringManager1, CreatedAt = now, UpdatedAt = now },
+            new() { Id = SeedIds.TorusPeople.SeniorEngineer2, Name = "Chris Lee", Description = "Senior Software Engineer", Status = ResourceStatus.Active, OrganizationId = orgId, ResourceSubtypeId = SeedIds.TorusResourceSubtypes.Employee, ReportsToResourceId = SeedIds.TorusPeople.EngineeringManager1, CreatedAt = now, UpdatedAt = now },
+            new() { Id = SeedIds.TorusPeople.SeniorEngineer3, Name = "Michelle Davis", Description = "Senior Software Engineer", Status = ResourceStatus.Active, OrganizationId = orgId, ResourceSubtypeId = SeedIds.TorusResourceSubtypes.Employee, ReportsToResourceId = SeedIds.TorusPeople.EngineeringManager2, CreatedAt = now, UpdatedAt = now },
+            new() { Id = SeedIds.TorusPeople.Engineer1, Name = "Alex Thompson", Description = "Software Engineer", Status = ResourceStatus.Active, OrganizationId = orgId, ResourceSubtypeId = SeedIds.TorusResourceSubtypes.Employee, ReportsToResourceId = SeedIds.TorusPeople.EngineeringManager1, CreatedAt = now, UpdatedAt = now },
+            new() { Id = SeedIds.TorusPeople.Engineer2, Name = "Jordan Rivera", Description = "Software Engineer", Status = ResourceStatus.Active, OrganizationId = orgId, ResourceSubtypeId = SeedIds.TorusResourceSubtypes.Employee, ReportsToResourceId = SeedIds.TorusPeople.EngineeringManager1, CreatedAt = now, UpdatedAt = now },
+            new() { Id = SeedIds.TorusPeople.Engineer3, Name = "Taylor Swift", Description = "Software Engineer", Status = ResourceStatus.Active, OrganizationId = orgId, ResourceSubtypeId = SeedIds.TorusResourceSubtypes.Employee, ReportsToResourceId = SeedIds.TorusPeople.EngineeringManager2, CreatedAt = now, UpdatedAt = now },
+            new() { Id = SeedIds.TorusPeople.Engineer4, Name = "Morgan Freeman", Description = "Software Engineer", Status = ResourceStatus.Active, OrganizationId = orgId, ResourceSubtypeId = SeedIds.TorusResourceSubtypes.Employee, ReportsToResourceId = SeedIds.TorusPeople.EngineeringManager2, CreatedAt = now, UpdatedAt = now },
+
+            // Product Team (reports to COO)
+            new() { Id = SeedIds.TorusPeople.VPProduct, Name = "Jennifer Adams", Description = "VP of Product", Status = ResourceStatus.Active, OrganizationId = orgId, ResourceSubtypeId = SeedIds.TorusResourceSubtypes.Employee, ReportsToResourceId = SeedIds.TorusPeople.COO, CreatedAt = now, UpdatedAt = now },
+            new() { Id = SeedIds.TorusPeople.ProductManager1, Name = "Daniel Garcia", Description = "Senior Product Manager", Status = ResourceStatus.Active, OrganizationId = orgId, ResourceSubtypeId = SeedIds.TorusResourceSubtypes.Employee, ReportsToResourceId = SeedIds.TorusPeople.VPProduct, CreatedAt = now, UpdatedAt = now },
+            new() { Id = SeedIds.TorusPeople.ProductManager2, Name = "Sophie Turner", Description = "Product Manager", Status = ResourceStatus.Active, OrganizationId = orgId, ResourceSubtypeId = SeedIds.TorusResourceSubtypes.Employee, ReportsToResourceId = SeedIds.TorusPeople.VPProduct, CreatedAt = now, UpdatedAt = now },
+            new() { Id = SeedIds.TorusPeople.ProductDesigner, Name = "Ryan Cooper", Description = "Lead Product Designer", Status = ResourceStatus.Active, OrganizationId = orgId, ResourceSubtypeId = SeedIds.TorusResourceSubtypes.Employee, ReportsToResourceId = SeedIds.TorusPeople.VPProduct, CreatedAt = now, UpdatedAt = now },
+
+            // Sales Team (reports to COO)
+            new() { Id = SeedIds.TorusPeople.VPSales, Name = "Robert Miller", Description = "VP of Sales", Status = ResourceStatus.Active, OrganizationId = orgId, ResourceSubtypeId = SeedIds.TorusResourceSubtypes.Employee, ReportsToResourceId = SeedIds.TorusPeople.COO, CreatedAt = now, UpdatedAt = now },
+            new() { Id = SeedIds.TorusPeople.SalesManager, Name = "Amanda White", Description = "Sales Manager", Status = ResourceStatus.Active, OrganizationId = orgId, ResourceSubtypeId = SeedIds.TorusResourceSubtypes.Employee, ReportsToResourceId = SeedIds.TorusPeople.VPSales, CreatedAt = now, UpdatedAt = now },
+            new() { Id = SeedIds.TorusPeople.AccountExec1, Name = "Brandon Lee", Description = "Account Executive", Status = ResourceStatus.Active, OrganizationId = orgId, ResourceSubtypeId = SeedIds.TorusResourceSubtypes.Employee, ReportsToResourceId = SeedIds.TorusPeople.SalesManager, CreatedAt = now, UpdatedAt = now },
+            new() { Id = SeedIds.TorusPeople.AccountExec2, Name = "Nicole Harris", Description = "Account Executive", Status = ResourceStatus.Active, OrganizationId = orgId, ResourceSubtypeId = SeedIds.TorusResourceSubtypes.Employee, ReportsToResourceId = SeedIds.TorusPeople.SalesManager, CreatedAt = now, UpdatedAt = now },
+            new() { Id = SeedIds.TorusPeople.SDR1, Name = "Jake Wilson", Description = "Sales Development Representative", Status = ResourceStatus.Active, OrganizationId = orgId, ResourceSubtypeId = SeedIds.TorusResourceSubtypes.Employee, ReportsToResourceId = SeedIds.TorusPeople.SalesManager, CreatedAt = now, UpdatedAt = now },
+
+            // Marketing Team (reports to CMO)
+            new() { Id = SeedIds.TorusPeople.MarketingManager, Name = "Christina Moore", Description = "Marketing Manager", Status = ResourceStatus.Active, OrganizationId = orgId, ResourceSubtypeId = SeedIds.TorusResourceSubtypes.Employee, ReportsToResourceId = SeedIds.TorusPeople.CMO, CreatedAt = now, UpdatedAt = now },
+            new() { Id = SeedIds.TorusPeople.ContentWriter, Name = "Emma Stone", Description = "Senior Content Writer", Status = ResourceStatus.Active, OrganizationId = orgId, ResourceSubtypeId = SeedIds.TorusResourceSubtypes.Employee, ReportsToResourceId = SeedIds.TorusPeople.MarketingManager, CreatedAt = now, UpdatedAt = now },
+            new() { Id = SeedIds.TorusPeople.DigitalMarketer, Name = "Mark Taylor", Description = "Digital Marketing Specialist", Status = ResourceStatus.Active, OrganizationId = orgId, ResourceSubtypeId = SeedIds.TorusResourceSubtypes.Employee, ReportsToResourceId = SeedIds.TorusPeople.MarketingManager, CreatedAt = now, UpdatedAt = now },
+
+            // Finance Team (reports to CFO)
+            new() { Id = SeedIds.TorusPeople.FinanceManager, Name = "Patricia Anderson", Description = "Finance Manager", Status = ResourceStatus.Active, OrganizationId = orgId, ResourceSubtypeId = SeedIds.TorusResourceSubtypes.Employee, ReportsToResourceId = SeedIds.TorusPeople.CFO, CreatedAt = now, UpdatedAt = now },
+            new() { Id = SeedIds.TorusPeople.Accountant, Name = "Steven Clark", Description = "Senior Accountant", Status = ResourceStatus.Active, OrganizationId = orgId, ResourceSubtypeId = SeedIds.TorusResourceSubtypes.Employee, ReportsToResourceId = SeedIds.TorusPeople.FinanceManager, CreatedAt = now, UpdatedAt = now },
+
+            // HR Team (reports to COO)
+            new() { Id = SeedIds.TorusPeople.HRManager, Name = "Laura Martinez", Description = "HR Manager", Status = ResourceStatus.Active, OrganizationId = orgId, ResourceSubtypeId = SeedIds.TorusResourceSubtypes.Employee, ReportsToResourceId = SeedIds.TorusPeople.COO, CreatedAt = now, UpdatedAt = now },
+            new() { Id = SeedIds.TorusPeople.Recruiter, Name = "Brian Jackson", Description = "Technical Recruiter", Status = ResourceStatus.Active, OrganizationId = orgId, ResourceSubtypeId = SeedIds.TorusResourceSubtypes.Employee, ReportsToResourceId = SeedIds.TorusPeople.HRManager, CreatedAt = now, UpdatedAt = now },
+        };
+
+        _context.Resources.AddRange(people);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("Seeded Torus organization with {Count} people in org chart", people.Count);
     }
 
     #endregion

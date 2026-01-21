@@ -19,6 +19,7 @@ public class CurrentUserService : ICurrentUserService
         ?? User?.FindFirstValue("oid");
 
     public string? Email => User?.FindFirstValue(ClaimTypes.Email)
+        ?? User?.FindFirstValue("email")
         ?? User?.FindFirstValue("preferred_username");
 
     public string? DisplayName => User?.FindFirstValue("name")

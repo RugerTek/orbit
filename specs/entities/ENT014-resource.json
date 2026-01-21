@@ -41,7 +41,7 @@
       "name": "Type",
       "type": "enum",
       "nullable": false,
-      "enum_values": ["People", "Asset", "Technology", "Partner", "Channel", "Financial", "Intellectual"],
+      "enum_values": ["People", "Asset", "Technology", "Financial", "Intellectual"],
       "description": "Primary categorization of the resource"
     },
     {
@@ -149,28 +149,6 @@
               "license_type": { "type": "string" },
               "capabilities": { "type": "array", "items": { "type": "string" } },
               "integrations": { "type": "array", "items": { "type": "string" } }
-            }
-          },
-          "partner": {
-            "type": "object",
-            "properties": {
-              "partner_type": { "type": "string", "enum": ["supplier", "distributor", "strategic", "technology", "agency", "reseller"] },
-              "relationship_start": { "type": "string", "format": "date" },
-              "contract_end": { "type": "string", "format": "date" },
-              "relationship_strength": { "type": "integer", "minimum": 1, "maximum": 5 },
-              "strategic_value": { "type": "string" },
-              "services_provided": { "type": "array", "items": { "type": "string" } },
-              "sla_terms": { "type": "string" }
-            }
-          },
-          "channel": {
-            "type": "object",
-            "properties": {
-              "channel_type": { "type": "string", "enum": ["direct", "indirect", "digital", "physical", "hybrid"] },
-              "channel_phase": { "type": "array", "items": { "type": "string", "enum": ["awareness", "evaluation", "purchase", "delivery", "after_sales"] } },
-              "reach": { "type": "string" },
-              "conversion_rate": { "type": "number" },
-              "cost_per_acquisition": { "type": "number" }
             }
           },
           "financial": {

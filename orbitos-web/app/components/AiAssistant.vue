@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { useApi } from '~/composables/useApi'
-
-// Hardcoded organization ID from seed data - TODO: Get from user's organization membership
-const DEFAULT_ORG_ID = '11111111-1111-1111-1111-111111111111'
+import { useOrganizations } from '~/composables/useOrganizations'
 
 const { post } = useApi()
+const { currentOrganizationId } = useOrganizations()
 
 const isOpen = ref(false)
 const isMinimized = ref(false)
@@ -72,7 +71,7 @@ const sendMessage = async () => {
       }))
 
     const response = await post<ChatResponse>(
-      `/api/organizations/${DEFAULT_ORG_ID}/ai/chat`,
+      `/api/organizations/${currentOrganizationId.value}/ai/chat`,
       {
         message: query,
         history: history.length > 0 ? history : undefined,

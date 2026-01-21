@@ -14,11 +14,64 @@ import type {
   RoleWithAssignments,
   GoalWithProgress,
   OrgHealthScore,
+  FunctionCapability,
+  CapabilityLevel,
+  Partner,
+  PartnerType,
+  PartnerStatus,
+  StrategicValue,
+  Channel,
+  ChannelType,
+  ChannelCategory,
+  ChannelStatus,
+  ChannelOwnership,
+  ValueProposition,
+  ValuePropositionStatus,
+  CustomerRelationship,
+  CustomerRelationshipType,
+  CustomerRelationshipStatus,
+  RevenueStream,
+  RevenueStreamType,
+  RevenueStreamStatus,
+  PricingMechanism,
+  BlockReference,
+  ReferenceEntityType,
+  ReferenceRole,
+  ReferenceLinkType,
+  Canvas,
+  CanvasType,
+  CanvasScopeType,
+  CanvasStatus as NewCanvasStatus,
+  CanvasBlock,
+  CanvasBlockType,
+  OrgChartResource,
+  OrgChartTree,
+  OrgChartMetrics,
 } from '~/types/operations'
 import { useApi } from '~/composables/useApi'
+import { useOrganizations } from '~/composables/useOrganizations'
 
-// Hardcoded organization ID from seed data - TODO: Get from user's organization membership
+// Default organization ID - used as fallback when no org is selected
 const DEFAULT_ORG_ID = '11111111-1111-1111-1111-111111111111'
+
+// Get current organization ID reactively from useOrganizations, falling back to localStorage
+const getOrganizationId = (): string => {
+  // Try to get from the reactive useOrganizations composable first
+  try {
+    const { currentOrganizationId } = useOrganizations()
+    if (currentOrganizationId.value) {
+      return currentOrganizationId.value
+    }
+  } catch {
+    // Composable not available (e.g., outside Vue context)
+  }
+
+  // Fallback to localStorage
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('currentOrganizationId') || DEFAULT_ORG_ID
+  }
+  return DEFAULT_ORG_ID
+}
 
 // API Response Types
 interface ApiProcess {
@@ -32,10 +85,15 @@ interface ApiProcess {
   status: number
   stateType: number
   organizationId: string
+  functionId?: string
+  functionName?: string
   ownerId?: string
   ownerName?: string
   linkedProcessId?: string
   linkedProcessName?: string
+  entryActivityId?: string
+  exitActivityId?: string
+  useExplicitFlow: boolean
   createdAt: string
   updatedAt: string
   activityCount: number
@@ -128,13 +186,35 @@ interface ApiResource {
   organizationId: string
   resourceSubtypeId: string
   resourceSubtypeName: string
-  resourceType: number
+  resourceType: number | string  // API returns string ("Person", "Tool", etc.) due to JsonStringEnumConverter
   linkedUserId?: string
   linkedUserName?: string
   createdAt: string
   updatedAt: string
   roleAssignmentCount: number
   functionCapabilityCount: number
+}
+
+interface ApiResourceSubtype {
+  id: string
+  name: string
+  description?: string
+  resourceType: number | string  // API returns string due to JsonStringEnumConverter
+  icon?: string
+  organizationId: string
+  createdAt: string
+  resourceCount: number
+}
+
+export interface ResourceSubtype {
+  id: string
+  name: string
+  description?: string
+  resourceType: 'person' | 'team' | 'tool' | 'automation' | 'partner' | 'asset'
+  icon?: string
+  organizationId: string
+  createdAt: string
+  resourceCount: number
 }
 
 // Enum mappings
@@ -157,12 +237,19 @@ const stateTypeMap: Record<number, OpsProcess['stateType']> = {
   1: 'target',
 }
 
-const activityTypeMap: Record<number, OpsActivity['activityType']> = {
-  0: 'manual',
-  1: 'automated',
-  2: 'hybrid',
-  3: 'decision',
-  4: 'handoff',
+// Map API enum values (PascalCase strings from JsonStringEnumConverter) to frontend lowercase
+const activityTypeMap: Record<string, OpsActivity['activityType']> = {
+  'Manual': 'manual',
+  'Automated': 'automated',
+  'Hybrid': 'hybrid',
+  'Decision': 'decision',
+  'Handoff': 'handoff',
+  // Legacy number support (in case API ever returns numbers)
+  '0': 'manual',
+  '1': 'automated',
+  '2': 'hybrid',
+  '3': 'decision',
+  '4': 'handoff',
 }
 
 const edgeTypeMap: Record<number, EdgeType> = {
@@ -205,11 +292,64 @@ const resourceStatusMap: Record<number, OpsResource['status']> = {
   2: 'archived', // Deprecated
 }
 
+const resourceStatusToNum: Record<OpsResource['status'], number> = {
+  inactive: 0,
+  active: 1,
+  archived: 2,
+}
+
+const resourceSubtypeTypeMap: Record<number, ResourceSubtype['resourceType']> = {
+  0: 'person',
+  1: 'team',
+  2: 'tool',
+  3: 'automation',
+  4: 'partner',
+  5: 'asset',
+}
+
+// Map for string enum values from API (JsonStringEnumConverter)
+const resourceSubtypeStringMap: Record<string, ResourceSubtype['resourceType']> = {
+  Person: 'person',
+  Team: 'team',
+  Tool: 'tool',
+  Automation: 'automation',
+  Partner: 'partner',
+  Asset: 'asset',
+}
+
+const resourceTypeToNum: Record<string, number> = {
+  person: 0,
+  team: 1,
+  tool: 2,
+  automation: 3,
+  partner: 4,
+  asset: 5,
+}
+
+function transformResourceSubtype(api: ApiResourceSubtype): ResourceSubtype {
+  // Handle both number and string resourceType from API
+  const resourceType = typeof api.resourceType === 'string'
+    ? resourceSubtypeStringMap[api.resourceType] || 'person'
+    : resourceSubtypeTypeMap[api.resourceType] || 'person'
+
+  return {
+    id: api.id,
+    name: api.name,
+    description: api.description,
+    resourceType,
+    icon: api.icon,
+    organizationId: api.organizationId,
+    createdAt: api.createdAt,
+    resourceCount: api.resourceCount,
+  }
+}
+
 // Transform API response to frontend types
 function transformProcess(api: ApiProcess): ProcessWithActivities {
   return {
     id: api.id,
     organizationId: api.organizationId,
+    functionId: api.functionId,
     name: api.name,
     purpose: api.purpose,
     description: api.description,
@@ -220,6 +360,9 @@ function transformProcess(api: ApiProcess): ProcessWithActivities {
     stateType: stateTypeMap[api.stateType] || 'current',
     ownerId: api.ownerId,
     linkedProcessId: api.linkedProcessId,
+    entryActivityId: api.entryActivityId,
+    exitActivityId: api.exitActivityId,
+    useExplicitFlow: api.useExplicitFlow,
     createdAt: api.createdAt,
     updatedAt: api.updatedAt,
     activityCount: api.activityCount,
@@ -384,6 +527,90 @@ interface ApiRoleAssignment {
   createdAt: string
 }
 
+interface ApiRoleFunction {
+  id: string
+  roleId: string
+  roleName: string
+  roleDepartment?: string
+  functionId: string
+  functionName: string
+  functionCategory?: string
+  createdAt: string
+}
+
+export interface RoleFunction {
+  id: string
+  roleId: string
+  roleName: string
+  roleDepartment?: string
+  functionId: string
+  functionName: string
+  functionCategory?: string
+  createdAt: string
+}
+
+interface ApiFunctionCapability {
+  id: string
+  resourceId: string
+  resourceName: string
+  functionId: string
+  functionName: string
+  level: number | string // API may return number or string enum name
+  certifiedDate?: string
+  expiresAt?: string
+  notes?: string
+  createdAt: string
+}
+
+// Capability level mappings (number to string)
+const capabilityLevelMap: Record<number, CapabilityLevel> = {
+  0: 'learning',
+  1: 'capable',
+  2: 'proficient',
+  3: 'expert',
+  4: 'trainer',
+}
+
+// Capability level mappings (string enum name to lowercase)
+const capabilityLevelStringMap: Record<string, CapabilityLevel> = {
+  Learning: 'learning',
+  Capable: 'capable',
+  Proficient: 'proficient',
+  Expert: 'expert',
+  Trainer: 'trainer',
+}
+
+const capabilityLevelToNum: Record<CapabilityLevel, number> = {
+  learning: 0,
+  capable: 1,
+  proficient: 2,
+  expert: 3,
+  trainer: 4,
+}
+
+function transformFunctionCapability(api: ApiFunctionCapability): FunctionCapability {
+  // Handle both numeric and string enum values from API
+  let level: CapabilityLevel = 'capable'
+  if (typeof api.level === 'number') {
+    level = capabilityLevelMap[api.level] || 'capable'
+  } else if (typeof api.level === 'string') {
+    level = capabilityLevelStringMap[api.level] || (api.level.toLowerCase() as CapabilityLevel) || 'capable'
+  }
+
+  return {
+    id: api.id,
+    resourceId: api.resourceId,
+    resourceName: api.resourceName,
+    functionId: api.functionId,
+    functionName: api.functionName,
+    level,
+    certifiedDate: api.certifiedDate,
+    expiresAt: api.expiresAt,
+    notes: api.notes,
+    createdAt: api.createdAt,
+  }
+}
+
 // Transform functions for Roles and Functions
 function transformRole(api: ApiRole): RoleWithAssignments {
   return {
@@ -430,23 +657,32 @@ const mockHealthScore: OrgHealthScore = {
   lastCalculated: new Date().toISOString(),
 }
 
+// Shared state (singleton pattern - state persists across component instances)
+const isLoading = ref(false)
+const error = ref<string | null>(null)
+const organizationId = ref(getOrganizationId())
+const processes = ref<ProcessWithActivities[]>([])
+const functions = ref<FunctionWithUsage[]>([])
+const roles = ref<RoleWithAssignments[]>([])
+const roleAssignments = ref<ApiRoleAssignment[]>([])
+const functionCapabilities = ref<FunctionCapability[]>([])
+const people = ref<OpsResource[]>([])
+const resources = ref<OpsResource[]>([])
+const resourceSubtypes = ref<ResourceSubtype[]>([])
+const goals = ref<GoalWithProgress[]>([])
+const canvases = ref<OpsCanvas[]>([])
+const healthScore = ref<OrgHealthScore>(mockHealthScore)
+
+// Business Model Canvas entities state
+const partners = ref<Partner[]>([])
+const channels = ref<Channel[]>([])
+const valuePropositions = ref<ValueProposition[]>([])
+const customerRelationships = ref<CustomerRelationship[]>([])
+const revenueStreams = ref<RevenueStream[]>([])
+const bmcCanvases = ref<Canvas[]>([])
+
 export function useOperations() {
-  const { get, post, put, delete: del } = useApi()
-
-  const isLoading = ref(false)
-  const error = ref<string | null>(null)
-  const organizationId = ref(DEFAULT_ORG_ID)
-
-  // State
-  const processes = ref<ProcessWithActivities[]>([])
-  const functions = ref<FunctionWithUsage[]>([])
-  const roles = ref<RoleWithAssignments[]>([])
-  const roleAssignments = ref<ApiRoleAssignment[]>([])
-  const people = ref<OpsResource[]>([])
-  const resources = ref<OpsResource[]>([])
-  const goals = ref<GoalWithProgress[]>([])
-  const canvases = ref<OpsCanvas[]>([])
-  const healthScore = ref<OrgHealthScore>(mockHealthScore)
+  const { get, post, put, patch, delete: del } = useApi()
 
   // Processes
   const fetchProcesses = async () => {
@@ -493,6 +729,7 @@ export function useOperations() {
       status: process.status ? statusToNum[process.status] : 0,
       stateType: process.stateType ? stateToNum[process.stateType] : 0,
       ownerId: process.ownerId,
+      functionId: process.functionId,
     })
     const transformed = transformProcess(data)
     processes.value.push(transformed)
@@ -510,6 +747,7 @@ export function useOperations() {
       status: process.status ? Object.entries(processStatusMap).find(([, v]) => v === process.status)?.[0] : 1,
       stateType: process.stateType ? Object.entries(stateTypeMap).find(([, v]) => v === process.stateType)?.[0] : 0,
       ownerId: process.ownerId,
+      functionId: process.functionId,
     })
     const index = processes.value.findIndex(p => p.id === id)
     if (index !== -1) {
@@ -525,15 +763,15 @@ export function useOperations() {
 
   // Activities
   const createActivity = async (processId: string, activity: Partial<OpsActivity>) => {
-    // Map string type to number: manual=0, automated=1, hybrid=2, decision=3, handoff=4
-    const typeToNum: Record<string, number> = { manual: 0, automated: 1, hybrid: 2, decision: 3, handoff: 4 }
-    const activityTypeNum = activity.activityType ? typeToNum[activity.activityType] : 0
+    // Map lowercase frontend type to PascalCase enum string for backend (JsonStringEnumConverter)
+    const typeToPascal: Record<string, string> = { manual: 'Manual', automated: 'Automated', hybrid: 'Hybrid', decision: 'Decision', handoff: 'Handoff' }
+    const activityTypeStr = activity.activityType ? typeToPascal[activity.activityType] : 'Manual'
 
     const data = await post<ApiActivity>(`/api/organizations/${organizationId.value}/operations/processes/${processId}/activities`, {
       name: activity.name,
       description: activity.description,
       order: activity.order,
-      activityType: activityTypeNum,
+      activityType: activityTypeStr,
       estimatedDurationMinutes: activity.estimatedDuration,
       instructions: activity.instructions,
       functionId: activity.functionId,
@@ -546,23 +784,30 @@ export function useOperations() {
   }
 
   const updateActivity = async (processId: string, activityId: string, activity: Partial<OpsActivity>) => {
-    // Map string type to number: manual=0, automated=1, hybrid=2, decision=3, handoff=4
-    const typeToNum: Record<string, number> = { manual: 0, automated: 1, hybrid: 2, decision: 3, handoff: 4 }
-    const activityTypeNum = activity.activityType ? typeToNum[activity.activityType] : undefined
+    // Map lowercase frontend type to PascalCase enum string for backend (JsonStringEnumConverter)
+    const typeToPascal: Record<string, string> = { manual: 'Manual', automated: 'Automated', hybrid: 'Hybrid', decision: 'Decision', handoff: 'Handoff' }
+    const activityTypeStr = activity.activityType ? typeToPascal[activity.activityType] : undefined
 
-    const data = await put<ApiActivity>(`/api/organizations/${organizationId.value}/operations/processes/${processId}/activities/${activityId}`, {
+    // Build request body - explicitly include linkedProcessId even when null to clear it
+    const requestBody: Record<string, unknown> = {
       name: activity.name,
       description: activity.description,
       order: activity.order,
-      activityType: activityTypeNum,
+      activityType: activityTypeStr,
       estimatedDurationMinutes: activity.estimatedDuration,
       instructions: activity.instructions,
       functionId: activity.functionId,
       assignedResourceId: activity.assignedResourceId,
-      linkedProcessId: activity.linkedProcessId,
       positionX: activity.positionX || 0,
       positionY: activity.positionY || 0,
-    })
+    }
+
+    // Explicitly include linkedProcessId to ensure null values are sent to clear the field
+    if ('linkedProcessId' in activity) {
+      requestBody.linkedProcessId = activity.linkedProcessId
+    }
+
+    const data = await put<ApiActivity>(`/api/organizations/${organizationId.value}/operations/processes/${processId}/activities/${activityId}`, requestBody)
     return data
   }
 
@@ -572,7 +817,8 @@ export function useOperations() {
 
   // Activity Positions (Vue Flow bulk update)
   const updateActivityPositions = async (processId: string, positions: Array<{ activityId: string; positionX: number; positionY: number }>) => {
-    await fetch(`/api/organizations/${organizationId.value}/operations/processes/${processId}/activities/positions`, {
+    const config = useRuntimeConfig()
+    await fetch(`${config.public.apiBaseUrl}/api/organizations/${organizationId.value}/operations/processes/${processId}/activities/positions`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ positions }),
@@ -606,6 +852,25 @@ export function useOperations() {
 
   const deleteEdge = async (processId: string, edgeId: string) => {
     await del(`/api/organizations/${organizationId.value}/operations/processes/${processId}/edges/${edgeId}`)
+  }
+
+  // Flow Endpoints (Start/End node connections)
+  const updateFlowEndpoints = async (processId: string, updates: { entryActivityId?: string; exitActivityId?: string; clearEntry?: boolean; clearExit?: boolean }) => {
+    const config = useRuntimeConfig()
+    const response = await fetch(`${config.public.apiBaseUrl}/api/organizations/${organizationId.value}/operations/processes/${processId}/flow-endpoints`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        entryActivityId: updates.entryActivityId,
+        exitActivityId: updates.exitActivityId,
+        clearEntry: updates.clearEntry || false,
+        clearExit: updates.clearExit || false,
+      }),
+    })
+    if (!response.ok) {
+      throw new Error('Failed to update flow endpoints')
+    }
+    return response.json()
   }
 
   // Goals
@@ -702,14 +967,84 @@ export function useOperations() {
     try {
       const data = await get<ApiResource[]>(`/api/organizations/${organizationId.value}/operations/resources`)
       resources.value = data.map(transformResource)
-      // Filter people (Person type = 0)
-      people.value = data.filter(r => r.resourceType === 0).map(transformResource)
+      // Filter people (Person type = 0 or "Person" string from API with JsonStringEnumConverter)
+      people.value = data.filter(r => r.resourceType === 0 || r.resourceType === 'Person').map(transformResource)
     } catch (e) {
       console.error('Failed to fetch resources:', e)
       error.value = 'Failed to fetch resources'
     } finally {
       isLoading.value = false
     }
+  }
+
+  const fetchResourceSubtypes = async () => {
+    try {
+      const data = await get<ApiResourceSubtype[]>(`/api/organizations/${organizationId.value}/operations/resources/subtypes`)
+      resourceSubtypes.value = data.map(transformResourceSubtype)
+      return resourceSubtypes.value
+    } catch (e) {
+      console.error('Failed to fetch resource subtypes:', e)
+      return []
+    }
+  }
+
+  const createResourceSubtype = async (subtype: { name: string; description?: string; resourceType: string; icon?: string }) => {
+    const data = await post<ApiResourceSubtype>(`/api/organizations/${organizationId.value}/operations/resources/subtypes`, {
+      name: subtype.name,
+      description: subtype.description,
+      resourceType: resourceTypeToNum[subtype.resourceType] ?? 0,
+      icon: subtype.icon,
+    })
+    const transformed = transformResourceSubtype(data)
+    resourceSubtypes.value.push(transformed)
+    return transformed
+  }
+
+  const createResource = async (resource: { name: string; description?: string; status?: OpsResource['status']; resourceSubtypeId: string; linkedUserId?: string; metadata?: string }) => {
+    const data = await post<ApiResource>(`/api/organizations/${organizationId.value}/operations/resources`, {
+      name: resource.name,
+      description: resource.description,
+      status: resource.status ? resourceStatusToNum[resource.status] : 1, // Default to active
+      resourceSubtypeId: resource.resourceSubtypeId,
+      linkedUserId: resource.linkedUserId,
+      metadata: resource.metadata,
+    })
+    const transformed = transformResource(data)
+    resources.value.push(transformed)
+    // Update people list if it's a person type
+    if (data.resourceType === 0) {
+      people.value.push(transformed)
+    }
+    return transformed
+  }
+
+  const updateResource = async (id: string, resource: { name: string; description?: string; status?: OpsResource['status']; linkedUserId?: string; metadata?: string }) => {
+    const data = await put<ApiResource>(`/api/organizations/${organizationId.value}/operations/resources/${id}`, {
+      name: resource.name,
+      description: resource.description,
+      status: resource.status ? resourceStatusToNum[resource.status] : 1,
+      linkedUserId: resource.linkedUserId,
+      metadata: resource.metadata,
+    })
+    const transformed = transformResource(data)
+    const index = resources.value.findIndex(r => r.id === id)
+    if (index !== -1) {
+      resources.value[index] = transformed
+    }
+    // Update people list if it's a person type
+    if (data.resourceType === 0) {
+      const peopleIndex = people.value.findIndex(p => p.id === id)
+      if (peopleIndex !== -1) {
+        people.value[peopleIndex] = transformed
+      }
+    }
+    return transformed
+  }
+
+  const deleteResource = async (id: string) => {
+    await del(`/api/organizations/${organizationId.value}/operations/resources/${id}`)
+    resources.value = resources.value.filter(r => r.id !== id)
+    people.value = people.value.filter(p => p.id !== id)
   }
 
   // Functions
@@ -808,6 +1143,39 @@ export function useOperations() {
     roles.value = roles.value.filter(r => r.id !== id)
   }
 
+  // Role-Function Assignments (bidirectional)
+  const fetchRoleFunctions = async (roleId: string): Promise<RoleFunction[]> => {
+    const data = await get<ApiRoleFunction[]>(`/api/organizations/${organizationId.value}/operations/roles/${roleId}/functions`)
+    return data
+  }
+
+  const assignFunctionToRole = async (roleId: string, functionId: string): Promise<RoleFunction> => {
+    const data = await post<ApiRoleFunction>(`/api/organizations/${organizationId.value}/operations/roles/${roleId}/functions`, {
+      functionId,
+    })
+    return data
+  }
+
+  const unassignFunctionFromRole = async (roleId: string, functionId: string): Promise<void> => {
+    await del(`/api/organizations/${organizationId.value}/operations/roles/${roleId}/functions/${functionId}`)
+  }
+
+  const fetchFunctionRoles = async (functionId: string): Promise<RoleFunction[]> => {
+    const data = await get<ApiRoleFunction[]>(`/api/organizations/${organizationId.value}/operations/functions/${functionId}/roles`)
+    return data
+  }
+
+  const assignRoleToFunction = async (functionId: string, roleId: string): Promise<RoleFunction> => {
+    const data = await post<ApiRoleFunction>(`/api/organizations/${organizationId.value}/operations/functions/${functionId}/roles`, {
+      roleId,
+    })
+    return data
+  }
+
+  const unassignRoleFromFunction = async (functionId: string, roleId: string): Promise<void> => {
+    await del(`/api/organizations/${organizationId.value}/operations/functions/${functionId}/roles/${roleId}`)
+  }
+
   // Role Assignments
   const fetchRoleAssignments = async (resourceId?: string) => {
     const url = resourceId
@@ -829,6 +1197,80 @@ export function useOperations() {
     roleAssignments.value = roleAssignments.value.filter(ra => ra.id !== id)
   }
 
+  // Function Capabilities
+  const fetchFunctionCapabilities = async (resourceId?: string, functionId?: string) => {
+    let url = `/api/organizations/${organizationId.value}/operations/resources/function-capabilities`
+    const params = new URLSearchParams()
+    if (resourceId) params.append('resourceId', resourceId)
+    if (functionId) params.append('functionId', functionId)
+    if (params.toString()) url += `?${params.toString()}`
+
+    const data = await get<ApiFunctionCapability[]>(url)
+    const transformed = data.map(transformFunctionCapability)
+    functionCapabilities.value = transformed
+    return transformed
+  }
+
+  const createFunctionCapability = async (capability: {
+    resourceId: string
+    functionId: string
+    level?: CapabilityLevel
+    certifiedDate?: string
+    expiresAt?: string
+    notes?: string
+  }) => {
+    const data = await post<ApiFunctionCapability>(`/api/organizations/${organizationId.value}/operations/resources/function-capabilities`, {
+      resourceId: capability.resourceId,
+      functionId: capability.functionId,
+      level: capability.level ? capabilityLevelToNum[capability.level] : 1, // Default to 'capable'
+      certifiedDate: capability.certifiedDate,
+      expiresAt: capability.expiresAt,
+      notes: capability.notes,
+    })
+    const transformed = transformFunctionCapability(data)
+    functionCapabilities.value.push(transformed)
+    return transformed
+  }
+
+  const deleteFunctionCapability = async (id: string) => {
+    await del(`/api/organizations/${organizationId.value}/operations/resources/function-capabilities/${id}`)
+    functionCapabilities.value = functionCapabilities.value.filter(fc => fc.id !== id)
+  }
+
+  const updateFunctionCapability = async (id: string, updates: {
+    level?: CapabilityLevel
+    certifiedDate?: string
+    expiresAt?: string
+    notes?: string
+  }) => {
+    const data = await put<ApiFunctionCapability>(
+      `/api/organizations/${organizationId.value}/operations/resources/function-capabilities/${id}`,
+      {
+        level: updates.level ? capabilityLevelToNum[updates.level] : undefined,
+        certifiedDate: updates.certifiedDate,
+        expiresAt: updates.expiresAt,
+        notes: updates.notes,
+      }
+    )
+    const transformed = transformFunctionCapability(data)
+    // Use splice for proper Vue reactivity when updating array item
+    const index = functionCapabilities.value.findIndex(fc => fc.id === id)
+    if (index !== -1) {
+      functionCapabilities.value.splice(index, 1, transformed)
+    }
+    return transformed
+  }
+
+  // Helper to get capabilities for a specific person
+  const getPersonCapabilities = (resourceId: string) => {
+    return computed(() => functionCapabilities.value.filter(fc => fc.resourceId === resourceId))
+  }
+
+  // Helper to get capable people for a specific function
+  const getFunctionCapablePeople = (functionId: string) => {
+    return computed(() => functionCapabilities.value.filter(fc => fc.functionId === functionId))
+  }
+
   // People (subset of resources)
   const fetchPeople = async () => {
     await fetchResources()
@@ -837,6 +1279,307 @@ export function useOperations() {
   // Health Score (mock for now - would need calculation endpoint)
   const fetchHealthScore = async () => {
     healthScore.value = mockHealthScore
+  }
+
+  // ===========================================
+  // Business Model Canvas API Methods
+  // ===========================================
+
+  // Partners
+  const fetchPartners = async (filters?: { type?: PartnerType; status?: PartnerStatus }) => {
+    let url = `/api/organizations/${organizationId.value}/operations/partners`
+    const params = new URLSearchParams()
+    if (filters?.type) params.append('type', filters.type)
+    if (filters?.status) params.append('status', filters.status)
+    if (params.toString()) url += `?${params.toString()}`
+
+    const data = await get<Partner[]>(url)
+    partners.value = data
+    return data
+  }
+
+  const getPartner = async (id: string): Promise<Partner | null> => {
+    try {
+      return await get<Partner>(`/api/organizations/${organizationId.value}/operations/partners/${id}`)
+    } catch {
+      return null
+    }
+  }
+
+  const createPartner = async (partner: Partial<Partner>): Promise<Partner> => {
+    const data = await post<Partner>(`/api/organizations/${organizationId.value}/operations/partners`, partner)
+    partners.value.push(data)
+    return data
+  }
+
+  const updatePartner = async (id: string, partner: Partial<Partner>): Promise<Partner> => {
+    const data = await put<Partner>(`/api/organizations/${organizationId.value}/operations/partners/${id}`, partner)
+    const index = partners.value.findIndex(p => p.id === id)
+    if (index !== -1) partners.value[index] = data
+    return data
+  }
+
+  const deletePartner = async (id: string) => {
+    await del(`/api/organizations/${organizationId.value}/operations/partners/${id}`)
+    partners.value = partners.value.filter(p => p.id !== id)
+  }
+
+  // Channels
+  const fetchChannels = async (filters?: { type?: ChannelType; category?: ChannelCategory; status?: ChannelStatus }) => {
+    let url = `/api/organizations/${organizationId.value}/operations/channels`
+    const params = new URLSearchParams()
+    if (filters?.type) params.append('type', filters.type)
+    if (filters?.category) params.append('category', filters.category)
+    if (filters?.status) params.append('status', filters.status)
+    if (params.toString()) url += `?${params.toString()}`
+
+    const data = await get<Channel[]>(url)
+    channels.value = data
+    return data
+  }
+
+  const getChannel = async (id: string): Promise<Channel | null> => {
+    try {
+      return await get<Channel>(`/api/organizations/${organizationId.value}/operations/channels/${id}`)
+    } catch {
+      return null
+    }
+  }
+
+  const createChannel = async (channel: Partial<Channel>): Promise<Channel> => {
+    const data = await post<Channel>(`/api/organizations/${organizationId.value}/operations/channels`, channel)
+    channels.value.push(data)
+    return data
+  }
+
+  const updateChannel = async (id: string, channel: Partial<Channel>): Promise<Channel> => {
+    const data = await put<Channel>(`/api/organizations/${organizationId.value}/operations/channels/${id}`, channel)
+    const index = channels.value.findIndex(c => c.id === id)
+    if (index !== -1) channels.value[index] = data
+    return data
+  }
+
+  const deleteChannel = async (id: string) => {
+    await del(`/api/organizations/${organizationId.value}/operations/channels/${id}`)
+    channels.value = channels.value.filter(c => c.id !== id)
+  }
+
+  // Value Propositions
+  const fetchValuePropositions = async (filters?: { status?: ValuePropositionStatus; productId?: string; segmentId?: string }) => {
+    let url = `/api/organizations/${organizationId.value}/operations/valuepropositions`
+    const params = new URLSearchParams()
+    if (filters?.status) params.append('status', filters.status)
+    if (filters?.productId) params.append('productId', filters.productId)
+    if (filters?.segmentId) params.append('segmentId', filters.segmentId)
+    if (params.toString()) url += `?${params.toString()}`
+
+    const data = await get<ValueProposition[]>(url)
+    valuePropositions.value = data
+    return data
+  }
+
+  const getValueProposition = async (id: string): Promise<ValueProposition | null> => {
+    try {
+      return await get<ValueProposition>(`/api/organizations/${organizationId.value}/operations/valuepropositions/${id}`)
+    } catch {
+      return null
+    }
+  }
+
+  const createValueProposition = async (vp: Partial<ValueProposition>): Promise<ValueProposition> => {
+    const data = await post<ValueProposition>(`/api/organizations/${organizationId.value}/operations/valuepropositions`, vp)
+    valuePropositions.value.push(data)
+    return data
+  }
+
+  const updateValueProposition = async (id: string, vp: Partial<ValueProposition>): Promise<ValueProposition> => {
+    const data = await put<ValueProposition>(`/api/organizations/${organizationId.value}/operations/valuepropositions/${id}`, vp)
+    const index = valuePropositions.value.findIndex(v => v.id === id)
+    if (index !== -1) valuePropositions.value[index] = data
+    return data
+  }
+
+  const deleteValueProposition = async (id: string) => {
+    await del(`/api/organizations/${organizationId.value}/operations/valuepropositions/${id}`)
+    valuePropositions.value = valuePropositions.value.filter(v => v.id !== id)
+  }
+
+  // Customer Relationships
+  const fetchCustomerRelationships = async (filters?: { type?: CustomerRelationshipType; status?: CustomerRelationshipStatus; segmentId?: string }) => {
+    let url = `/api/organizations/${organizationId.value}/operations/customerrelationships`
+    const params = new URLSearchParams()
+    if (filters?.type) params.append('type', filters.type)
+    if (filters?.status) params.append('status', filters.status)
+    if (filters?.segmentId) params.append('segmentId', filters.segmentId)
+    if (params.toString()) url += `?${params.toString()}`
+
+    const data = await get<CustomerRelationship[]>(url)
+    customerRelationships.value = data
+    return data
+  }
+
+  const getCustomerRelationship = async (id: string): Promise<CustomerRelationship | null> => {
+    try {
+      return await get<CustomerRelationship>(`/api/organizations/${organizationId.value}/operations/customerrelationships/${id}`)
+    } catch {
+      return null
+    }
+  }
+
+  const createCustomerRelationship = async (cr: Partial<CustomerRelationship>): Promise<CustomerRelationship> => {
+    const data = await post<CustomerRelationship>(`/api/organizations/${organizationId.value}/operations/customerrelationships`, cr)
+    customerRelationships.value.push(data)
+    return data
+  }
+
+  const updateCustomerRelationship = async (id: string, cr: Partial<CustomerRelationship>): Promise<CustomerRelationship> => {
+    const data = await put<CustomerRelationship>(`/api/organizations/${organizationId.value}/operations/customerrelationships/${id}`, cr)
+    const index = customerRelationships.value.findIndex(c => c.id === id)
+    if (index !== -1) customerRelationships.value[index] = data
+    return data
+  }
+
+  const deleteCustomerRelationship = async (id: string) => {
+    await del(`/api/organizations/${organizationId.value}/operations/customerrelationships/${id}`)
+    customerRelationships.value = customerRelationships.value.filter(c => c.id !== id)
+  }
+
+  // BMC Canvases (Business Model Canvas CRUD)
+  const fetchBmcCanvases = async (filters?: { scopeType?: CanvasScopeType; status?: NewCanvasStatus; productId?: string }) => {
+    let url = `/api/organizations/${organizationId.value}/operations/canvases/bmc`
+    const params = new URLSearchParams()
+    if (filters?.scopeType) params.append('scopeType', filters.scopeType)
+    if (filters?.status) params.append('status', filters.status)
+    if (filters?.productId) params.append('productId', filters.productId)
+    if (params.toString()) url += `?${params.toString()}`
+
+    const data = await get<Canvas[]>(url)
+    bmcCanvases.value = data
+    return data
+  }
+
+  const getBmcCanvas = async (id: string): Promise<Canvas | null> => {
+    try {
+      return await get<Canvas>(`/api/organizations/${organizationId.value}/operations/canvases/bmc/${id}`)
+    } catch {
+      return null
+    }
+  }
+
+  const createBmcCanvas = async (canvas: Partial<Canvas>): Promise<Canvas> => {
+    const data = await post<Canvas>(`/api/organizations/${organizationId.value}/operations/canvases/bmc`, canvas)
+    bmcCanvases.value.push(data)
+    return data
+  }
+
+  const updateBmcCanvas = async (id: string, canvas: Partial<Canvas>): Promise<Canvas> => {
+    const data = await put<Canvas>(`/api/organizations/${organizationId.value}/operations/canvases/bmc/${id}`, canvas)
+    const index = bmcCanvases.value.findIndex(c => c.id === id)
+    if (index !== -1) bmcCanvases.value[index] = data
+    return data
+  }
+
+  const deleteBmcCanvas = async (id: string) => {
+    await del(`/api/organizations/${organizationId.value}/operations/canvases/bmc/${id}`)
+    bmcCanvases.value = bmcCanvases.value.filter(c => c.id !== id)
+  }
+
+  // Revenue Streams
+  const fetchRevenueStreams = async (filters?: { type?: RevenueStreamType; status?: RevenueStreamStatus; productId?: string; segmentId?: string }) => {
+    let url = `/api/organizations/${organizationId.value}/operations/revenuestreams`
+    const params = new URLSearchParams()
+    if (filters?.type) params.append('type', filters.type)
+    if (filters?.status) params.append('status', filters.status)
+    if (filters?.productId) params.append('productId', filters.productId)
+    if (filters?.segmentId) params.append('segmentId', filters.segmentId)
+    if (params.toString()) url += `?${params.toString()}`
+
+    const data = await get<RevenueStream[]>(url)
+    revenueStreams.value = data
+    return data
+  }
+
+  const getRevenueStream = async (id: string): Promise<RevenueStream | null> => {
+    try {
+      return await get<RevenueStream>(`/api/organizations/${organizationId.value}/operations/revenuestreams/${id}`)
+    } catch {
+      return null
+    }
+  }
+
+  const createRevenueStream = async (rs: Partial<RevenueStream>): Promise<RevenueStream> => {
+    const data = await post<RevenueStream>(`/api/organizations/${organizationId.value}/operations/revenuestreams`, rs)
+    revenueStreams.value.push(data)
+    return data
+  }
+
+  const updateRevenueStream = async (id: string, rs: Partial<RevenueStream>): Promise<RevenueStream> => {
+    const data = await put<RevenueStream>(`/api/organizations/${organizationId.value}/operations/revenuestreams/${id}`, rs)
+    const index = revenueStreams.value.findIndex(r => r.id === id)
+    if (index !== -1) revenueStreams.value[index] = data
+    return data
+  }
+
+  const deleteRevenueStream = async (id: string) => {
+    await del(`/api/organizations/${organizationId.value}/operations/revenuestreams/${id}`)
+    revenueStreams.value = revenueStreams.value.filter(r => r.id !== id)
+  }
+
+  // ===========================================
+  // Org Chart Functions
+  // ===========================================
+  const orgChart = ref<OrgChartTree | null>(null)
+  const orgChartMetrics = ref<OrgChartMetrics | null>(null)
+
+  const fetchOrgChart = async (): Promise<OrgChartTree> => {
+    const data = await get<OrgChartTree>(`/api/organizations/${organizationId.value}/operations/resources/org-chart`)
+    orgChart.value = data
+    return data
+  }
+
+  const fetchOrgChartMetrics = async (): Promise<OrgChartMetrics> => {
+    const data = await get<OrgChartMetrics>(`/api/organizations/${organizationId.value}/operations/resources/org-chart/metrics`)
+    orgChartMetrics.value = data
+    return data
+  }
+
+  const updateReporting = async (resourceId: string, reportsToResourceId: string | null): Promise<OrgChartResource> => {
+    const data = await patch<OrgChartResource>(
+      `/api/organizations/${organizationId.value}/operations/resources/${resourceId}/reporting`,
+      { reportsToResourceId }
+    )
+    // Refresh org chart after update
+    await fetchOrgChart()
+    return data
+  }
+
+  const createVacancy = async (vacancy: {
+    vacantPositionTitle: string
+    reportsToResourceId?: string
+    resourceSubtypeId: string
+    description?: string
+  }): Promise<OrgChartResource> => {
+    const data = await post<OrgChartResource>(
+      `/api/organizations/${organizationId.value}/operations/resources/vacancies`,
+      vacancy
+    )
+    // Refresh org chart after creating vacancy
+    await fetchOrgChart()
+    return data
+  }
+
+  const fillVacancy = async (vacancyId: string, personData: {
+    name: string
+    description?: string
+    linkedUserId?: string
+  }): Promise<OrgChartResource> => {
+    const data = await post<OrgChartResource>(
+      `/api/organizations/${organizationId.value}/operations/resources/vacancies/${vacancyId}/fill`,
+      personData
+    )
+    // Refresh org chart after filling vacancy
+    await fetchOrgChart()
+    return data
   }
 
   // Stats
@@ -851,6 +1594,46 @@ export function useOperations() {
       ? Math.round(goals.value.reduce((acc, g) => acc + g.progress, 0) / goals.value.length)
       : 0,
   }))
+
+  // Clear all cached data (call when organization changes)
+  const clearAllData = () => {
+    processes.value = []
+    functions.value = []
+    roles.value = []
+    roleAssignments.value = []
+    functionCapabilities.value = []
+    people.value = []
+    resources.value = []
+    resourceSubtypes.value = []
+    goals.value = []
+    canvases.value = []
+    partners.value = []
+    channels.value = []
+    valuePropositions.value = []
+    customerRelationships.value = []
+    revenueStreams.value = []
+    bmcCanvases.value = []
+    orgChart.value = null
+    orgChartMetrics.value = null
+    error.value = null
+  }
+
+  // Refresh organization ID from localStorage (call when org changes)
+  const refreshOrganizationId = () => {
+    organizationId.value = getOrganizationId()
+  }
+
+  // Watch for organization changes and update internal state
+  // This ensures useOperations always uses the current organization
+  const { currentOrganizationId: watchedOrgId } = useOrganizations()
+  watch(watchedOrgId, (newOrgId) => {
+    if (newOrgId && newOrgId !== organizationId.value) {
+      // Clear all cached data from old organization
+      clearAllData()
+      // Update to new organization ID
+      organizationId.value = newOrgId
+    }
+  }, { immediate: true })
 
   return {
     // State
@@ -882,6 +1665,8 @@ export function useOperations() {
     // Edge Actions (Vue Flow)
     createEdge,
     deleteEdge,
+    // Flow Endpoints (Start/End connections)
+    updateFlowEndpoints,
     // Goal Actions
     fetchGoals,
     createGoal,
@@ -892,6 +1677,12 @@ export function useOperations() {
     updateCanvasBlock,
     // Resource Actions
     fetchResources,
+    fetchResourceSubtypes,
+    createResourceSubtype,
+    createResource,
+    updateResource,
+    deleteResource,
+    resourceSubtypes,
     // Function Actions
     fetchFunctions,
     createFunction,
@@ -903,12 +1694,81 @@ export function useOperations() {
     createRole,
     updateRole,
     deleteRole,
+    // Role-Function Assignment Actions
+    fetchRoleFunctions,
+    assignFunctionToRole,
+    unassignFunctionFromRole,
+    fetchFunctionRoles,
+    assignRoleToFunction,
+    unassignRoleFromFunction,
     // Role Assignment Actions
     fetchRoleAssignments,
     createRoleAssignment,
     deleteRoleAssignment,
+    // Function Capability Actions
+    functionCapabilities,
+    fetchFunctionCapabilities,
+    createFunctionCapability,
+    updateFunctionCapability,
+    deleteFunctionCapability,
+    getPersonCapabilities,
+    getFunctionCapablePeople,
     // Other Actions
     fetchPeople,
     fetchHealthScore,
+    // Business Model Canvas - State
+    partners,
+    channels,
+    valuePropositions,
+    customerRelationships,
+    revenueStreams,
+    bmcCanvases,
+    // Business Model Canvas - Partner Actions
+    fetchPartners,
+    getPartner,
+    createPartner,
+    updatePartner,
+    deletePartner,
+    // Business Model Canvas - Channel Actions
+    fetchChannels,
+    getChannel,
+    createChannel,
+    updateChannel,
+    deleteChannel,
+    // Business Model Canvas - Value Proposition Actions
+    fetchValuePropositions,
+    getValueProposition,
+    createValueProposition,
+    updateValueProposition,
+    deleteValueProposition,
+    // Business Model Canvas - Customer Relationship Actions
+    fetchCustomerRelationships,
+    getCustomerRelationship,
+    createCustomerRelationship,
+    updateCustomerRelationship,
+    deleteCustomerRelationship,
+    // Business Model Canvas - Revenue Stream Actions
+    fetchRevenueStreams,
+    getRevenueStream,
+    createRevenueStream,
+    updateRevenueStream,
+    deleteRevenueStream,
+    // Business Model Canvas - Canvas CRUD Actions
+    fetchBmcCanvases,
+    getBmcCanvas,
+    createBmcCanvas,
+    updateBmcCanvas,
+    deleteBmcCanvas,
+    // Org Chart - State
+    orgChart,
+    orgChartMetrics,
+    // Org Chart - Actions
+    fetchOrgChart,
+    fetchOrgChartMetrics,
+    updateReporting,
+    createVacancy,
+    fillVacancy,
+    // Organization
+    refreshOrganizationId,
   }
 }

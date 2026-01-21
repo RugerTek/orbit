@@ -1,0 +1,351 @@
+{
+  "$schema": "../schema/entity.schema.json",
+  "id": "ENT026",
+  "name": "PendingAction",
+  "version": "1.0.0",
+  "status": "Draft",
+  "description": "Represents an AI-proposed data modification awaiting user approval. Enables a confirmation workflow where AI agents can suggest changes that users must explicitly approve before execution.",
+
+  "tableName": "pending_actions",
+  "multiTenant": true,
+  "softDelete": false,
+  "auditFields": true,
+
+  "fields": {
+    "id": {
+      "type": "uuid",
+      "primaryKey": true,
+      "description": "Unique identifier for the pending action"
+    },
+    "organizationId": {
+      "type": "uuid",
+      "required": true,
+      "foreignKey": "organizations.id",
+      "description": "Organization this action belongs to (multi-tenancy)"
+    },
+    "conversationId": {
+      "type": "uuid",
+      "required": true,
+      "foreignKey": "conversations.id",
+      "description": "Conversation where this action was proposed"
+    },
+    "messageId": {
+      "type": "uuid",
+      "required": true,
+      "foreignKey": "messages.id",
+      "description": "Message that contains this proposed action"
+    },
+    "agentId": {
+      "type": "uuid",
+      "required": true,
+      "foreignKey": "ai_agents.id",
+      "description": "AI agent that proposed this action"
+    },
+    "actionType": {
+      "type": "enum",
+      "enumName": "ActionType",
+      "values": ["Create", "Update", "Delete"],
+      "required": true,
+      "description": "Type of CRUD operation proposed"
+    },
+    "entityType": {
+      "type": "string",
+      "maxLength": 100,
+      "required": true,
+      "description": "Name of the target entity type (e.g., 'Partner', 'Function', 'Process')"
+    },
+    "entityId": {
+      "type": "uuid",
+      "nullable": true,
+      "description": "ID of existing entity for Update/Delete operations. Null for Create."
+    },
+    "proposedData": {
+      "type": "jsonb",
+      "required": true,
+      "description": "JSON object containing the proposed entity data"
+    },
+    "previousData": {
+      "type": "jsonb",
+      "nullable": true,
+      "description": "Original entity data before proposed changes (for Update operations)"
+    },
+    "reason": {
+      "type": "text",
+      "required": true,
+      "description": "AI's explanation for why this action should be taken"
+    },
+    "status": {
+      "type": "enum",
+      "enumName": "PendingActionStatus",
+      "values": ["Pending", "Approved", "Rejected", "Modified", "Executed", "Failed", "Expired"],
+      "required": true,
+      "default": "Pending",
+      "description": "Current status of the pending action"
+    },
+    "userModifications": {
+      "type": "jsonb",
+      "nullable": true,
+      "description": "User's modifications to the proposed data before approval"
+    },
+    "finalData": {
+      "type": "jsonb",
+      "nullable": true,
+      "description": "The actual data that was executed (proposedData + userModifications)"
+    },
+    "executionResult": {
+      "type": "jsonb",
+      "nullable": true,
+      "description": "Result of the execution attempt including any errors"
+    },
+    "resultEntityId": {
+      "type": "uuid",
+      "nullable": true,
+      "description": "ID of the created/updated entity after successful execution"
+    },
+    "reviewedByUserId": {
+      "type": "uuid",
+      "nullable": true,
+      "foreignKey": "users.id",
+      "description": "User who approved or rejected the action"
+    },
+    "reviewedAt": {
+      "type": "datetime",
+      "nullable": true,
+      "description": "Timestamp when the action was reviewed"
+    },
+    "rejectionReason": {
+      "type": "text",
+      "nullable": true,
+      "description": "User's reason for rejecting the action"
+    },
+    "executedAt": {
+      "type": "datetime",
+      "nullable": true,
+      "description": "Timestamp when the action was executed"
+    },
+    "expiresAt": {
+      "type": "datetime",
+      "nullable": true,
+      "description": "Optional expiration time for pending actions"
+    },
+    "createdAt": {
+      "type": "datetime",
+      "required": true,
+      "default": "now()",
+      "description": "When the action was proposed"
+    },
+    "updatedAt": {
+      "type": "datetime",
+      "required": true,
+      "default": "now()",
+      "description": "Last modification timestamp"
+    }
+  },
+
+  "indexes": [
+    {
+      "name": "ix_pending_actions_org_status",
+      "fields": ["organizationId", "status"],
+      "description": "List pending actions by organization and status"
+    },
+    {
+      "name": "ix_pending_actions_conversation",
+      "fields": ["conversationId", "status"],
+      "description": "List pending actions for a conversation"
+    },
+    {
+      "name": "ix_pending_actions_message",
+      "fields": ["messageId"],
+      "description": "Find actions for a specific message"
+    },
+    {
+      "name": "ix_pending_actions_agent",
+      "fields": ["agentId", "createdAt"],
+      "description": "Track actions proposed by each agent"
+    },
+    {
+      "name": "ix_pending_actions_entity",
+      "fields": ["entityType", "entityId"],
+      "description": "Find actions affecting a specific entity"
+    },
+    {
+      "name": "ix_pending_actions_expires",
+      "fields": ["expiresAt"],
+      "where": "status = 'Pending'",
+      "description": "Find expired pending actions"
+    }
+  ],
+
+  "relationships": {
+    "organization": {
+      "type": "many-to-one",
+      "target": "Organization",
+      "foreignKey": "organizationId"
+    },
+    "conversation": {
+      "type": "many-to-one",
+      "target": "Conversation",
+      "foreignKey": "conversationId"
+    },
+    "message": {
+      "type": "many-to-one",
+      "target": "Message",
+      "foreignKey": "messageId"
+    },
+    "agent": {
+      "type": "many-to-one",
+      "target": "AiAgent",
+      "foreignKey": "agentId"
+    },
+    "reviewedByUser": {
+      "type": "many-to-one",
+      "target": "User",
+      "foreignKey": "reviewedByUserId"
+    }
+  },
+
+  "businessRules": {
+    "BR-PA-001": {
+      "name": "Create actions have no entityId",
+      "rule": "When actionType is 'Create', entityId must be null",
+      "validation": "entityId == null when actionType == 'Create'"
+    },
+    "BR-PA-002": {
+      "name": "Update/Delete require entityId",
+      "rule": "When actionType is 'Update' or 'Delete', entityId is required",
+      "validation": "entityId != null when actionType in ['Update', 'Delete']"
+    },
+    "BR-PA-003": {
+      "name": "Update requires previousData",
+      "rule": "When actionType is 'Update', previousData should contain the original entity",
+      "validation": "previousData != null when actionType == 'Update'"
+    },
+    "BR-PA-004": {
+      "name": "Status transitions",
+      "rule": "Valid status transitions: Pending -> Approved/Rejected/Modified/Expired; Approved/Modified -> Executed/Failed",
+      "validation": "State machine validation on status changes"
+    },
+    "BR-PA-005": {
+      "name": "Executed requires execution data",
+      "rule": "When status is 'Executed', executedAt and resultEntityId (for Create/Update) must be set",
+      "validation": "executedAt != null when status == 'Executed'"
+    },
+    "BR-PA-006": {
+      "name": "Reviewed requires reviewer",
+      "rule": "When status is Approved/Rejected/Modified, reviewedByUserId and reviewedAt must be set",
+      "validation": "reviewedByUserId != null when status in ['Approved', 'Rejected', 'Modified']"
+    }
+  },
+
+  "validations": {
+    "entityType": {
+      "allowedValues": [
+        "Function", "Role", "Resource", "Activity", "ActivityEdge", "Process",
+        "Canvas", "CanvasBlock", "BlockReference", "Goal",
+        "Partner", "Channel", "ValueProposition", "Product", "Segment",
+        "CustomerRelationship", "RevenueStream", "AiAgent"
+      ],
+      "description": "Must be a valid entity type name"
+    },
+    "proposedData": {
+      "schema": "Must validate against the target entity's schema",
+      "description": "JSON structure must match the entity type's expected fields"
+    }
+  },
+
+  "apiEndpoints": {
+    "list": {
+      "method": "GET",
+      "path": "/api/organizations/{orgId}/pending-actions",
+      "queryParams": ["conversationId", "status", "entityType", "agentId"],
+      "description": "List pending actions with optional filters"
+    },
+    "get": {
+      "method": "GET",
+      "path": "/api/organizations/{orgId}/pending-actions/{id}",
+      "description": "Get a specific pending action with full details"
+    },
+    "approve": {
+      "method": "POST",
+      "path": "/api/organizations/{orgId}/pending-actions/{id}/approve",
+      "body": { "modifications": "optional object" },
+      "description": "Approve the action, optionally with modifications"
+    },
+    "reject": {
+      "method": "POST",
+      "path": "/api/organizations/{orgId}/pending-actions/{id}/reject",
+      "body": { "reason": "optional string" },
+      "description": "Reject the action with optional reason"
+    },
+    "retry": {
+      "method": "POST",
+      "path": "/api/organizations/{orgId}/pending-actions/{id}/retry",
+      "description": "Retry a failed action"
+    }
+  },
+
+  "examples": {
+    "createPartner": {
+      "actionType": "Create",
+      "entityType": "Partner",
+      "entityId": null,
+      "proposedData": {
+        "name": "Amazon Web Services",
+        "type": "TechnologyProvider",
+        "strategicValue": "High",
+        "description": "Cloud infrastructure and services"
+      },
+      "reason": "User requested adding AWS as a cloud infrastructure partner to support their technology stack.",
+      "status": "Pending"
+    },
+    "updateFunction": {
+      "actionType": "Update",
+      "entityType": "Function",
+      "entityId": "123e4567-e89b-12d3-a456-426614174000",
+      "proposedData": {
+        "complexity": "High"
+      },
+      "previousData": {
+        "id": "123e4567-e89b-12d3-a456-426614174000",
+        "name": "Sales",
+        "complexity": "Medium",
+        "status": "Active"
+      },
+      "reason": "User indicated the Sales function has grown in complexity and should be updated to reflect this.",
+      "status": "Pending"
+    },
+    "deleteRole": {
+      "actionType": "Delete",
+      "entityType": "Role",
+      "entityId": "987fcdeb-51a2-3d4e-f678-426614174000",
+      "proposedData": {},
+      "previousData": {
+        "id": "987fcdeb-51a2-3d4e-f678-426614174000",
+        "name": "Marketing Intern",
+        "department": "Marketing"
+      },
+      "reason": "User confirmed this role is no longer in use. Impact analysis shows 0 resources assigned and 0 active activities.",
+      "status": "Pending"
+    }
+  },
+
+  "securityConsiderations": [
+    "Users can only approve/reject actions for entities they have permission to modify",
+    "All state changes are logged for audit purposes",
+    "Expired actions cannot be approved or executed",
+    "Failed actions can only be retried by users with appropriate permissions"
+  ],
+
+  "relatedEntities": [
+    "ENT001-organization",
+    "ENT017-ai-agent",
+    "ENT018-conversation",
+    "ENT019-message",
+    "ENT006-user"
+  ],
+
+  "relatedFeatures": [
+    "F003-multi-agent-chat",
+    "F005-ai-data-access"
+  ]
+}

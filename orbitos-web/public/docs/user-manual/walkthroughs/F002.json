@@ -1,0 +1,43 @@
+{
+  "id": "F002",
+  "name": "People & Roles",
+  "description": "Learn how to manage team members and organizational structure",
+  "estimatedTime": "7 minutes",
+  "steps": [
+    {
+      "id": "step1",
+      "title": "People Management",
+      "content": "The People section lets you manage your organization's team members and structure.",
+      "target": null,
+      "position": "center"
+    },
+    {
+      "id": "step2",
+      "title": "Adding Team Members",
+      "content": "Click 'Add Person' to invite new team members to your organization.",
+      "target": "button:has-text('Add')",
+      "position": "bottom"
+    },
+    {
+      "id": "step3",
+      "title": "Org Chart",
+      "content": "Navigate to the Org Chart to visualize your organization's hierarchy.",
+      "target": "a[href='/app/people/org-chart']",
+      "position": "right"
+    },
+    {
+      "id": "step4",
+      "title": "Roles",
+      "content": "Define roles to group responsibilities and permissions.",
+      "target": "a[href='/app/roles']",
+      "position": "right"
+    },
+    {
+      "id": "step5",
+      "title": "Functions",
+      "content": "Functions are atomic units of work that can be assigned to roles.",
+      "target": "a[href='/app/functions']",
+      "position": "right"
+    }
+  ]
+}

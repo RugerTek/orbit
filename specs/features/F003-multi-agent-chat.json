@@ -1,0 +1,709 @@
+{
+  "$schema": "./schema.json",
+  "id": "F003",
+  "name": "Multi-Agent AI Chat",
+  "description": "Collaborative chat environment where multiple AI agents and human team members can participate in strategic discussions, with each AI agent having specialized expertise and access to organizational context",
+  "status": "in-progress",
+  "priority": "should-have",
+  "created_at": "2026-01-17",
+  "updated_at": "2026-01-17",
+  "owner": "ai-team",
+
+  "implementation_status": {
+    "summary": "Phase 1 (Agent Management) complete. Phase 2 (Group Chat) pending.",
+    "phases": [
+      {
+        "id": "phase-1",
+        "name": "AI Agent Management",
+        "status": "complete",
+        "components": [
+          { "name": "AiAgent entity", "status": "complete", "file": "orbitos-api/src/OrbitOS.Domain/Entities/AiAgent.cs" },
+          { "name": "AiAgents API controller", "status": "complete", "file": "orbitos-api/src/OrbitOS.Api/Controllers/AiAgentsController.cs" },
+          { "name": "Multi-provider AI service", "status": "complete", "file": "orbitos-api/src/OrbitOS.Api/Services/MultiProviderAiService.cs" },
+          { "name": "Database migration", "status": "complete", "file": "orbitos-api/src/OrbitOS.Infrastructure/Migrations/AddAiAgentsEntity" },
+          { "name": "AI Agents page (frontend)", "status": "complete", "file": "orbitos-web/app/pages/app/ai-agents/index.vue" },
+          { "name": "useAiAgents composable", "status": "complete", "file": "orbitos-web/app/composables/useAiAgents.ts" },
+          { "name": "Sidebar navigation link", "status": "complete", "file": "orbitos-web/app/layouts/app.vue" },
+          { "name": "E2E tests", "status": "complete", "file": "orbitos-web/tests/e2e/ai-agents.spec.ts" }
+        ]
+      },
+      {
+        "id": "phase-2",
+        "name": "Group Chat Interface",
+        "status": "pending",
+        "components": [
+          { "name": "Conversation entity", "status": "pending", "file": "orbitos-api/src/OrbitOS.Domain/Entities/Conversation.cs" },
+          { "name": "Message entity", "status": "pending", "file": "orbitos-api/src/OrbitOS.Domain/Entities/Message.cs" },
+          { "name": "ConversationParticipant entity", "status": "pending", "file": "orbitos-api/src/OrbitOS.Domain/Entities/ConversationParticipant.cs" },
+          { "name": "Conversations API controller", "status": "pending" },
+          { "name": "Chat page UI", "status": "pending", "file": "orbitos-web/app/pages/app/ai-agents/conversations/[id].vue" },
+          { "name": "Message composer with @mentions", "status": "pending" },
+          { "name": "Context panel (referenced items)", "status": "pending" },
+          { "name": "Session stats panel", "status": "pending" },
+          { "name": "Conversation mode selector", "status": "pending" }
+        ]
+      }
+    ]
+  },
+
+  "capabilities": [
+    {
+      "id": "F003-C01",
+      "description": "As a user, I want to create a new conversation with selected AI agents and team members so that we can collaborate on strategic discussions",
+      "priority": "must-have",
+      "status": "pending",
+      "acceptance_criteria": [
+        "Given I am on the AI Agents page, when I click 'New' conversation, then I can select participants",
+        "Given I select AI agents and team members, when I create the conversation, then all participants are added",
+        "Given a conversation is created, when it loads, then I see the participant list and chat interface"
+      ]
+    },
+    {
+      "id": "F003-C02",
+      "description": "As a user, I want to @mention specific AI agents in my message so that they respond to my query",
+      "priority": "must-have",
+      "status": "pending",
+      "acceptance_criteria": [
+        "Given I type '@' in the message input, when I continue typing, then I see autocomplete for available agents",
+        "Given I @mention an AI agent, when I send the message, then that specific agent responds",
+        "Given I @mention multiple agents, when I send the message, then each mentioned agent responds in order"
+      ]
+    },
+    {
+      "id": "F003-C03",
+      "description": "As a user, I want to configure the conversation mode so that I can control how AI agents interact",
+      "priority": "must-have",
+      "status": "pending",
+      "acceptance_criteria": [
+        "Given I am in a conversation, when I click the mode selector, then I see On-Demand, Moderated, Round-Robin, and Free options",
+        "Given I select 'On-Demand' mode, when I send a message without @mention, then no AI responds automatically",
+        "Given I select 'Moderated' mode, when an AI wants to respond, then it waits for moderator approval",
+        "Given I select 'Round-Robin' mode, when I send a message, then each AI responds in turn",
+        "Given I select 'Free' mode, when I send a message, then all relevant AIs may respond"
+      ]
+    },
+    {
+      "id": "F003-C04",
+      "description": "As a user, I want to see which organizational data the AI agents have access to so that I understand the context they're using",
+      "priority": "must-have",
+      "status": "pending",
+      "acceptance_criteria": [
+        "Given I am in a conversation, when I view the context panel, then I see 'Full Context Access' section",
+        "Given the context panel shows Canvases, when I click on it, then I see which canvases are accessible",
+        "Given an AI references data, when it responds, then it shows 'Sources' with the data origins"
+      ]
+    },
+    {
+      "id": "F003-C05",
+      "description": "As a user, I want to see session statistics so that I can monitor token usage and costs",
+      "priority": "should-have",
+      "status": "pending",
+      "acceptance_criteria": [
+        "Given I am in a conversation, when I view the stats panel, then I see message count, AI responses, total tokens, cost, and duration",
+        "Given tokens are being consumed, when an AI responds, then the token count updates in real-time",
+        "Given there is a token limit, when usage approaches the limit, then I see a warning indicator"
+      ]
+    },
+    {
+      "id": "F003-C06",
+      "description": "As an admin, I want to configure AI agents with different models and specializations so that they provide domain-specific expertise",
+      "priority": "must-have",
+      "status": "complete",
+      "acceptance_criteria": [
+        "Given I am an admin, when I access agent settings, then I can create a new AI agent",
+        "Given I create an AI agent, when I configure it, then I can set name, model (Claude/GPT-4/Gemini), role title, system prompt, and capabilities",
+        "Given I configure capabilities, when I select tools, then the agent can only use those specific tools"
+      ]
+    },
+    {
+      "id": "F003-C07",
+      "description": "As a user, I want AI agents to render rich responses with charts and metrics so that data is visually clear",
+      "priority": "should-have",
+      "status": "pending",
+      "acceptance_criteria": [
+        "Given an AI analyzes metrics, when it responds, then it can include formatted metric cards",
+        "Given an AI references multiple sources, when it responds, then sources are listed at the bottom",
+        "Given an AI provides insights, when it responds, then key insights are highlighted"
+      ]
+    },
+    {
+      "id": "F003-C08",
+      "description": "As a user, I want quick actions (Ask all AIs, Summarize, Export chat, Pause all AIs) so that I can efficiently manage the conversation",
+      "priority": "should-have",
+      "status": "pending",
+      "acceptance_criteria": [
+        "Given I click 'Ask all AIs', when the action executes, then all active AI agents respond to the last message",
+        "Given I click 'Summarize', when the action executes, then an AI generates a summary of the conversation",
+        "Given I click 'Export chat', when the action executes, then I can download the conversation as PDF/Markdown",
+        "Given I click 'Pause all AIs', when the action executes, then AI agents stop responding until resumed"
+      ]
+    },
+    {
+      "id": "F003-C09",
+      "description": "As a user, I want to see which team members are online so that I know who is available for collaboration",
+      "priority": "could-have",
+      "status": "pending",
+      "acceptance_criteria": [
+        "Given I am in the AI Agents view, when I look at Team Members, then I see online status indicators",
+        "Given a team member comes online, when their status changes, then the indicator updates in real-time",
+        "Given I hover over a team member, when viewing their status, then I see their role"
+      ]
+    },
+    {
+      "id": "F003-C10",
+      "description": "As a user, I want to pause and resume the conversation so that I can control when AI agents are active",
+      "priority": "must-have",
+      "status": "pending",
+      "acceptance_criteria": [
+        "Given a conversation is active, when I click 'Pause', then AI agents stop responding",
+        "Given a conversation is paused, when I click 'Resume', then AI agents can respond again",
+        "Given a conversation is paused, when I send a message, then it's queued until resumed"
+      ]
+    },
+    {
+      "id": "F003-C11",
+      "description": "As a user, I want to see items referenced in the chat so that I can quickly access related resources",
+      "priority": "should-have",
+      "status": "pending",
+      "acceptance_criteria": [
+        "Given an AI references a Canvas, when the message is displayed, then the canvas appears in 'Referenced in Chat' panel",
+        "Given items are referenced, when I click on a reference, then it opens that resource",
+        "Given multiple items are referenced, when viewing the panel, then they are sorted by recency"
+      ]
+    }
+  ],
+
+  "entities": [
+    "ENT017",
+    "ENT018",
+    "ENT019",
+    "ENT020"
+  ],
+
+  "api_endpoints": [
+    {
+      "method": "GET",
+      "path": "/api/organizations/{orgId}/ai-agents",
+      "description": "List all AI agents configured for the organization",
+      "response": "AiAgentDto[]",
+      "status": "implemented"
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizations/{orgId}/ai-agents",
+      "description": "Create a new AI agent",
+      "request_body": "CreateAiAgentRequest",
+      "response": "AiAgentDto",
+      "status": "implemented"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{orgId}/ai-agents/{agentId}",
+      "description": "Get a specific AI agent",
+      "response": "AiAgentDto",
+      "status": "implemented"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/organizations/{orgId}/ai-agents/{agentId}",
+      "description": "Update an AI agent configuration",
+      "request_body": "UpdateAiAgentRequest",
+      "response": "AiAgentDto",
+      "status": "implemented"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/organizations/{orgId}/ai-agents/{agentId}",
+      "description": "Delete an AI agent",
+      "response": "204 No Content",
+      "status": "implemented"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{orgId}/ai-agents/available-models",
+      "description": "Get list of available AI models",
+      "response": "AvailableModelDto[]",
+      "status": "implemented"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{orgId}/conversations",
+      "description": "List all conversations for the user",
+      "response": "ConversationSummaryDto[]",
+      "status": "pending"
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizations/{orgId}/conversations",
+      "description": "Create a new conversation",
+      "request_body": "CreateConversationRequest",
+      "response": "ConversationDto",
+      "status": "pending"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{orgId}/conversations/{conversationId}",
+      "description": "Get conversation details with messages",
+      "response": "ConversationDto",
+      "status": "pending"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/organizations/{orgId}/conversations/{conversationId}",
+      "description": "Delete a conversation (soft delete)",
+      "response": "204 No Content",
+      "status": "pending"
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizations/{orgId}/conversations/{conversationId}/messages",
+      "description": "Send a message to the conversation",
+      "request_body": "SendMessageRequest",
+      "response": "MessageDto",
+      "status": "pending"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{orgId}/conversations/{conversationId}/messages",
+      "description": "Get paginated messages for a conversation",
+      "query_params": ["cursor", "limit"],
+      "response": "PaginatedResponse<MessageDto>",
+      "status": "pending"
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizations/{orgId}/conversations/{conversationId}/invoke",
+      "description": "Invoke AI agent(s) to respond",
+      "request_body": "InvokeAgentRequest",
+      "response": "MessageDto[]",
+      "status": "pending"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/organizations/{orgId}/conversations/{conversationId}/settings",
+      "description": "Update conversation settings (mode, participants)",
+      "request_body": "UpdateConversationSettingsRequest",
+      "response": "ConversationDto",
+      "status": "pending"
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizations/{orgId}/conversations/{conversationId}/pause",
+      "description": "Pause AI responses in the conversation",
+      "response": "ConversationDto",
+      "status": "pending"
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizations/{orgId}/conversations/{conversationId}/resume",
+      "description": "Resume AI responses in the conversation",
+      "response": "ConversationDto",
+      "status": "pending"
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizations/{orgId}/conversations/{conversationId}/summarize",
+      "description": "Generate a summary of the conversation",
+      "response": "SummaryDto",
+      "status": "pending"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{orgId}/conversations/{conversationId}/export",
+      "description": "Export conversation as PDF or Markdown",
+      "query_params": ["format"],
+      "response": "FileStreamResult",
+      "status": "pending"
+    }
+  ],
+
+  "ui_screens": [
+    {
+      "id": "SCR010",
+      "name": "AI Agents Management",
+      "description": "Page for creating, viewing, editing, and deleting AI agents",
+      "path": "/app/ai-agents",
+      "file": "orbitos-web/app/pages/app/ai-agents/index.vue",
+      "status": "implemented",
+      "ui_elements": [
+        {
+          "id": "SCR010-EL01",
+          "name": "Page Header",
+          "type": "section",
+          "elements": [
+            { "id": "heading", "type": "heading", "text": "AI Agents" },
+            { "id": "subheading", "type": "text", "text": "Configure AI agents with different models and specializations." },
+            { "id": "add-btn", "type": "button", "text": "Add Agent", "action": "opens create dialog" }
+          ]
+        },
+        {
+          "id": "SCR010-EL02",
+          "name": "Stats Cards",
+          "type": "section",
+          "elements": [
+            { "id": "total-agents", "type": "stat-card", "label": "Total Agents" },
+            { "id": "active-agents", "type": "stat-card", "label": "Active" },
+            { "id": "anthropic-count", "type": "stat-card", "label": "Anthropic" },
+            { "id": "other-count", "type": "stat-card", "label": "OpenAI / Google" }
+          ]
+        },
+        {
+          "id": "SCR010-EL03",
+          "name": "Empty State",
+          "type": "conditional",
+          "condition": "agents.length === 0",
+          "elements": [
+            { "id": "icon", "type": "icon", "name": "computer" },
+            { "id": "title", "type": "heading", "text": "No AI Agents Yet" },
+            { "id": "description", "type": "text" },
+            { "id": "cta-btn", "type": "button", "text": "Create your first agent" }
+          ]
+        },
+        {
+          "id": "SCR010-EL04",
+          "name": "Agents Grid",
+          "type": "grid",
+          "elements": [
+            {
+              "id": "agent-card",
+              "type": "card",
+              "repeats": "for each agent",
+              "elements": [
+                { "id": "avatar", "type": "avatar", "shows": "first letter of name, colored background" },
+                { "id": "name", "type": "text", "field": "agent.name" },
+                { "id": "inactive-badge", "type": "badge", "condition": "!agent.isActive", "text": "Inactive" },
+                { "id": "role-title", "type": "text", "field": "agent.roleTitle" },
+                { "id": "model-badge", "type": "badge", "field": "agent.modelDisplayName", "color": "provider-based" },
+                { "id": "max-tokens", "type": "text", "format": "{maxTokensPerResponse} max tokens" },
+                { "id": "prompt-preview", "type": "text", "field": "agent.systemPrompt", "truncated": true },
+                { "id": "toggle-btn", "type": "button", "text": "Disable/Enable", "action": "toggleAgentActive" },
+                { "id": "edit-btn", "type": "button", "text": "Edit", "action": "opens edit dialog" },
+                { "id": "delete-btn", "type": "button", "text": "Delete", "action": "deleteAgent with confirm" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "SCR010-EL05",
+          "name": "Create Agent Dialog",
+          "type": "dialog",
+          "trigger": "Add Agent button",
+          "elements": [
+            { "id": "title", "type": "heading", "text": "Create AI Agent" },
+            { "id": "description", "type": "text", "text": "Configure a new AI agent with a specific model and role." },
+            { "id": "name-input", "type": "text-input", "label": "Agent Name *", "placeholder": "e.g., CFO-AI" },
+            { "id": "role-input", "type": "text-input", "label": "Role Title *", "placeholder": "e.g., Chief Financial Officer" },
+            { "id": "model-select", "type": "select", "label": "AI Model *", "options": "available models grouped by provider" },
+            { "id": "template-select", "type": "select", "label": "System Prompt Template", "options": ["Custom", "CFO / Finance", "Operations Manager", "Strategy Consultant", "HR Director"] },
+            { "id": "prompt-textarea", "type": "textarea", "label": "System Prompt *", "rows": 6 },
+            { "id": "max-tokens-input", "type": "number-input", "label": "Max Tokens", "default": 4096 },
+            { "id": "temperature-input", "type": "number-input", "label": "Temperature (0-2)", "default": 0.7, "step": 0.1 },
+            { "id": "color-picker", "type": "color-picker", "label": "Avatar Color", "colors": 8 },
+            { "id": "cancel-btn", "type": "button", "text": "Cancel", "action": "closes dialog" },
+            { "id": "create-btn", "type": "button", "text": "Create Agent", "action": "createAgent", "disabled-when": "form invalid" }
+          ]
+        },
+        {
+          "id": "SCR010-EL06",
+          "name": "Edit Agent Dialog",
+          "type": "dialog",
+          "trigger": "Edit button on agent card",
+          "elements": [
+            { "id": "title", "type": "heading", "text": "Edit AI Agent" },
+            { "id": "description", "type": "text", "text": "Update agent configuration." },
+            { "id": "name-input", "type": "text-input", "label": "Agent Name *", "value": "agent.name" },
+            { "id": "role-input", "type": "text-input", "label": "Role Title *", "value": "agent.roleTitle" },
+            { "id": "model-select", "type": "select", "label": "AI Model *", "value": "agent.modelId" },
+            { "id": "prompt-textarea", "type": "textarea", "label": "System Prompt *", "value": "agent.systemPrompt" },
+            { "id": "max-tokens-input", "type": "number-input", "label": "Max Tokens", "value": "agent.maxTokensPerResponse" },
+            { "id": "temperature-input", "type": "number-input", "label": "Temperature (0-2)", "value": "agent.temperature" },
+            { "id": "color-picker", "type": "color-picker", "label": "Avatar Color", "value": "agent.avatarColor" },
+            { "id": "active-checkbox", "type": "checkbox", "label": "Agent is active", "value": "agent.isActive" },
+            { "id": "cancel-btn", "type": "button", "text": "Cancel", "action": "closes dialog" },
+            { "id": "save-btn", "type": "button", "text": "Save Changes", "action": "updateAgent" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "SCR011",
+      "name": "Conversation View",
+      "description": "Active conversation with messages, participants, context panel, and stats",
+      "path": "/app/ai-agents/conversations/{id}",
+      "file": "orbitos-web/app/pages/app/ai-agents/conversations/[id].vue",
+      "status": "pending",
+      "ui_elements": [
+        {
+          "id": "SCR011-EL01",
+          "name": "Header",
+          "type": "section",
+          "elements": [
+            { "id": "title", "type": "text", "field": "conversation.title" },
+            { "id": "participants-chips", "type": "chip-list", "items": "participants" },
+            { "id": "add-btn", "type": "button", "text": "Add", "action": "add participant" },
+            { "id": "settings-btn", "type": "button", "text": "Settings" },
+            { "id": "mode-dropdown", "type": "dropdown", "options": ["On-Demand", "Moderated", "Round-Robin", "Free (Caution)"] },
+            { "id": "turns-display", "type": "text", "format": "Turns: {current}/{max}" },
+            { "id": "tokens-display", "type": "text", "format": "Tokens: {used}/{limit}" },
+            { "id": "cost-display", "type": "text", "format": "Cost: ${cost}" },
+            { "id": "resume-btn", "type": "button", "text": "Resume" },
+            { "id": "pause-btn", "type": "button", "text": "Pause" }
+          ]
+        },
+        {
+          "id": "SCR011-EL02",
+          "name": "Left Sidebar - Agents & Team",
+          "type": "sidebar",
+          "elements": [
+            { "id": "search", "type": "search-input", "placeholder": "Search agents..." },
+            { "id": "ai-agents-section", "type": "list", "title": "AI Agents", "items": "configured agents" },
+            { "id": "team-members-section", "type": "list", "title": "Team Members", "items": "organization users", "shows": "online status" },
+            { "id": "conversations-section", "type": "list", "title": "Conversations", "items": "recent conversations" }
+          ]
+        },
+        {
+          "id": "SCR011-EL03",
+          "name": "Message Area",
+          "type": "section",
+          "elements": [
+            { "id": "messages-list", "type": "scrollable-list", "items": "messages" },
+            { "id": "message-item", "type": "message-bubble", "elements": [
+              { "id": "avatar", "type": "avatar" },
+              { "id": "sender-name", "type": "text" },
+              { "id": "model-badge", "type": "badge", "condition": "sender is AI" },
+              { "id": "timestamp", "type": "text" },
+              { "id": "content", "type": "markdown" },
+              { "id": "metric-cards", "type": "card-list", "condition": "has metrics" },
+              { "id": "sources", "type": "link-list", "condition": "has sources" },
+              { "id": "token-info", "type": "text", "condition": "sender is AI", "format": "{tokens} tokens • {time}s • ${cost}" }
+            ]},
+            { "id": "quick-actions", "type": "button-group", "items": ["Ask all AIs", "Summarize", "Export chat", "Pause all AIs"] },
+            { "id": "message-input", "type": "textarea", "placeholder": "Type a message... Use @AgentName to invoke specific AI" },
+            { "id": "send-btn", "type": "button", "icon": "send" }
+          ]
+        },
+        {
+          "id": "SCR011-EL04",
+          "name": "Right Sidebar - Context & Stats",
+          "type": "sidebar",
+          "elements": [
+            { "id": "org-context-section", "type": "section", "title": "Organizational Context" },
+            { "id": "referenced-section", "type": "section", "title": "Referenced in Chat", "items": "referenced items" },
+            { "id": "context-access-section", "type": "section", "title": "Full Context Access", "items": ["Canvases", "Processes", "Roles", "Resources", "Goals & OKRs", "Metrics"] },
+            { "id": "stats-section", "type": "section", "title": "Session Stats", "items": [
+              { "label": "Messages", "value": "messageCount" },
+              { "label": "AI Responses", "value": "aiResponseCount" },
+              { "label": "Total Tokens", "value": "totalTokens" },
+              { "label": "Est. Cost", "value": "totalCost" },
+              { "label": "Duration", "value": "duration" }
+            ]}
+          ]
+        }
+      ]
+    }
+  ],
+
+  "domain_models": {
+    "conversation_modes": [
+      {
+        "id": "on-demand",
+        "name": "On-Demand",
+        "description": "AI agents only respond when explicitly @mentioned"
+      },
+      {
+        "id": "moderated",
+        "name": "Moderated",
+        "description": "AI responses require moderator approval before being shown"
+      },
+      {
+        "id": "round-robin",
+        "name": "Round-Robin",
+        "description": "Each AI agent responds in turn after a user message"
+      },
+      {
+        "id": "free",
+        "name": "Free (Caution)",
+        "description": "All AI agents may respond freely, can lead to high token usage"
+      }
+    ],
+    "ai_models": [
+      {
+        "id": "claude-sonnet-4-20250514",
+        "name": "Claude Sonnet 4",
+        "provider": "anthropic",
+        "context_window": 200000,
+        "status": "enabled"
+      },
+      {
+        "id": "claude-opus-4-20250514",
+        "name": "Claude Opus 4",
+        "provider": "anthropic",
+        "context_window": 200000,
+        "status": "enabled"
+      },
+      {
+        "id": "claude-3-5-haiku-20241022",
+        "name": "Claude 3.5 Haiku",
+        "provider": "anthropic",
+        "context_window": 200000,
+        "status": "enabled"
+      },
+      {
+        "id": "gpt-4o",
+        "name": "GPT-4o",
+        "provider": "openai",
+        "context_window": 128000,
+        "status": "disabled",
+        "note": "Requires OPENAI_API_KEY"
+      },
+      {
+        "id": "gemini-1.5-pro",
+        "name": "Gemini 1.5 Pro",
+        "provider": "google",
+        "context_window": 2000000,
+        "status": "disabled",
+        "note": "Requires GOOGLE_AI_API_KEY"
+      }
+    ],
+    "context_access_types": [
+      "canvases",
+      "processes",
+      "roles",
+      "resources",
+      "goals",
+      "metrics"
+    ]
+  },
+
+  "security_requirements": [
+    "All conversation data must be scoped by organization_id",
+    "AI agents can only access data within their configured context permissions",
+    "Message content must be sanitized to prevent injection attacks",
+    "API keys for external AI providers must be stored encrypted",
+    "Conversation export must respect data access permissions",
+    "Rate limiting on AI invocation endpoints to prevent abuse"
+  ],
+
+  "performance_requirements": [
+    "Message send response time < 200ms (before AI processing)",
+    "AI response streaming should begin within 2 seconds",
+    "Conversation list load time < 500ms",
+    "Message history pagination must support 1000+ messages efficiently"
+  ],
+
+  "dependencies": {
+    "features": ["F001"],
+    "external_services": [
+      "Anthropic Claude API"
+    ],
+    "future_external_services": [
+      "OpenAI API",
+      "Google Gemini API"
+    ]
+  },
+
+  "test_coverage": {
+    "unit_tests": [
+      "AI agent configuration validation",
+      "Message parsing and @mention extraction",
+      "Conversation mode logic",
+      "Token counting and cost calculation"
+    ],
+    "integration_tests": [
+      "Create agent flow",
+      "Update agent flow",
+      "Delete agent flow",
+      "Create conversation flow",
+      "Send message and receive AI response",
+      "Multi-agent response ordering",
+      "Conversation export"
+    ],
+    "e2e_tests": {
+      "file": "orbitos-web/tests/e2e/ai-agents.spec.ts",
+      "test_suites": [
+        {
+          "name": "AI Agents Page - Navigation & Layout",
+          "tests": [
+            "should display AI Agents page with correct heading",
+            "should display Add Agent button",
+            "should display stats cards",
+            "should display empty state when no agents exist",
+            "should have AI Agents link in sidebar navigation"
+          ]
+        },
+        {
+          "name": "AI Agents - Create Agent Dialog",
+          "tests": [
+            "should open create agent dialog when clicking Add Agent",
+            "should display all form fields in create dialog",
+            "should have correct default values in create dialog",
+            "should show only Anthropic models in dropdown",
+            "should populate system prompt when selecting template",
+            "should close dialog when clicking Cancel",
+            "should close dialog when pressing Escape",
+            "should close dialog when clicking backdrop",
+            "should disable Create button when required fields are empty",
+            "should enable Create button when required fields are filled"
+          ]
+        },
+        {
+          "name": "AI Agents - CRUD Operations",
+          "tests": [
+            "should create a new agent successfully",
+            "should display agent card with correct information",
+            "should open edit dialog when clicking Edit",
+            "should update agent when editing",
+            "should toggle agent active/inactive",
+            "should delete agent when clicking Delete"
+          ]
+        },
+        {
+          "name": "AI Agents - Model Configuration",
+          "tests": [
+            "should create agent with Claude Sonnet model",
+            "should create agent with Claude Opus model",
+            "should create agent with Claude Haiku model",
+            "should configure custom max tokens",
+            "should configure custom temperature"
+          ]
+        },
+        {
+          "name": "AI Agents - Avatar Colors",
+          "tests": [
+            "should display avatar color options",
+            "should select different avatar color"
+          ]
+        },
+        {
+          "name": "AI Agents - System Prompt Templates",
+          "tests": [
+            "should load CFO template",
+            "should load Operations template",
+            "should load Strategy template",
+            "should load HR template",
+            "should allow custom system prompt editing"
+          ]
+        },
+        {
+          "name": "AI Agents - Stats Cards",
+          "tests": [
+            "should update Total Agents count after creating agent",
+            "should update Active count when toggling agent"
+          ]
+        }
+      ]
+    }
+  },
+
+  "ux_review_notes": {
+    "completed_review": false,
+    "pending_items": [
+      "Take screenshots of AI Agents page in various states",
+      "Test responsive design on mobile",
+      "Review color contrast for accessibility",
+      "Test keyboard navigation",
+      "Review loading states and error handling"
+    ],
+    "known_issues": []
+  }
+}

@@ -1,0 +1,103 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2026-01-20",
+  "features": [
+    {
+      "id": "F001",
+      "name": "Getting Started",
+      "description": "Learn how to sign in and navigate OrbitOS",
+      "category": "basics"
+    },
+    {
+      "id": "F002",
+      "name": "People & Roles",
+      "description": "Manage team members, roles, and organizational structure",
+      "category": "organization"
+    },
+    {
+      "id": "F003",
+      "name": "Processes",
+      "description": "Create and manage business processes with visual workflows",
+      "category": "operations"
+    },
+    {
+      "id": "F004",
+      "name": "Goals & OKRs",
+      "description": "Set objectives and track key results",
+      "category": "strategy"
+    },
+    {
+      "id": "F005",
+      "name": "Business Canvas",
+      "description": "Design your business model using canvas templates",
+      "category": "strategy"
+    },
+    {
+      "id": "F006",
+      "name": "Functions",
+      "description": "Define atomic work units and responsibilities",
+      "category": "operations"
+    },
+    {
+      "id": "F007",
+      "name": "Resources",
+      "description": "Manage organizational assets and resources",
+      "category": "operations"
+    },
+    {
+      "id": "F008",
+      "name": "AI Agents",
+      "description": "Configure AI assistants for your organization",
+      "category": "ai"
+    }
+  ],
+  "concepts": [
+    {
+      "id": "ENT001",
+      "name": "Organization",
+      "description": "The top-level entity that contains all other data"
+    },
+    {
+      "id": "ENT002",
+      "name": "User",
+      "description": "A person who interacts with the system"
+    },
+    {
+      "id": "ENT003",
+      "name": "Role",
+      "description": "A named set of responsibilities and permissions"
+    },
+    {
+      "id": "ENT004",
+      "name": "Function",
+      "description": "An atomic unit of work or responsibility"
+    },
+    {
+      "id": "ENT005",
+      "name": "Process",
+      "description": "A series of steps to accomplish a goal"
+    },
+    {
+      "id": "ENT006",
+      "name": "Goal",
+      "description": "An objective with measurable key results"
+    },
+    {
+      "id": "ENT007",
+      "name": "Canvas",
+      "description": "A strategic planning template"
+    },
+    {
+      "id": "ENT008",
+      "name": "Resource",
+      "description": "An asset or capability owned by the organization"
+    }
+  ],
+  "categories": [
+    { "id": "basics", "name": "Getting Started", "order": 1 },
+    { "id": "organization", "name": "Organization", "order": 2 },
+    { "id": "operations", "name": "Operations", "order": 3 },
+    { "id": "strategy", "name": "Strategy", "order": 4 },
+    { "id": "ai", "name": "AI Features", "order": 5 }
+  ]
+}

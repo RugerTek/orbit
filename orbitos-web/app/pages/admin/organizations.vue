@@ -290,114 +290,109 @@ const formatDate = (date: string) => {
     </div>
 
     <!-- Create/Edit Modal -->
-    <Teleport to="body">
-      <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/50" @click="showModal = false" />
-        <div class="relative w-full max-w-md rounded-2xl bg-slate-800 border border-slate-700 p-6">
-          <h2 class="text-xl font-bold text-white mb-6">
-            {{ modalMode === 'create' ? 'Create Organization' : 'Edit Organization' }}
-          </h2>
-
-          <form @submit.prevent="handleSubmit" class="space-y-4">
-            <div>
-              <label class="block text-sm font-medium text-slate-300 mb-2">Name</label>
-              <input
-                v-model="formData.name"
-                type="text"
-                required
-                class="w-full rounded-xl bg-slate-700 border border-slate-600 px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-purple-500"
-                placeholder="Acme Corp"
-              />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-slate-300 mb-2">Slug</label>
-              <input
-                v-model="formData.slug"
-                type="text"
-                required
-                pattern="[a-z0-9-]+"
-                class="w-full rounded-xl bg-slate-700 border border-slate-600 px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-purple-500"
-                placeholder="acme-corp"
-              />
-              <p class="mt-1 text-xs text-slate-400">URL-friendly identifier (lowercase, hyphens only)</p>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-slate-300 mb-2">Description</label>
-              <textarea
-                v-model="formData.description"
-                rows="3"
-                class="w-full rounded-xl bg-slate-700 border border-slate-600 px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-purple-500 resize-none"
-                placeholder="Brief description of the organization..."
-              />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-slate-300 mb-2">Logo URL</label>
-              <input
-                v-model="formData.logoUrl"
-                type="url"
-                class="w-full rounded-xl bg-slate-700 border border-slate-600 px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-purple-500"
-                placeholder="https://example.com/logo.png"
-              />
-            </div>
-
-            <div v-if="formError" class="rounded-xl bg-red-500/10 border border-red-500/20 p-3">
-              <p class="text-sm text-red-400">{{ formError }}</p>
-            </div>
-
-            <div class="flex gap-3 pt-4">
-              <button
-                type="button"
-                @click="showModal = false"
-                class="flex-1 rounded-xl bg-slate-700 px-4 py-3 text-sm font-medium text-white hover:bg-slate-600 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                :disabled="formLoading"
-                class="flex-1 rounded-xl bg-purple-600 px-4 py-3 text-sm font-medium text-white hover:bg-purple-500 disabled:opacity-50 transition-colors"
-              >
-                {{ formLoading ? 'Saving...' : modalMode === 'create' ? 'Create' : 'Save' }}
-              </button>
-            </div>
-          </form>
+    <BaseDialog
+      v-model="showModal"
+      size="md"
+      :title="modalMode === 'create' ? 'Create Organization' : 'Edit Organization'"
+      @submit="handleSubmit"
+    >
+      <form @submit.prevent="handleSubmit" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-2">Name</label>
+          <input
+            v-model="formData.name"
+            type="text"
+            required
+            class="w-full rounded-xl bg-slate-700 border border-slate-600 px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-purple-500"
+            placeholder="Acme Corp"
+          />
         </div>
-      </div>
-    </Teleport>
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-2">Slug</label>
+          <input
+            v-model="formData.slug"
+            type="text"
+            required
+            pattern="[a-z0-9-]+"
+            class="w-full rounded-xl bg-slate-700 border border-slate-600 px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-purple-500"
+            placeholder="acme-corp"
+          />
+          <p class="mt-1 text-xs text-slate-400">URL-friendly identifier (lowercase, hyphens only)</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-2">Description</label>
+          <textarea
+            v-model="formData.description"
+            rows="3"
+            class="w-full rounded-xl bg-slate-700 border border-slate-600 px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-purple-500 resize-none"
+            placeholder="Brief description of the organization..."
+          />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-2">Logo URL</label>
+          <input
+            v-model="formData.logoUrl"
+            type="url"
+            class="w-full rounded-xl bg-slate-700 border border-slate-600 px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-purple-500"
+            placeholder="https://example.com/logo.png"
+          />
+        </div>
+
+        <div v-if="formError" class="rounded-xl bg-red-500/10 border border-red-500/20 p-3">
+          <p class="text-sm text-red-400">{{ formError }}</p>
+        </div>
+
+        <div class="flex gap-3 pt-4">
+          <button
+            type="button"
+            @click="showModal = false"
+            class="flex-1 rounded-xl bg-slate-700 px-4 py-3 text-sm font-medium text-white hover:bg-slate-600 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            :disabled="formLoading"
+            class="flex-1 rounded-xl bg-purple-600 px-4 py-3 text-sm font-medium text-white hover:bg-purple-500 disabled:opacity-50 transition-colors"
+          >
+            {{ formLoading ? 'Saving...' : modalMode === 'create' ? 'Create' : 'Save' }}
+          </button>
+        </div>
+      </form>
+    </BaseDialog>
 
     <!-- Delete Confirmation Modal -->
-    <Teleport to="body">
-      <div v-if="showDeleteConfirm" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/50" @click="showDeleteConfirm = false" />
-        <div class="relative w-full max-w-sm rounded-2xl bg-slate-800 border border-slate-700 p-6">
-          <div class="text-center">
-            <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-500/20 mb-4">
-              <svg class="h-6 w-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
-            <h3 class="text-lg font-semibold text-white mb-2">Delete Organization</h3>
-            <p class="text-sm text-slate-400 mb-6">
-              Are you sure you want to delete <span class="font-medium text-white">{{ orgToDelete?.name }}</span>? This will also delete all associated roles, functions, and memberships.
-            </p>
-            <div class="flex gap-3">
-              <button
-                @click="showDeleteConfirm = false"
-                class="flex-1 rounded-xl bg-slate-700 px-4 py-3 text-sm font-medium text-white hover:bg-slate-600 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                @click="handleDelete"
-                :disabled="deleteLoading"
-                class="flex-1 rounded-xl bg-red-600 px-4 py-3 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50 transition-colors"
-              >
-                {{ deleteLoading ? 'Deleting...' : 'Delete' }}
-              </button>
-            </div>
-          </div>
+    <BaseDialog
+      v-model="showDeleteConfirm"
+      size="sm"
+      title="Delete Organization"
+      @submit="handleDelete"
+    >
+      <div class="text-center">
+        <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-500/20 mb-4">
+          <svg class="h-6 w-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        </div>
+        <p class="text-sm text-slate-400 mb-6">
+          Are you sure you want to delete <span class="font-medium text-white">{{ orgToDelete?.name }}</span>? This will also delete all associated roles, functions, and memberships.
+        </p>
+        <div class="flex gap-3">
+          <button
+            @click="showDeleteConfirm = false"
+            class="flex-1 rounded-xl bg-slate-700 px-4 py-3 text-sm font-medium text-white hover:bg-slate-600 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            @click="handleDelete"
+            :disabled="deleteLoading"
+            class="flex-1 rounded-xl bg-red-600 px-4 py-3 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50 transition-colors"
+          >
+            {{ deleteLoading ? 'Deleting...' : 'Delete' }}
+          </button>
         </div>
       </div>
-    </Teleport>
+    </BaseDialog>
   </div>
 </template>

@@ -3,7 +3,7 @@ definePageMeta({
   layout: 'app'
 })
 
-const { processes, isLoading, fetchProcesses, createProcess } = useOperations()
+const { processes, functions, isLoading, fetchProcesses, fetchFunctions, createProcess } = useOperations()
 
 // Dialog state
 const showAddDialog = ref(false)
@@ -12,12 +12,13 @@ const newProcess = ref({
   name: '',
   purpose: '',
   trigger: '',
-  output: ''
+  output: '',
+  functionId: ''
 })
 
-// Fetch processes on mount
+// Fetch processes and functions on mount
 onMounted(async () => {
-  await fetchProcesses()
+  await Promise.all([fetchProcesses(), fetchFunctions()])
 })
 
 // Add process handler
@@ -31,12 +32,13 @@ const handleAddProcess = async () => {
       purpose: newProcess.value.purpose || undefined,
       trigger: newProcess.value.trigger || undefined,
       output: newProcess.value.output || undefined,
+      functionId: newProcess.value.functionId || undefined,
       status: 'draft',
       stateType: 'current'
     })
 
     // Reset form and close dialog
-    newProcess.value = { name: '', purpose: '', trigger: '', output: '' }
+    newProcess.value = { name: '', purpose: '', trigger: '', output: '', functionId: '' }
     showAddDialog.value = false
 
     // Navigate to the new process
@@ -285,12 +287,23 @@ const stats = computed(() => {
               placeholder="e.g., Customer live on platform"
             />
           </div>
+
+          <div>
+            <label class="orbitos-label">Function</label>
+            <select v-model="newProcess.functionId" class="orbitos-input">
+              <option value="">Select a function (optional)</option>
+              <option v-for="func in functions" :key="func.id" :value="func.id">
+                {{ func.name }}
+              </option>
+            </select>
+            <p class="text-xs text-white/40 mt-1">Associate this process with a business function</p>
+          </div>
         </div>
 
         <div class="mt-6 flex gap-3">
           <button
             type="button"
-            @click="showAddDialog = false; newProcess = { name: '', purpose: '', trigger: '', output: '' }"
+            @click="showAddDialog = false; newProcess = { name: '', purpose: '', trigger: '', output: '', functionId: '' }"
             class="flex-1 orbitos-btn-secondary"
           >
             Cancel

@@ -10,6 +10,9 @@ public static class SeedIds
     {
         /// <summary>Rugertek default organization</summary>
         public static readonly Guid Rugertek = new("11111111-1111-1111-1111-111111111111");
+
+        /// <summary>Torus demo organization with full org chart</summary>
+        public static readonly Guid Torus = new("11111111-1111-1111-1111-111111111112");
     }
 
     public static class Users
@@ -89,6 +92,70 @@ public static class SeedIds
     {
         /// <summary>Rodrigo's membership in Rugertek</summary>
         public static readonly Guid RodrigoRugertek = new("55555555-5555-5555-5555-555555555501");
+
+        /// <summary>Rodrigo's membership in Torus</summary>
+        public static readonly Guid RodrigoTorus = new("55555555-5555-5555-5555-555555555502");
+    }
+
+    /// <summary>
+    /// Torus organization people for org chart demonstration
+    /// </summary>
+    public static class TorusPeople
+    {
+        // Executive Team
+        public static readonly Guid CEO = new("eeeeeeee-eeee-eeee-eeee-eeeeeeee0001");
+        public static readonly Guid COO = new("eeeeeeee-eeee-eeee-eeee-eeeeeeee0002");
+        public static readonly Guid CFO = new("eeeeeeee-eeee-eeee-eeee-eeeeeeee0003");
+        public static readonly Guid CTO = new("eeeeeeee-eeee-eeee-eeee-eeeeeeee0004");
+        public static readonly Guid CMO = new("eeeeeeee-eeee-eeee-eeee-eeeeeeee0005");
+
+        // Engineering Team (reports to CTO)
+        public static readonly Guid VPEngineering = new("eeeeeeee-eeee-eeee-eeee-eeeeeeee0010");
+        public static readonly Guid EngineeringManager1 = new("eeeeeeee-eeee-eeee-eeee-eeeeeeee0011");
+        public static readonly Guid EngineeringManager2 = new("eeeeeeee-eeee-eeee-eeee-eeeeeeee0012");
+        public static readonly Guid SeniorEngineer1 = new("eeeeeeee-eeee-eeee-eeee-eeeeeeee0013");
+        public static readonly Guid SeniorEngineer2 = new("eeeeeeee-eeee-eeee-eeee-eeeeeeee0014");
+        public static readonly Guid SeniorEngineer3 = new("eeeeeeee-eeee-eeee-eeee-eeeeeeee0015");
+        public static readonly Guid Engineer1 = new("eeeeeeee-eeee-eeee-eeee-eeeeeeee0016");
+        public static readonly Guid Engineer2 = new("eeeeeeee-eeee-eeee-eeee-eeeeeeee0017");
+        public static readonly Guid Engineer3 = new("eeeeeeee-eeee-eeee-eeee-eeeeeeee0018");
+        public static readonly Guid Engineer4 = new("eeeeeeee-eeee-eeee-eeee-eeeeeeee0019");
+
+        // Product Team (reports to COO)
+        public static readonly Guid VPProduct = new("eeeeeeee-eeee-eeee-eeee-eeeeeeee0020");
+        public static readonly Guid ProductManager1 = new("eeeeeeee-eeee-eeee-eeee-eeeeeeee0021");
+        public static readonly Guid ProductManager2 = new("eeeeeeee-eeee-eeee-eeee-eeeeeeee0022");
+        public static readonly Guid ProductDesigner = new("eeeeeeee-eeee-eeee-eeee-eeeeeeee0023");
+
+        // Sales Team (reports to COO)
+        public static readonly Guid VPSales = new("eeeeeeee-eeee-eeee-eeee-eeeeeeee0030");
+        public static readonly Guid SalesManager = new("eeeeeeee-eeee-eeee-eeee-eeeeeeee0031");
+        public static readonly Guid AccountExec1 = new("eeeeeeee-eeee-eeee-eeee-eeeeeeee0032");
+        public static readonly Guid AccountExec2 = new("eeeeeeee-eeee-eeee-eeee-eeeeeeee0033");
+        public static readonly Guid SDR1 = new("eeeeeeee-eeee-eeee-eeee-eeeeeeee0034");
+
+        // Marketing Team (reports to CMO)
+        public static readonly Guid MarketingManager = new("eeeeeeee-eeee-eeee-eeee-eeeeeeee0040");
+        public static readonly Guid ContentWriter = new("eeeeeeee-eeee-eeee-eeee-eeeeeeee0041");
+        public static readonly Guid DigitalMarketer = new("eeeeeeee-eeee-eeee-eeee-eeeeeeee0042");
+
+        // Finance Team (reports to CFO)
+        public static readonly Guid FinanceManager = new("eeeeeeee-eeee-eeee-eeee-eeeeeeee0050");
+        public static readonly Guid Accountant = new("eeeeeeee-eeee-eeee-eeee-eeeeeeee0051");
+
+        // HR (reports to COO)
+        public static readonly Guid HRManager = new("eeeeeeee-eeee-eeee-eeee-eeeeeeee0060");
+        public static readonly Guid Recruiter = new("eeeeeeee-eeee-eeee-eeee-eeeeeeee0061");
+    }
+
+    /// <summary>
+    /// Torus resource subtypes
+    /// </summary>
+    public static class TorusResourceSubtypes
+    {
+        public static readonly Guid Employee = new("77777777-7777-7777-7777-777777778001");
+        public static readonly Guid Contractor = new("77777777-7777-7777-7777-777777778002");
+        public static readonly Guid Executive = new("77777777-7777-7777-7777-777777778003");
     }
 
     /// <summary>

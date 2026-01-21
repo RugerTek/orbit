@@ -27,7 +27,7 @@
       "name": "EntityType",
       "type": "enum",
       "nullable": false,
-      "enum_values": ["Resource", "Process", "Activity", "Product", "Segment", "Function"],
+      "enum_values": ["Resource", "Process", "Activity", "Product", "Segment", "Function", "Partner", "Channel", "ValueProposition", "CustomerRelationship", "RevenueStream"],
       "description": "The type of entity being referenced"
     },
     {
@@ -134,15 +134,15 @@
       "error_code": "REFERENCE_ENTITY_TYPE_MISMATCH",
       "error_message": "This entity type is not appropriate for this block type",
       "details": {
-        "KeyPartners": ["Resource"],
+        "KeyPartners": ["Partner"],
         "KeyActivities": ["Activity", "Process"],
         "KeyResources": ["Resource", "Function"],
-        "ValuePropositions": ["Product"],
-        "CustomerRelationships": ["Process"],
-        "Channels": ["Resource"],
+        "ValuePropositions": ["ValueProposition", "Product"],
+        "CustomerRelationships": ["CustomerRelationship", "Process"],
+        "Channels": ["Channel"],
         "CustomerSegments": ["Segment"],
-        "CostStructure": ["Resource", "Activity", "Process", "Function"],
-        "RevenueStreams": ["Product"]
+        "CostStructure": ["Resource", "Activity", "Process", "Function", "Partner"],
+        "RevenueStreams": ["RevenueStream", "Product"]
       }
     }
   ],
@@ -167,12 +167,17 @@
       "discriminator": "EntityType",
       "foreign_key": "EntityId",
       "mappings": {
-        "Resource": "Resource entity (to be created)",
-        "Process": "Process entity (to be created)",
-        "Activity": "Activity entity (to be created)",
+        "Resource": "ENT014",
+        "Process": "ENT015",
+        "Activity": "ENT016",
         "Product": "ENT008",
         "Segment": "ENT009",
-        "Function": "ENT004"
+        "Function": "ENT004",
+        "Partner": "ENT021",
+        "Channel": "ENT022",
+        "ValueProposition": "ENT023",
+        "CustomerRelationship": "ENT024",
+        "RevenueStream": "ENT025"
       },
       "navigation": "ReferencedEntity",
       "description": "The entity being referenced"

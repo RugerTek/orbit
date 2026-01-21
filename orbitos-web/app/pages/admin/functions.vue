@@ -1,11 +1,21 @@
 <script setup lang="ts">
 import { useSuperAdmin, type FunctionEntity, type Organization } from '~/composables/useSuperAdmin'
+import type { AssignableItem } from '~/components/SearchableAssigner.vue'
+import type { RoleFunction } from '~/composables/useOperations'
 
 definePageMeta({
   layout: 'admin'
 })
 
 const { getFunctions, getFunctionsCount, getOrganizations, createFunction, updateFunction, deleteFunction } = useSuperAdmin()
+const {
+  roles,
+  fetchRoles,
+  fetchFunctionRoles,
+  assignRoleToFunction,
+  unassignRoleFromFunction,
+  refreshOrganizationId,
+} = useOperations()
 
 const functions = ref<FunctionEntity[]>([])
 const organizations = ref<Organization[]>([])
@@ -34,6 +44,10 @@ const formLoading = ref(false)
 const showDeleteConfirm = ref(false)
 const functionToDelete = ref<FunctionEntity | null>(null)
 const deleteLoading = ref(false)
+
+// Role assignment state (for edit mode)
+const assignedRoles = ref<RoleFunction[]>([])
+const loadingRoles = ref(false)
 
 const loadFunctions = async () => {
   loading.value = true
@@ -96,7 +110,7 @@ const openCreateModal = () => {
   showModal.value = true
 }
 
-const openEditModal = (func: FunctionEntity) => {
+const openEditModal = async (func: FunctionEntity) => {
   modalMode.value = 'edit'
   selectedFunction.value = func
   formData.value = {
@@ -107,7 +121,12 @@ const openEditModal = (func: FunctionEntity) => {
     organizationId: func.organizationId
   }
   formError.value = ''
+  assignedRoles.value = []
   showModal.value = true
+
+  // Load roles for the function's organization and the assigned roles
+  await loadRolesForOrg(func.organizationId)
+  await loadAssignedRoles(func.id)
 }
 
 const handleSubmit = async () => {
@@ -185,6 +204,88 @@ const getCategoryColor = (category: string | undefined) => {
     'manage': 'bg-amber-500/20 text-amber-300',
   }
   return colors[category.toLowerCase()] || 'bg-slate-500/20 text-slate-300'
+}
+
+// Computed properties for SearchableAssigner
+const assignedRolesForAssigner = computed<AssignableItem[]>(() =>
+  assignedRoles.value.map(rf => ({
+    id: rf.roleId,
+    name: rf.roleName,
+    subtitle: rf.roleDepartment || undefined,
+  }))
+)
+
+const availableRolesForAssigner = computed<AssignableItem[]>(() => {
+  const assignedIds = new Set(assignedRoles.value.map(rf => rf.roleId))
+  return roles.value
+    .filter(r => !assignedIds.has(r.id))
+    .map(r => ({
+      id: r.id,
+      name: r.name,
+      subtitle: r.department || undefined,
+    }))
+})
+
+// Load roles for the selected organization
+const loadRolesForOrg = async (orgId: string) => {
+  // Update the organization context for useOperations
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('currentOrganizationId', orgId)
+    refreshOrganizationId()
+  }
+  loadingRoles.value = true
+  try {
+    await fetchRoles()
+  } catch (e) {
+    console.error('Failed to load roles:', e)
+  } finally {
+    loadingRoles.value = false
+  }
+}
+
+// Load assigned roles for a function
+const loadAssignedRoles = async (functionId: string) => {
+  loadingRoles.value = true
+  try {
+    assignedRoles.value = await fetchFunctionRoles(functionId)
+  } catch (e) {
+    console.error('Failed to load assigned roles:', e)
+    assignedRoles.value = []
+  } finally {
+    loadingRoles.value = false
+  }
+}
+
+// Handle adding a role to the function
+const handleAddRole = async (roleId: string) => {
+  if (!selectedFunction.value) return
+  try {
+    const newAssignment = await assignRoleToFunction(selectedFunction.value.id, roleId)
+    assignedRoles.value.push(newAssignment)
+    // Increment the role count in the local function data
+    const funcIndex = functions.value.findIndex(f => f.id === selectedFunction.value?.id)
+    if (funcIndex !== -1) {
+      functions.value[funcIndex].roleCount++
+    }
+  } catch (e) {
+    console.error('Failed to assign role:', e)
+  }
+}
+
+// Handle removing a role from the function
+const handleRemoveRole = async (roleId: string) => {
+  if (!selectedFunction.value) return
+  try {
+    await unassignRoleFromFunction(selectedFunction.value.id, roleId)
+    assignedRoles.value = assignedRoles.value.filter(rf => rf.roleId !== roleId)
+    // Decrement the role count in the local function data
+    const funcIndex = functions.value.findIndex(f => f.id === selectedFunction.value?.id)
+    if (funcIndex !== -1 && functions.value[funcIndex].roleCount > 0) {
+      functions.value[funcIndex].roleCount--
+    }
+  } catch (e) {
+    console.error('Failed to unassign role:', e)
+  }
 }
 </script>
 
@@ -335,132 +436,143 @@ const getCategoryColor = (category: string | undefined) => {
     </div>
 
     <!-- Create/Edit Modal -->
-    <Teleport to="body">
-      <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/50" @click="showModal = false" />
-        <div class="relative w-full max-w-md rounded-2xl bg-slate-800 border border-slate-700 p-6">
-          <h2 class="text-xl font-bold text-white mb-6">
-            {{ modalMode === 'create' ? 'Create Function' : 'Edit Function' }}
-          </h2>
-
-          <form @submit.prevent="handleSubmit" class="space-y-4">
-            <div v-if="modalMode === 'create'">
-              <label class="block text-sm font-medium text-slate-300 mb-2">Organization</label>
-              <select
-                v-model="formData.organizationId"
-                required
-                class="w-full rounded-xl bg-slate-700 border border-slate-600 px-4 py-3 text-white focus:outline-none focus:border-purple-500"
-              >
-                <option v-for="org in organizations" :key="org.id" :value="org.id">{{ org.name }}</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-slate-300 mb-2">Name</label>
-              <input
-                v-model="formData.name"
-                type="text"
-                required
-                class="w-full rounded-xl bg-slate-700 border border-slate-600 px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-purple-500"
-                placeholder="e.g., users.read"
-              />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-slate-300 mb-2">Description</label>
-              <textarea
-                v-model="formData.description"
-                rows="2"
-                class="w-full rounded-xl bg-slate-700 border border-slate-600 px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-purple-500 resize-none"
-                placeholder="What does this function allow..."
-              />
-            </div>
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label class="block text-sm font-medium text-slate-300 mb-2">Purpose</label>
-                <input
-                  v-model="formData.purpose"
-                  type="text"
-                  class="w-full rounded-xl bg-slate-700 border border-slate-600 px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-purple-500"
-                  placeholder="e.g., Data Access"
-                />
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-slate-300 mb-2">Category</label>
-                <input
-                  v-model="formData.category"
-                  type="text"
-                  list="categories"
-                  class="w-full rounded-xl bg-slate-700 border border-slate-600 px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-purple-500"
-                  placeholder="e.g., read"
-                />
-                <datalist id="categories">
-                  <option v-for="cat in categories" :key="cat" :value="cat" />
-                  <option value="read" />
-                  <option value="write" />
-                  <option value="delete" />
-                  <option value="admin" />
-                  <option value="manage" />
-                </datalist>
-              </div>
-            </div>
-
-            <div v-if="formError" class="rounded-xl bg-red-500/10 border border-red-500/20 p-3">
-              <p class="text-sm text-red-400">{{ formError }}</p>
-            </div>
-
-            <div class="flex gap-3 pt-4">
-              <button
-                type="button"
-                @click="showModal = false"
-                class="flex-1 rounded-xl bg-slate-700 px-4 py-3 text-sm font-medium text-white hover:bg-slate-600 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                :disabled="formLoading"
-                class="flex-1 rounded-xl bg-purple-600 px-4 py-3 text-sm font-medium text-white hover:bg-purple-500 disabled:opacity-50 transition-colors"
-              >
-                {{ formLoading ? 'Saving...' : modalMode === 'create' ? 'Create' : 'Save' }}
-              </button>
-            </div>
-          </form>
+    <BaseDialog
+      v-model="showModal"
+      size="md"
+      :title="modalMode === 'create' ? 'Create Function' : 'Edit Function'"
+      @submit="handleSubmit"
+    >
+      <form @submit.prevent="handleSubmit" class="space-y-4">
+        <div v-if="modalMode === 'create'">
+          <label class="block text-sm font-medium text-slate-300 mb-2">Organization</label>
+          <select
+            v-model="formData.organizationId"
+            required
+            class="w-full rounded-xl bg-slate-700 border border-slate-600 px-4 py-3 text-white focus:outline-none focus:border-purple-500"
+          >
+            <option v-for="org in organizations" :key="org.id" :value="org.id">{{ org.name }}</option>
+          </select>
         </div>
-      </div>
-    </Teleport>
-
-    <!-- Delete Confirmation Modal -->
-    <Teleport to="body">
-      <div v-if="showDeleteConfirm" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/50" @click="showDeleteConfirm = false" />
-        <div class="relative w-full max-w-sm rounded-2xl bg-slate-800 border border-slate-700 p-6">
-          <div class="text-center">
-            <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-500/20 mb-4">
-              <svg class="h-6 w-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
-            <h3 class="text-lg font-semibold text-white mb-2">Delete Function</h3>
-            <p class="text-sm text-slate-400 mb-6">
-              Are you sure you want to delete <span class="font-medium text-white">{{ functionToDelete?.name }}</span>? Roles with this function will lose this capability.
-            </p>
-            <div class="flex gap-3">
-              <button
-                @click="showDeleteConfirm = false"
-                class="flex-1 rounded-xl bg-slate-700 px-4 py-3 text-sm font-medium text-white hover:bg-slate-600 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                @click="handleDelete"
-                :disabled="deleteLoading"
-                class="flex-1 rounded-xl bg-red-600 px-4 py-3 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50 transition-colors"
-              >
-                {{ deleteLoading ? 'Deleting...' : 'Delete' }}
-              </button>
-            </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-2">Name</label>
+          <input
+            v-model="formData.name"
+            type="text"
+            required
+            class="w-full rounded-xl bg-slate-700 border border-slate-600 px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-purple-500"
+            placeholder="e.g., users.read"
+          />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-2">Description</label>
+          <textarea
+            v-model="formData.description"
+            rows="2"
+            class="w-full rounded-xl bg-slate-700 border border-slate-600 px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-purple-500 resize-none"
+            placeholder="What does this function allow..."
+          />
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-2">Purpose</label>
+            <input
+              v-model="formData.purpose"
+              type="text"
+              class="w-full rounded-xl bg-slate-700 border border-slate-600 px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-purple-500"
+              placeholder="e.g., Data Access"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-2">Category</label>
+            <input
+              v-model="formData.category"
+              type="text"
+              list="categories"
+              class="w-full rounded-xl bg-slate-700 border border-slate-600 px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-purple-500"
+              placeholder="e.g., read"
+            />
+            <datalist id="categories">
+              <option v-for="cat in categories" :key="cat" :value="cat" />
+              <option value="read" />
+              <option value="write" />
+              <option value="delete" />
+              <option value="admin" />
+              <option value="manage" />
+            </datalist>
           </div>
         </div>
+
+        <!-- Role Assignment (only in edit mode) -->
+        <div v-if="modalMode === 'edit'" class="pt-2 border-t border-slate-700">
+          <SearchableAssigner
+            :assigned="assignedRolesForAssigner"
+            :available="availableRolesForAssigner"
+            label="Assigned Roles"
+            search-placeholder="Search roles to add..."
+            :loading="loadingRoles"
+            empty-assigned-text="No roles assigned to this function"
+            empty-available-text="All roles are already assigned"
+            no-results-text="No matching roles found"
+            @add="handleAddRole"
+            @remove="handleRemoveRole"
+          />
+        </div>
+
+        <div v-if="formError" class="rounded-xl bg-red-500/10 border border-red-500/20 p-3">
+          <p class="text-sm text-red-400">{{ formError }}</p>
+        </div>
+
+        <div class="flex gap-3 pt-4">
+          <button
+            type="button"
+            @click="showModal = false"
+            class="flex-1 rounded-xl bg-slate-700 px-4 py-3 text-sm font-medium text-white hover:bg-slate-600 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            :disabled="formLoading"
+            class="flex-1 rounded-xl bg-purple-600 px-4 py-3 text-sm font-medium text-white hover:bg-purple-500 disabled:opacity-50 transition-colors"
+          >
+            {{ formLoading ? 'Saving...' : modalMode === 'create' ? 'Create' : 'Save' }}
+          </button>
+        </div>
+      </form>
+    </BaseDialog>
+
+    <!-- Delete Confirmation Modal -->
+    <BaseDialog
+      v-model="showDeleteConfirm"
+      size="sm"
+      title="Delete Function"
+      @submit="handleDelete"
+    >
+      <div class="text-center">
+        <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-500/20 mb-4">
+          <svg class="h-6 w-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        </div>
+        <p class="text-sm text-slate-400 mb-6">
+          Are you sure you want to delete <span class="font-medium text-white">{{ functionToDelete?.name }}</span>? Roles with this function will lose this capability.
+        </p>
+        <div class="flex gap-3">
+          <button
+            @click="showDeleteConfirm = false"
+            class="flex-1 rounded-xl bg-slate-700 px-4 py-3 text-sm font-medium text-white hover:bg-slate-600 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            @click="handleDelete"
+            :disabled="deleteLoading"
+            class="flex-1 rounded-xl bg-red-600 px-4 py-3 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50 transition-colors"
+          >
+            {{ deleteLoading ? 'Deleting...' : 'Delete' }}
+          </button>
+        </div>
       </div>
-    </Teleport>
+    </BaseDialog>
   </div>
 </template>

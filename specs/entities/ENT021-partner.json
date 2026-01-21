@@ -1,0 +1,314 @@
+{
+  "$schema": "./schema.json",
+  "id": "ENT021",
+  "name": "Partner",
+  "description": "An external organization that contributes to the business model. Partners include suppliers, strategic alliances, technology partners, distributors, and other key relationships that help the company deliver value.",
+  "table": "Partners",
+  "status": "draft",
+  "created_at": "2026-01-17",
+  "updated_at": "2026-01-17",
+
+  "fields": [
+    {
+      "name": "OrganizationId",
+      "type": "Guid",
+      "nullable": false,
+      "references": "ENT002",
+      "description": "Organization that owns this partner relationship"
+    },
+    {
+      "name": "Name",
+      "type": "string",
+      "nullable": false,
+      "max_length": 255,
+      "description": "Partner organization name"
+    },
+    {
+      "name": "Slug",
+      "type": "string",
+      "nullable": false,
+      "max_length": 100,
+      "description": "URL-friendly unique identifier within organization"
+    },
+    {
+      "name": "Description",
+      "type": "string",
+      "nullable": true,
+      "max_length": 2000,
+      "description": "Description of the partnership and what they provide"
+    },
+    {
+      "name": "Type",
+      "type": "enum",
+      "nullable": false,
+      "enum_values": ["Supplier", "Distributor", "Strategic", "Technology", "Agency", "Reseller", "Affiliate", "JointVenture"],
+      "description": "Primary type of partnership"
+    },
+    {
+      "name": "Status",
+      "type": "enum",
+      "nullable": false,
+      "enum_values": ["Prospective", "Active", "OnHold", "Terminated"],
+      "description": "Current status of the partnership"
+    },
+    {
+      "name": "StrategicValue",
+      "type": "enum",
+      "nullable": false,
+      "enum_values": ["Critical", "High", "Medium", "Low"],
+      "description": "How important this partner is to the business model"
+    },
+    {
+      "name": "RelationshipStrength",
+      "type": "int",
+      "nullable": true,
+      "description": "Subjective rating of relationship health (1-5)"
+    },
+    {
+      "name": "Contact",
+      "type": "json",
+      "nullable": true,
+      "description": "Primary contact information",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "title": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "phone": { "type": "string" },
+          "linkedin": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "Contract",
+      "type": "json",
+      "nullable": true,
+      "description": "Contract and agreement details",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "start_date": { "type": "string", "format": "date" },
+          "end_date": { "type": "string", "format": "date" },
+          "auto_renew": { "type": "boolean" },
+          "notice_period_days": { "type": "integer" },
+          "contract_value": { "type": "number" },
+          "currency": { "type": "string", "default": "USD" },
+          "payment_terms": { "type": "string" },
+          "sla_terms": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "ServicesProvided",
+      "type": "json",
+      "nullable": true,
+      "description": "What this partner provides to us",
+      "json_schema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "service": { "type": "string" },
+            "description": { "type": "string" },
+            "criticality": { "type": "string", "enum": ["critical", "important", "nice_to_have"] }
+          }
+        }
+      }
+    },
+    {
+      "name": "ServicesReceived",
+      "type": "json",
+      "nullable": true,
+      "description": "What we provide to this partner (for mutual relationships)",
+      "json_schema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "service": { "type": "string" },
+            "description": { "type": "string" }
+          }
+        }
+      }
+    },
+    {
+      "name": "Cost",
+      "type": "json",
+      "nullable": true,
+      "description": "Cost information for Cost Structure block",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string", "enum": ["fixed", "variable", "mixed"] },
+          "amount": { "type": "number" },
+          "currency": { "type": "string", "default": "USD" },
+          "period": { "type": "string", "enum": ["monthly", "annually", "per_transaction", "one_time"] },
+          "cost_center": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "Website",
+      "type": "string",
+      "nullable": true,
+      "max_length": 500,
+      "description": "Partner website URL"
+    },
+    {
+      "name": "Tags",
+      "type": "json",
+      "nullable": true,
+      "description": "Tags for categorization and filtering",
+      "json_schema": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    }
+  ],
+
+  "validation_rules": [
+    {
+      "id": "R-PTN-001",
+      "field": "Slug",
+      "rule": "Must be unique within the organization",
+      "error_code": "PARTNER_SLUG_EXISTS",
+      "error_message": "A partner with this slug already exists in this organization"
+    },
+    {
+      "id": "R-PTN-002",
+      "field": "Slug",
+      "rule": "Must be URL-safe (lowercase, alphanumeric, hyphens only)",
+      "error_code": "PARTNER_SLUG_INVALID",
+      "error_message": "Slug must contain only lowercase letters, numbers, and hyphens"
+    },
+    {
+      "id": "R-PTN-003",
+      "field": "Name",
+      "rule": "Required, 1-255 characters",
+      "error_code": "PARTNER_NAME_REQUIRED",
+      "error_message": "Partner name is required"
+    },
+    {
+      "id": "R-PTN-004",
+      "field": "RelationshipStrength",
+      "rule": "Must be between 1 and 5",
+      "error_code": "PARTNER_STRENGTH_INVALID",
+      "error_message": "Relationship strength must be between 1 and 5"
+    },
+    {
+      "id": "R-PTN-005",
+      "field": "Contract.end_date",
+      "rule": "Must be after start_date if both provided",
+      "error_code": "PARTNER_CONTRACT_DATES_INVALID",
+      "error_message": "Contract end date must be after start date"
+    }
+  ],
+
+  "relationships": [
+    {
+      "type": "many-to-one",
+      "entity": "ENT002",
+      "foreign_key": "OrganizationId",
+      "navigation": "Organization",
+      "description": "Organization that owns this partner relationship"
+    },
+    {
+      "type": "one-to-many",
+      "entity": "ENT013",
+      "inverse_key": "EntityId",
+      "navigation": "BlockReferences",
+      "description": "Canvas block references that point to this partner",
+      "polymorphic_filter": "EntityType = 'Partner'"
+    }
+  ],
+
+  "indexes": [
+    {
+      "name": "IX_Partners_OrganizationId_Slug",
+      "columns": ["OrganizationId", "Slug"],
+      "unique": true
+    },
+    {
+      "name": "IX_Partners_OrganizationId_Type",
+      "columns": ["OrganizationId", "Type"],
+      "unique": false
+    },
+    {
+      "name": "IX_Partners_OrganizationId_Status",
+      "columns": ["OrganizationId", "Status"],
+      "unique": false
+    },
+    {
+      "name": "IX_Partners_OrganizationId_StrategicValue",
+      "columns": ["OrganizationId", "StrategicValue"],
+      "unique": false
+    }
+  ],
+
+  "api_representation": {
+    "dto_name": "PartnerDto",
+    "include_fields": ["Id", "OrganizationId", "Name", "Slug", "Description", "Type", "Status", "StrategicValue", "RelationshipStrength", "Contact", "Contract", "ServicesProvided", "ServicesReceived", "Cost", "Website", "Tags", "CreatedAt", "UpdatedAt"],
+    "computed_fields": [
+      {
+        "name": "CanvasReferenceCount",
+        "type": "int",
+        "computation": "Count of BlockReferences pointing to this partner"
+      },
+      {
+        "name": "ContractDaysRemaining",
+        "type": "int",
+        "computation": "Days until contract end_date, null if no end date"
+      },
+      {
+        "name": "TotalAnnualCost",
+        "type": "decimal",
+        "computation": "Annualized cost from Cost field"
+      }
+    ]
+  },
+
+  "audit_requirements": {
+    "log_create": true,
+    "log_update": true,
+    "log_delete": true,
+    "sensitive_fields": ["Contact", "Contract", "Cost"]
+  },
+
+  "multi_tenancy": {
+    "is_tenant_root": false,
+    "scope_field": "OrganizationId",
+    "scoping_behavior": "All queries must be filtered by OrganizationId"
+  },
+
+  "ai_capabilities": {
+    "description": "AI can analyze partners to assess relationship health, identify risks, and optimize the partner ecosystem",
+    "analyzable_fields": ["Type", "Status", "StrategicValue", "RelationshipStrength", "Contract", "ServicesProvided", "Cost"],
+    "cross_entity_analysis": [
+      "Identify expiring contracts requiring renewal",
+      "Assess partner concentration risk",
+      "Find underutilized partnerships",
+      "Calculate total partner-related costs",
+      "Compare partner performance across similar types",
+      "Identify strategic gaps in partner ecosystem"
+    ],
+    "ai_alerts": [
+      {
+        "alert": "contract_expiring",
+        "condition": "Contract.end_date within 90 days",
+        "description": "Notify when partner contracts are approaching expiration"
+      },
+      {
+        "alert": "critical_partner_issue",
+        "condition": "StrategicValue = 'Critical' AND RelationshipStrength < 3",
+        "description": "Flag critical partners with weak relationships"
+      }
+    ]
+  },
+
+  "code_location": {
+    "entity": "orbitos-api/src/OrbitOS.Domain/Entities/Partner.cs",
+    "dto": "orbitos-api/src/OrbitOS.Api/Controllers/PartnersController.cs",
+    "frontend_type": "orbitos-web/app/types/entities/partner.ts"
+  }
+}

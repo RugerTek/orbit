@@ -1,0 +1,525 @@
+{
+  "$schema": "../schema/feature.schema.json",
+  "id": "F005",
+  "name": "AI Agent Data Access & CRUD Operations",
+  "version": "1.0.0",
+  "status": "Draft",
+  "description": "Enable AI agents to have full read access to all organizational data and propose CRUD operations with user confirmation workflow",
+
+  "objectives": [
+    "Provide AI agents with comprehensive organizational context for intelligent assistance",
+    "Enable AI agents to propose data modifications through natural conversation",
+    "Implement user confirmation workflow for all AI-proposed changes",
+    "Support both single-agent and multi-agent (group chat) conversations",
+    "Maintain full audit trail of AI-proposed and user-approved changes"
+  ],
+
+  "architecture": {
+    "overview": "The system injects organization context into AI conversations and uses function calling to enable AI agents to propose CRUD operations. All modifications require explicit user approval before execution.",
+
+    "components": {
+      "OrganizationContextService": {
+        "purpose": "Aggregates all organization data into AI-consumable format",
+        "location": "OrbitOS.Api/Services/OrganizationContextService.cs",
+        "responsibilities": [
+          "Fetch all entity types for an organization",
+          "Format data as structured context for AI consumption",
+          "Support incremental updates for long conversations",
+          "Optimize context size for token efficiency"
+        ]
+      },
+
+      "AiToolRegistry": {
+        "purpose": "Defines available tools/functions for AI agents",
+        "location": "OrbitOS.Api/Services/AiToolRegistry.cs",
+        "responsibilities": [
+          "Define tool schemas for each entity type",
+          "Provide tool descriptions for AI understanding",
+          "Validate tool call parameters",
+          "Route tool calls to appropriate handlers"
+        ]
+      },
+
+      "PendingActionService": {
+        "purpose": "Manages AI-proposed changes awaiting user approval",
+        "location": "OrbitOS.Api/Services/PendingActionService.cs",
+        "responsibilities": [
+          "Create pending actions from AI tool calls",
+          "Track approval/rejection status",
+          "Execute approved actions",
+          "Maintain audit history"
+        ]
+      },
+
+      "EnhancedAiService": {
+        "purpose": "Extended AI service with tool calling support",
+        "location": "OrbitOS.Api/Services/EnhancedMultiProviderAiService.cs",
+        "responsibilities": [
+          "Send messages with tool definitions to AI providers",
+          "Parse tool call responses",
+          "Handle tool call execution flow",
+          "Support streaming responses"
+        ]
+      }
+    },
+
+    "dataFlow": {
+      "readOperations": [
+        "1. User sends message in conversation",
+        "2. System fetches current organization context",
+        "3. Context injected into system prompt",
+        "4. AI generates response with full data awareness",
+        "5. Response displayed to user"
+      ],
+      "writeOperations": [
+        "1. User requests a data modification via natural language",
+        "2. AI determines appropriate tool call (create/update/delete)",
+        "3. AI generates tool call with entity data",
+        "4. System creates PendingAction record",
+        "5. AI message shows proposed change with confirmation UI",
+        "6. User reviews and approves/modifies/rejects",
+        "7. If approved, system executes the action",
+        "8. Confirmation message added to conversation"
+      ]
+    }
+  },
+
+  "entities": {
+    "PendingAction": {
+      "id": "ENT026",
+      "description": "Represents an AI-proposed data modification awaiting user approval",
+      "fields": {
+        "id": { "type": "uuid", "required": true },
+        "organizationId": { "type": "uuid", "required": true },
+        "conversationId": { "type": "uuid", "required": true },
+        "messageId": { "type": "uuid", "required": true },
+        "agentId": { "type": "uuid", "required": true, "description": "AI agent that proposed the action" },
+        "actionType": { "type": "enum", "values": ["Create", "Update", "Delete"], "required": true },
+        "entityType": { "type": "string", "required": true, "description": "Target entity type name" },
+        "entityId": { "type": "uuid", "nullable": true, "description": "For Update/Delete operations" },
+        "proposedData": { "type": "json", "required": true, "description": "The proposed entity data" },
+        "previousData": { "type": "json", "nullable": true, "description": "Original data for Update operations" },
+        "status": { "type": "enum", "values": ["Pending", "Approved", "Rejected", "Modified", "Executed", "Failed"], "required": true },
+        "userModifications": { "type": "json", "nullable": true, "description": "User's modifications before approval" },
+        "executionResult": { "type": "json", "nullable": true, "description": "Result after execution attempt" },
+        "reviewedByUserId": { "type": "uuid", "nullable": true },
+        "reviewedAt": { "type": "datetime", "nullable": true },
+        "executedAt": { "type": "datetime", "nullable": true },
+        "createdAt": { "type": "datetime", "required": true },
+        "expiresAt": { "type": "datetime", "nullable": true, "description": "Optional expiration for pending actions" }
+      },
+      "indexes": [
+        { "fields": ["organizationId", "status"], "description": "List pending actions per org" },
+        { "fields": ["conversationId", "status"], "description": "List pending actions per conversation" },
+        { "fields": ["messageId"], "description": "Link to originating message" }
+      ]
+    }
+  },
+
+  "aiTools": {
+    "description": "Function calling tools available to AI agents",
+
+    "queryTools": {
+      "search_entities": {
+        "description": "Search for entities of any type with optional filters",
+        "parameters": {
+          "entityType": { "type": "string", "enum": ["Function", "Role", "Resource", "Activity", "Process", "Canvas", "CanvasBlock", "Partner", "Channel", "ValueProposition", "Product", "Segment", "CustomerRelationship", "RevenueStream", "Goal"], "required": true },
+          "filters": { "type": "object", "description": "Field-value pairs to filter by" },
+          "searchText": { "type": "string", "description": "Free text search across name/description" },
+          "limit": { "type": "integer", "default": 20, "max": 100 }
+        },
+        "returns": "Array of matching entities with summary fields"
+      },
+
+      "get_entity_details": {
+        "description": "Get full details of a specific entity including relationships",
+        "parameters": {
+          "entityType": { "type": "string", "required": true },
+          "entityId": { "type": "uuid", "required": true },
+          "includeRelated": { "type": "boolean", "default": true }
+        },
+        "returns": "Complete entity with all fields and related entities"
+      },
+
+      "get_organization_summary": {
+        "description": "Get a high-level summary of the organization's data",
+        "parameters": {},
+        "returns": "Counts and key metrics for each entity type"
+      }
+    },
+
+    "mutationTools": {
+      "propose_create": {
+        "description": "Propose creating a new entity. Requires user approval before execution.",
+        "parameters": {
+          "entityType": { "type": "string", "required": true },
+          "data": { "type": "object", "required": true, "description": "Entity fields to create" },
+          "reason": { "type": "string", "required": true, "description": "Explanation for why this should be created" }
+        },
+        "behavior": "Creates a PendingAction and returns a confirmation request to the user"
+      },
+
+      "propose_update": {
+        "description": "Propose updating an existing entity. Requires user approval before execution.",
+        "parameters": {
+          "entityType": { "type": "string", "required": true },
+          "entityId": { "type": "uuid", "required": true },
+          "changes": { "type": "object", "required": true, "description": "Fields to update with new values" },
+          "reason": { "type": "string", "required": true, "description": "Explanation for the proposed changes" }
+        },
+        "behavior": "Creates a PendingAction showing diff and returns confirmation request"
+      },
+
+      "propose_delete": {
+        "description": "Propose deleting (soft-delete) an entity. Requires user approval before execution.",
+        "parameters": {
+          "entityType": { "type": "string", "required": true },
+          "entityId": { "type": "uuid", "required": true },
+          "reason": { "type": "string", "required": true, "description": "Explanation for why this should be deleted" }
+        },
+        "behavior": "Creates a PendingAction and returns confirmation request with impact analysis"
+      }
+    },
+
+    "analysisTools": {
+      "analyze_relationships": {
+        "description": "Analyze relationships between entities",
+        "parameters": {
+          "entityType": { "type": "string", "required": true },
+          "entityId": { "type": "uuid", "required": true }
+        },
+        "returns": "Graph of related entities and relationship types"
+      },
+
+      "find_gaps": {
+        "description": "Identify potential gaps or missing data in the organization",
+        "parameters": {
+          "area": { "type": "string", "enum": ["processes", "resources", "canvas", "all"] }
+        },
+        "returns": "List of potential issues or missing configurations"
+      }
+    }
+  },
+
+  "apiEndpoints": {
+    "context": {
+      "GET /api/organizations/{orgId}/ai-context": {
+        "description": "Get full organization context for AI consumption",
+        "response": {
+          "organization": "Organization summary",
+          "entities": "All entities grouped by type",
+          "statistics": "Counts and metrics",
+          "lastUpdated": "Timestamp of last data change"
+        }
+      },
+      "GET /api/organizations/{orgId}/ai-context/summary": {
+        "description": "Get lightweight summary for token optimization",
+        "response": {
+          "organization": "Organization basics",
+          "entityCounts": "Counts per entity type",
+          "recentChanges": "Recently modified entities"
+        }
+      }
+    },
+
+    "pendingActions": {
+      "GET /api/organizations/{orgId}/pending-actions": {
+        "description": "List pending actions for the organization",
+        "queryParams": {
+          "conversationId": "Filter by conversation",
+          "status": "Filter by status",
+          "entityType": "Filter by entity type"
+        }
+      },
+      "GET /api/organizations/{orgId}/pending-actions/{actionId}": {
+        "description": "Get pending action details"
+      },
+      "POST /api/organizations/{orgId}/pending-actions/{actionId}/approve": {
+        "description": "Approve a pending action (optionally with modifications)",
+        "body": {
+          "modifications": "Optional user modifications to the proposed data"
+        }
+      },
+      "POST /api/organizations/{orgId}/pending-actions/{actionId}/reject": {
+        "description": "Reject a pending action",
+        "body": {
+          "reason": "Optional rejection reason"
+        }
+      }
+    },
+
+    "enhancedConversations": {
+      "POST /api/organizations/{orgId}/conversations/{convId}/messages": {
+        "description": "Enhanced to include organization context in AI prompts",
+        "changes": [
+          "Automatically inject organization context",
+          "Process AI tool calls",
+          "Create PendingAction records for mutations"
+        ]
+      }
+    }
+  },
+
+  "systemPromptInjection": {
+    "description": "How organization context is added to AI agent prompts",
+
+    "template": "You are {agentName}, {roleTitle} at {organizationName}.\n\n{agentSystemPrompt}\n\n## Organization Context\n\nYou have access to the following organizational data:\n\n{organizationContext}\n\n## Available Actions\n\nYou can help users by:\n1. Answering questions about any organizational data\n2. Searching and analyzing data relationships\n3. Proposing changes (create, update, delete) - all changes require user approval\n\nWhen proposing changes, always:\n- Explain why the change is beneficial\n- Show what will be created/modified/deleted\n- Ask for user confirmation before proceeding\n\n## Important Guidelines\n- Never execute changes without user approval\n- Always phrase proposals as questions: \"Would you like me to...?\"\n- Provide clear summaries of what will change\n- If unsure about user intent, ask clarifying questions",
+
+    "contextFormat": {
+      "sections": [
+        {
+          "name": "Organization Overview",
+          "content": "Name, description, purpose, member count"
+        },
+        {
+          "name": "Functions & Roles",
+          "content": "List of functions with roles assigned"
+        },
+        {
+          "name": "Resources & People",
+          "content": "List of resources, especially people"
+        },
+        {
+          "name": "Processes",
+          "content": "Business processes with activities"
+        },
+        {
+          "name": "Business Model Canvas",
+          "content": "Partners, Channels, Value Props, Segments, Revenue"
+        },
+        {
+          "name": "Goals",
+          "content": "Strategic goals and their owners"
+        }
+      ],
+      "tokenOptimization": [
+        "Use abbreviated formats for large lists",
+        "Include full details only for recently accessed items",
+        "Provide counts with 'ask for details' prompts for large collections"
+      ]
+    }
+  },
+
+  "confirmationUi": {
+    "description": "Frontend UI for reviewing and approving AI-proposed actions",
+
+    "components": {
+      "PendingActionCard": {
+        "location": "orbitos-web/app/components/ai/PendingActionCard.vue",
+        "features": [
+          "Show action type badge (Create/Update/Delete)",
+          "Display proposed entity with field highlighting",
+          "Show diff for updates (before/after)",
+          "Display AI's reasoning",
+          "Approve/Modify/Reject buttons",
+          "Inline editing for modifications"
+        ]
+      },
+
+      "ActionConfirmationDialog": {
+        "location": "orbitos-web/app/components/ai/ActionConfirmationDialog.vue",
+        "features": [
+          "Modal dialog for detailed review",
+          "Full entity preview",
+          "Impact analysis (related entities affected)",
+          "Modification form",
+          "Confirmation with reason input"
+        ]
+      },
+
+      "ConversationActionInline": {
+        "location": "orbitos-web/app/components/conversations/ConversationActionInline.vue",
+        "features": [
+          "Inline action preview within message",
+          "Compact approve/reject buttons",
+          "Expand to full dialog option"
+        ]
+      }
+    },
+
+    "userExperience": {
+      "inConversation": [
+        "AI proposes action in message",
+        "Action card appears inline with message",
+        "User can approve directly or click to review",
+        "Confirmation shows in conversation thread"
+      ],
+      "pendingActionsPage": [
+        "Dedicated page showing all pending actions",
+        "Filter by conversation, entity type, status",
+        "Batch approval for related actions",
+        "History of past actions"
+      ]
+    }
+  },
+
+  "securityConsiderations": {
+    "authorization": [
+      "All actions respect existing role-based permissions",
+      "Users can only approve actions for entities they have access to",
+      "AI agents inherit organization-level permissions",
+      "Sensitive operations (delete) require additional confirmation"
+    ],
+    "auditTrail": [
+      "All proposed actions logged with full context",
+      "Approval/rejection recorded with user and timestamp",
+      "Executed changes linked back to originating action",
+      "Full conversation history preserved"
+    ],
+    "dataProtection": [
+      "Organization context never crosses tenant boundaries",
+      "AI provider calls include only relevant organization data",
+      "PII handling follows existing data protection policies"
+    ]
+  },
+
+  "currentImplementation": {
+    "status": "Partial - AiChatService.cs exists with significant functionality",
+    "existingFeatures": {
+      "organizationContext": {
+        "implemented": true,
+        "location": "AiChatService.BuildOrganizationContextAsync()",
+        "entities": ["People", "Roles", "Functions", "Canvases", "Processes", "Goals", "Partners", "Channels", "ValuePropositions", "CustomerRelationships", "RevenueStreams"]
+      },
+      "createTools": {
+        "implemented": true,
+        "tools": ["create_person", "create_function", "create_process", "create_goal", "create_partner", "create_channel", "create_value_proposition", "create_customer_relationship", "create_revenue_stream", "create_role"]
+      },
+      "bulkCreateTools": {
+        "implemented": true,
+        "tools": ["bulk_create_functions", "bulk_create_processes", "bulk_create_goals", "bulk_create_partners", "bulk_create_channels", "bulk_create_value_propositions", "bulk_create_customer_relationships", "bulk_create_revenue_streams", "bulk_create_roles"]
+      },
+      "updateTools": {
+        "implemented": "partial",
+        "tools": ["update_person", "update_function"],
+        "missing": ["update_process", "update_goal", "update_partner", "update_channel", "update_value_proposition", "update_customer_relationship", "update_revenue_stream", "update_role"]
+      },
+      "deleteTools": {
+        "implemented": "partial",
+        "tools": ["delete_function"],
+        "missing": ["delete_person", "delete_process", "delete_goal", "delete_partner", "delete_channel", "delete_value_proposition", "delete_customer_relationship", "delete_revenue_stream", "delete_role"]
+      },
+      "analysisTools": {
+        "implemented": true,
+        "tools": ["analyze_coverage", "suggest_functions", "suggest_improvements"]
+      }
+    },
+    "missingFeatures": {
+      "userConfirmation": "Tools execute immediately without 'Would you like me to...?' confirmation",
+      "pendingActionSystem": "No PendingAction entity or approval workflow",
+      "updateDeleteTools": "Missing update/delete for most entity types",
+      "conversationIntegration": "AiChatService is separate from ConversationsController multi-agent system"
+    }
+  },
+
+  "implementationPhases": {
+    "phase1": {
+      "name": "User Confirmation Workflow",
+      "priority": "HIGH - Core requirement",
+      "scope": [
+        "Modify system prompt to instruct AI to always ask confirmation",
+        "Add 'propose_' prefix tools that describe changes without executing",
+        "Create PendingAction entity and database migration",
+        "Add PendingActionsController with approve/reject endpoints"
+      ],
+      "deliverables": [
+        "AI always asks 'Would you like me to...' before any mutation",
+        "PendingAction records track proposed changes",
+        "Users can approve/reject via API"
+      ]
+    },
+    "phase2": {
+      "name": "Complete CRUD Tools",
+      "priority": "MEDIUM",
+      "scope": [
+        "Add update tools for all entity types",
+        "Add delete tools for all entity types",
+        "Add search/query tools for natural language lookups"
+      ],
+      "deliverables": [
+        "Full CRUD for all 15+ entity types",
+        "Natural language search across all data"
+      ]
+    },
+    "phase3": {
+      "name": "Frontend Confirmation UI",
+      "priority": "MEDIUM",
+      "scope": [
+        "PendingActionCard component for inline display",
+        "Approve/Modify/Reject buttons in chat",
+        "Visual diff for update operations",
+        "Toast notifications for action results"
+      ],
+      "deliverables": [
+        "Seamless confirmation UX in conversations",
+        "Clear visual feedback for proposed changes"
+      ]
+    },
+    "phase4": {
+      "name": "Multi-Agent Integration",
+      "priority": "LOW",
+      "scope": [
+        "Merge AiChatService capabilities into ConversationsController",
+        "Enable tool use in multi-agent conversations",
+        "Shared context across agents in group chat"
+      ],
+      "deliverables": [
+        "Group chats can collaboratively modify data",
+        "Multiple AI agents can propose changes in same conversation"
+      ]
+    }
+  },
+
+  "exampleInteractions": {
+    "readOperation": {
+      "user": "What processes do we have for customer onboarding?",
+      "ai": "Based on your organization data, you have 2 processes related to customer onboarding:\n\n1. **Customer Onboarding Flow** (ID: abc-123)\n   - Status: Active\n   - 5 activities: Initial Contact → Needs Assessment → Proposal → Contract → Welcome\n   - Owner: Sales Department\n\n2. **Enterprise Client Setup** (ID: def-456)\n   - Status: Draft\n   - 8 activities including compliance checks\n   - Owner: Enterprise Sales Team\n\nWould you like me to show the detailed activities for either process?"
+    },
+
+    "createOperation": {
+      "user": "We need a new partner for cloud infrastructure - AWS",
+      "ai": "I can help you add AWS as a new partner. Here's what I'll create:\n\n**Proposed: Create Partner**\n```\nName: Amazon Web Services (AWS)\nType: Technology Provider\nStrategic Value: High\nDescription: Cloud infrastructure and services provider\n```\n\nWould you like me to create this partner? You can also modify any fields before approving.\n\n[Approve] [Modify] [Cancel]"
+    },
+
+    "updateOperation": {
+      "user": "Update our Sales function to show it's now at high complexity",
+      "ai": "I found the Sales function. Here are the proposed changes:\n\n**Proposed: Update Function 'Sales'**\n\n| Field | Current | Proposed |\n|-------|---------|----------|\n| Complexity | Medium | High |\n\nWould you like me to make this update?\n\n[Approve] [Modify] [Cancel]"
+    },
+
+    "deleteOperation": {
+      "user": "Remove the old Marketing Intern role, we don't use it anymore",
+      "ai": "I found the 'Marketing Intern' role. Before deleting, here's what will be affected:\n\n**Proposed: Delete Role 'Marketing Intern'**\n\n⚠️ Impact Analysis:\n- 0 resources currently assigned\n- 0 active activities reference this role\n- Last modified: 6 months ago\n\nThis appears safe to delete. Would you like me to proceed?\n\n[Approve Deletion] [Cancel]"
+    },
+
+    "groupChatScenario": {
+      "conversation": [
+        { "user": "Team, let's discuss our partner strategy" },
+        { "agent": "Strategy AI", "message": "Looking at your current partners, I see you have 3 technology partners but no distribution partners. This could be limiting your market reach." },
+        { "agent": "Operations AI", "message": "I notice your Channel entities are mainly digital. Adding a distribution partner could help with physical presence." },
+        { "user": "Good point. Let's add a distribution partner - maybe a regional logistics company" },
+        { "agent": "Strategy AI", "message": "I can create that for you. Here's my proposal:\n\n**Proposed: Create Partner**\n```\nName: [To be specified]\nType: Distribution Partner\nStrategic Value: Medium\nFocus Areas: Regional logistics, last-mile delivery\n```\n\nCould you provide the partner name, or would you like me to leave it as a placeholder for now?\n\n[Create with placeholder] [I'll provide the name]" }
+      ]
+    }
+  },
+
+  "relatedEntities": [
+    "ENT017-ai-agent",
+    "ENT018-conversation",
+    "ENT019-message",
+    "ENT020-conversation-participant"
+  ],
+
+  "relatedFeatures": [
+    "F003-multi-agent-chat"
+  ],
+
+  "traceability": {
+    "requirements": [
+      "REQ-AI-001: AI agents must have read access to all organization data",
+      "REQ-AI-002: AI agents must be able to propose CRUD operations",
+      "REQ-AI-003: All AI-proposed changes require user approval",
+      "REQ-AI-004: Full audit trail for all AI-initiated actions",
+      "REQ-AI-005: Support both single and multi-agent conversations"
+    ]
+  }
+}

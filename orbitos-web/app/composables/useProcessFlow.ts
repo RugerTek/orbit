@@ -41,13 +41,21 @@ export function useProcessFlow(process: Ref<ProcessWithActivities | null>) {
     // Activity nodes
     const sortedActivities = [...process.value.activities].sort((a, b) => a.order - b.order)
 
-    // Find the maximum Y position of existing activities for positioning new ones
-    let maxExistingY = 0
+    // Find the maximum Y position of activities that have stored positions
+    // This is used to position new activities below the existing flow
+    let maxStoredY = 0
+    let maxStoredX = FLOW_LAYOUT.HORIZONTAL_CENTER - FLOW_LAYOUT.NODE_WIDTH / 2
     sortedActivities.forEach((activity) => {
-      if (activity.positionY && activity.positionY > maxExistingY) {
-        maxExistingY = activity.positionY
+      const hasStoredPosition = (activity.positionX !== undefined && activity.positionX !== 0) ||
+                                 (activity.positionY !== undefined && activity.positionY !== 0)
+      if (hasStoredPosition && activity.positionY && activity.positionY > maxStoredY) {
+        maxStoredY = activity.positionY
+        maxStoredX = activity.positionX || maxStoredX
       }
     })
+
+    // Track the number of activities without positions (for stacking them)
+    let newActivityCount = 0
 
     sortedActivities.forEach((activity, index) => {
       // Use stored position if available (and not both 0), otherwise calculate from order
@@ -58,17 +66,28 @@ export function useProcessFlow(process: Ref<ProcessWithActivities | null>) {
       if (hasStoredPosition) {
         position = { x: activity.positionX || 0, y: activity.positionY || 0 }
       } else {
-        // New activity without position - place below existing activities
-        const calculatedY = maxExistingY > 0
-          ? maxExistingY + FLOW_LAYOUT.VERTICAL_SPACING
-          : (index + 1) * FLOW_LAYOUT.VERTICAL_SPACING
-        position = {
-          x: FLOW_LAYOUT.HORIZONTAL_CENTER - FLOW_LAYOUT.NODE_WIDTH / 2,
-          y: calculatedY
-        }
-        // Update maxExistingY for next iteration
-        if (calculatedY > maxExistingY) {
-          maxExistingY = calculatedY
+        // New activity without position
+        // In explicit mode, place it offset to the side so it doesn't overlap the main flow
+        // In implicit mode, place it in the sequential flow
+        if (process.value!.useExplicitFlow) {
+          // Place new activities to the right side of the canvas
+          // Position them at about 1/3 height of the existing flow to be more visible
+          // and clearly separate from the main connected flow
+          const offsetX = FLOW_LAYOUT.HORIZONTAL_CENTER + FLOW_LAYOUT.NODE_WIDTH * 1.5
+          // Start at a reasonable Y position (either middle of flow or first third)
+          const midY = maxStoredY > 0 ? Math.max(FLOW_LAYOUT.VERTICAL_SPACING, maxStoredY / 2) : FLOW_LAYOUT.VERTICAL_SPACING * 2
+          position = {
+            x: offsetX,
+            y: midY + (newActivityCount * FLOW_LAYOUT.VERTICAL_SPACING)
+          }
+          newActivityCount++
+        } else {
+          // Implicit mode: place in sequential flow based on order
+          const calculatedY = (index + 1) * FLOW_LAYOUT.VERTICAL_SPACING
+          position = {
+            x: FLOW_LAYOUT.HORIZONTAL_CENTER - FLOW_LAYOUT.NODE_WIDTH / 2,
+            y: calculatedY
+          }
         }
       }
 
@@ -83,15 +102,71 @@ export function useProcessFlow(process: Ref<ProcessWithActivities | null>) {
       })
     })
 
-    // End node - position below the last activity
-    const lastActivityY = sortedActivities.length > 0
-      ? Math.max(...sortedActivities.map(a => a.positionY || (sortedActivities.indexOf(a) + 1) * FLOW_LAYOUT.VERTICAL_SPACING))
-      : FLOW_LAYOUT.VERTICAL_SPACING
+    // End node positioning:
+    // - X position: Always centered horizontally (same as Start node) to maintain visual alignment
+    // - Y position: Based on the lowest activity in the flow
+    //   - In explicit mode with exitActivityId: below the exit activity
+    //   - In explicit mode without exitActivityId: below the lowest activity with stored position
+    //   - In implicit mode: below the last activity in the sequential flow
+    //   - Fallback: default position
+    let endNodeY = FLOW_LAYOUT.VERTICAL_SPACING
+    // End node X is always centered (same as Start node) - it should not shift horizontally
+    // when activities are moved around
+    const endNodeX = FLOW_LAYOUT.HORIZONTAL_CENTER
+
+    if (process.value.useExplicitFlow && process.value.exitActivityId) {
+      // In explicit mode with exit activity defined, position End below the exit activity
+      const exitActivity = sortedActivities.find(a => a.id === process.value!.exitActivityId)
+      if (exitActivity) {
+        const exitNode = result.find(n => n.id === exitActivity.id)
+        if (exitNode) {
+          endNodeY = exitNode.position.y + FLOW_LAYOUT.VERTICAL_SPACING
+        }
+      }
+    } else if (process.value.useExplicitFlow && !process.value.exitActivityId) {
+      // In explicit mode without exit activity, position End based on activities with stored positions only
+      // This prevents newly added activities from shifting the End node
+      if (maxStoredY > 0) {
+        endNodeY = maxStoredY + FLOW_LAYOUT.VERTICAL_SPACING
+      }
+    } else if (!process.value.useExplicitFlow && sortedActivities.length > 0) {
+      // In implicit mode, find the activity with highest Y that's roughly aligned with the main flow
+      // (within reasonable horizontal distance from center)
+      const mainFlowX = FLOW_LAYOUT.HORIZONTAL_CENTER - FLOW_LAYOUT.NODE_WIDTH / 2
+      const horizontalTolerance = FLOW_LAYOUT.NODE_WIDTH * 2 // Activities within 2 node widths of center
+
+      // Filter to activities on the main vertical axis
+      const mainFlowActivities = result.filter(n => {
+        if (n.id === 'start' || n.id === 'end') return false
+        const xDistance = Math.abs(n.position.x - mainFlowX)
+        return xDistance <= horizontalTolerance
+      })
+
+      if (mainFlowActivities.length > 0) {
+        // Find the one with highest Y position
+        const lowestActivity = mainFlowActivities.reduce((lowest, current) =>
+          current.position.y > lowest.position.y ? current : lowest
+        )
+        endNodeY = lowestActivity.position.y + FLOW_LAYOUT.VERTICAL_SPACING
+      } else {
+        // All activities are off the main flow, use the last one by order
+        const lastActivity = sortedActivities[sortedActivities.length - 1]
+        if (lastActivity) {
+          const lastNode = result.find(n => n.id === lastActivity.id)
+          if (lastNode) {
+            endNodeY = lastNode.position.y + FLOW_LAYOUT.VERTICAL_SPACING
+          }
+        }
+      }
+    } else if (sortedActivities.length > 0) {
+      // Fallback: use maxStoredY (for edge cases)
+      endNodeY = maxStoredY + FLOW_LAYOUT.VERTICAL_SPACING
+    }
 
     result.push({
       id: 'end',
       type: 'end',
-      position: { x: FLOW_LAYOUT.HORIZONTAL_CENTER, y: lastActivityY + FLOW_LAYOUT.VERTICAL_SPACING },
+      position: { x: endNodeX, y: endNodeY },
       data: { output: process.value.output },
     })
 
@@ -105,52 +180,60 @@ export function useProcessFlow(process: Ref<ProcessWithActivities | null>) {
     const result: ProcessFlowEdge[] = []
     const sortedActivities = [...process.value.activities].sort((a, b) => a.order - b.order)
 
-    // If edges exist in the process, use them
-    if (process.value.edges && process.value.edges.length > 0) {
-      // Add edges from API
-      process.value.edges.forEach(edge => {
-        result.push({
-          id: edge.id,
-          source: edge.sourceActivityId,
-          target: edge.targetActivityId,
-          sourceHandle: edge.sourceHandle || undefined,
-          targetHandle: edge.targetHandle || undefined,
-          type: edge.label ? 'labeled' : 'default',
-          label: edge.label || undefined,
-          animated: edge.animated,
-          data: {
-            label: edge.label,
+    // Determine if user is in "explicit flow mode"
+    // The useExplicitFlow flag is set to true when user creates/deletes edges or sets flow endpoints
+    // This flag persists even when all edges are deleted, preventing implicit edges from regenerating
+    const isExplicitMode = process.value.useExplicitFlow
+
+    console.log('[useProcessFlow] Computing edges:', {
+      isExplicitMode,
+      apiEdgeCount: process.value.edges?.length || 0,
+      entryActivityId: process.value.entryActivityId,
+      exitActivityId: process.value.exitActivityId,
+      activityCount: sortedActivities.length
+    })
+
+    // If user has defined explicit flow, use their edges only
+    if (isExplicitMode) {
+      // Add edges from API - user is in full control of the flow
+      if (process.value.edges) {
+        process.value.edges.forEach(edge => {
+          result.push({
+            id: edge.id,
+            source: edge.sourceActivityId,
+            target: edge.targetActivityId,
+            sourceHandle: edge.sourceHandle || undefined,
+            targetHandle: edge.targetHandle || undefined,
+            type: edge.label ? 'labeled' : 'default',
+            label: edge.label || undefined,
             animated: edge.animated,
-          },
+            data: {
+              label: edge.label,
+              animated: edge.animated,
+            },
+          })
         })
-      })
+      }
 
-      // Check if we need start/end edges
-      const hasStartEdge = result.some(e => e.source === 'start')
-      const hasEndEdge = result.some(e => e.target === 'end')
-
-      // Add implicit start edge if not present
-      if (!hasStartEdge && sortedActivities.length > 0) {
+      // Add Start edge if entryActivityId is set
+      if (process.value.entryActivityId) {
         result.push({
           id: 'edge-start',
           source: 'start',
-          target: sortedActivities[0].id,
+          target: process.value.entryActivityId,
           type: 'default',
         })
       }
 
-      // Add implicit end edges for terminal nodes (no outgoing edges)
-      const nodesWithOutgoing = new Set(result.map(e => e.source))
-      sortedActivities.forEach(activity => {
-        if (!nodesWithOutgoing.has(activity.id)) {
-          result.push({
-            id: `edge-${activity.id}-end`,
-            source: activity.id,
-            target: 'end',
-            type: 'default',
-          })
-        }
-      })
+      // Add End edge if exitActivityId is set
+      if (process.value.exitActivityId) {
+        result.push({
+          id: 'edge-end',
+          source: process.value.exitActivityId,
+          target: 'end',
+          type: 'default',
+        })
+      }
     } else {
       // No edges - generate implicit linear flow from order
 
@@ -200,6 +283,7 @@ export function useProcessFlow(process: Ref<ProcessWithActivities | null>) {
       }
     }
 
+    console.log('[useProcessFlow] Computed edges:', result.map(e => `${e.id}: ${e.source} -> ${e.target}`))
     return result
   })
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { VueFlow, useVueFlow } from '@vue-flow/core'
+import { VueFlow, useVueFlow, type NodeTypesObject } from '@vue-flow/core'
+import { markRaw } from 'vue'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import { MiniMap } from '@vue-flow/minimap'
@@ -9,7 +10,7 @@ import '@vue-flow/controls/dist/style.css'
 import '@vue-flow/minimap/dist/style.css'
 
 import type { ProcessWithActivities } from '~/types/operations'
-import { useProcessFlow } from '~/composables/useProcessFlow'
+import { useProcessFlow, type ProcessFlowEdge } from '~/composables/useProcessFlow'
 import { useDebounceFn } from '@vueuse/core'
 
 // Import custom nodes
@@ -29,6 +30,7 @@ const emit = defineEmits<{
   'positions-changed': [positions: Array<{ activityId: string; positionX: number; positionY: number }>]
   'edge-created': [edge: { sourceActivityId: string; targetActivityId: string; sourceHandle?: string }]
   'edge-deleted': [edgeId: string]
+  'implicit-edge-deleted': [edge: { sourceActivityId: string; targetActivityId: string }]
 }>()
 
 // Convert process to ref for composable
@@ -37,50 +39,54 @@ const processRef = computed(() => props.process)
 // Get nodes and edges from composable
 const { nodes: initialNodes, edges: initialEdges } = useProcessFlow(processRef)
 
-// Vue Flow instance
-const {
-  nodes,
-  edges,
-  onNodesChange,
-  onEdgesChange,
-  onConnect,
-  fitView,
-  project,
-} = useVueFlow({
-  nodes: initialNodes.value,
-  edges: initialEdges.value,
-  fitViewOnInit: true,
-  defaultEdgeOptions: {
-    type: 'smoothstep',
-    animated: false,
-  },
+// Create a key that changes ONLY when the process ID changes
+// This prevents zoom reset when activities are added/removed
+const flowKey = computed(() => {
+  return `flow-${props.process?.id}`
 })
 
-// Watch for process changes and update nodes/edges
-// Use a getter function that returns the activities length to ensure we detect new activities
+// Use VueFlow composable to update nodes and edges without re-mounting
+const { setEdges, setNodes, getEdges, applyEdgeChanges } = useVueFlow()
+
+// Watch for node changes (activities added/removed) and update VueFlow's internal state
+// This prevents the component from re-mounting (which would reset zoom)
 watch(
-  () => [props.process?.activities?.length, props.process?.activities?.map(a => a.id).join(',')],
-  async () => {
-    // Wait for next tick to ensure computed values are updated
-    await nextTick()
-    // Double-check the computed has recalculated by accessing it
-    const newNodes = initialNodes.value
-    const newEdges = initialEdges.value
-    console.log('[ProcessFlowCanvas] Updating nodes:', newNodes.length, 'edges:', newEdges.length)
-    nodes.value = newNodes
-    edges.value = newEdges
-    // Fit view after updating nodes
-    setTimeout(() => fitView({ padding: 0.2 }), 50)
-  },
-  { deep: true, immediate: false }
+  () => props.process?.activities?.map(a => a.id).sort().join(',') || '',
+  () => {
+    // Use nextTick to ensure the computed initialNodes has updated
+    nextTick(() => {
+      console.log('[ProcessFlowCanvas] Updating nodes:', initialNodes.value.length, 'activities')
+      setNodes(initialNodes.value as any)
+    })
+  }
 )
 
-// Custom node types
-const nodeTypes = {
-  activity: ActivityNode,
-  decision: DecisionNode,
-  start: StartNode,
-  end: EndNode,
+// Watch for edge changes and update VueFlow's internal state
+// Watch both edges array and useExplicitFlow flag since either can affect computed edges
+watch(
+  () => ({
+    edgeIds: props.process?.edges?.map(e => e.id).join(',') || '',
+    useExplicitFlow: props.process?.useExplicitFlow,
+    entryActivityId: props.process?.entryActivityId,
+    exitActivityId: props.process?.exitActivityId,
+  }),
+  () => {
+    // Use nextTick to ensure the computed initialEdges has updated
+    nextTick(() => {
+      console.log('[ProcessFlowCanvas] Updating edges:', initialEdges.value.length, 'useExplicitFlow:', props.process?.useExplicitFlow)
+      setEdges(initialEdges.value as any)
+    })
+  },
+  { deep: true }
+)
+
+// Custom node types - use markRaw to prevent Vue from making components reactive
+// This is required by VueFlow to avoid "component made reactive" warnings and potential issues
+const nodeTypes: NodeTypesObject = {
+  activity: markRaw(ActivityNode),
+  decision: markRaw(DecisionNode),
+  start: markRaw(StartNode),
+  end: markRaw(EndNode),
 }
 
 // Track positions that need to be saved
@@ -140,9 +146,8 @@ const onNodeDoubleClick = (event: any) => {
 const onConnectHandler = (params: any) => {
   if (!props.isEditMode) return
 
-  // Don't allow connections from start or to end (those are managed automatically)
-  if (params.source === 'start' || params.target === 'end') return
-
+  // Allow connections from start and to end - these are user-managed
+  // Note: start/end nodes use special IDs that the parent component should handle
   emit('edge-created', {
     sourceActivityId: params.source,
     targetActivityId: params.target,
@@ -150,34 +155,121 @@ const onConnectHandler = (params: any) => {
   })
 }
 
-// Handle edge removal
-const onEdgesDelete = (deletedEdges: any[]) => {
-  if (!props.isEditMode) return
+// Keep track of edges for lookup when VueFlow removes them
+const lastKnownEdges = ref<Map<string, { source: string; target: string }>>(new Map())
 
-  for (const edge of deletedEdges) {
-    // Don't delete implicit start/end edges
-    if (edge.id.startsWith('edge-start') || edge.id.startsWith('edge-end') || edge.id.includes('-end')) continue
-    emit('edge-deleted', edge.id)
+// Update edge cache whenever initialEdges changes
+// Clear old entries and add new ones to keep cache in sync
+watch(initialEdges, (newEdges) => {
+  // Build set of current edge IDs
+  const currentIds = new Set(newEdges.map(e => (e as any).id as string).filter((id): id is string => !!id))
+
+  // Remove edges no longer present
+  for (const id of lastKnownEdges.value.keys()) {
+    if (!currentIds.has(id)) {
+      lastKnownEdges.value.delete(id)
+    }
+  }
+
+  // Add/update current edges
+  newEdges.forEach((edge) => {
+    const e = edge as any
+    if (e.id && e.source && e.target) {
+      lastKnownEdges.value.set(e.id, { source: e.source, target: e.target })
+    }
+  })
+}, { immediate: true, deep: true })
+
+// Handle edge changes from VueFlow
+const handleEdgesChange = (changes: any[]) => {
+  if (!props.isEditMode) {
+    // Not in edit mode - apply all changes (shouldn't have remove changes anyway)
+    applyEdgeChanges(changes)
+    return
+  }
+
+  const removeChanges = changes.filter(c => c.type === 'remove')
+  const otherChanges = changes.filter(c => c.type !== 'remove')
+
+  // Apply non-remove changes immediately
+  if (otherChanges.length > 0) {
+    applyEdgeChanges(otherChanges)
+  }
+
+  if (removeChanges.length === 0) return
+
+  console.log('[ProcessFlowCanvas] Edge changes:', removeChanges.length, 'removals')
+  console.log('[ProcessFlowCanvas] Process useExplicitFlow:', props.process.useExplicitFlow)
+  console.log('[ProcessFlowCanvas] Cached edges:', lastKnownEdges.value.size)
+
+  // Get edges from multiple sources - VueFlow may have already removed them
+  const vueFlowEdges = getEdges.value
+  const computedEdges = initialEdges.value as any[]
+
+  for (const change of removeChanges) {
+    const edgeId = change.id
+    console.log('[ProcessFlowCanvas] Processing removal of edge:', edgeId)
+
+    // Look up the actual edge to get source/target - check multiple sources
+    let edgeData = lastKnownEdges.value.get(edgeId)
+    if (!edgeData) {
+      const vfEdge = vueFlowEdges.find(e => e.id === edgeId)
+      if (vfEdge) {
+        edgeData = { source: vfEdge.source, target: vfEdge.target }
+      }
+    }
+    if (!edgeData) {
+      const compEdge = computedEdges.find(e => e.id === edgeId)
+      if (compEdge) {
+        edgeData = { source: compEdge.source, target: compEdge.target }
+      }
+    }
+
+    // Implicit edges have IDs that start with 'edge-' (e.g., 'edge-start', 'edge-end', 'edge-{activityId}-{activityId}')
+    // Real database edges have GUID IDs
+    const isImplicitEdge = edgeId.startsWith('edge-')
+    console.log('[ProcessFlowCanvas] Edge is implicit:', isImplicitEdge, 'found data:', !!edgeData)
+
+    if (isImplicitEdge) {
+      // Emit implicit-edge-deleted so parent can switch to explicit mode
+      // This edge doesn't exist in DB, but we need to tell the backend to switch modes
+      if (edgeData) {
+        console.log('[ProcessFlowCanvas] Emitting implicit-edge-deleted:', edgeId, edgeData.source, edgeData.target)
+        emit('implicit-edge-deleted', {
+          sourceActivityId: edgeData.source,
+          targetActivityId: edgeData.target,
+        })
+        // Apply the removal change to VueFlow AFTER emitting
+        // This ensures the edge is removed from the UI immediately
+        applyEdgeChanges([change])
+      } else {
+        console.error('[ProcessFlowCanvas] Could not find edge data for:', edgeId)
+      }
+      // Remove from cache
+      lastKnownEdges.value.delete(edgeId)
+      continue
+    }
+    console.log('[ProcessFlowCanvas] Emitting edge-deleted for DB edge:', edgeId)
+    emit('edge-deleted', edgeId)
+    // Apply the removal change for DB edges too
+    applyEdgeChanges([change])
+    lastKnownEdges.value.delete(edgeId)
   }
 }
-
-// Fit view on mount
-onMounted(() => {
-  setTimeout(() => {
-    fitView({ padding: 0.2 })
-  }, 100)
-})
 </script>
 
 <template>
-  <div class="h-full w-full bg-gray-900/50 rounded-xl overflow-hidden">
+  <div class="process-flow-wrapper">
     <VueFlow
-      v-model:nodes="nodes"
-      v-model:edges="edges"
+      :key="flowKey"
+      :nodes="initialNodes"
+      :edges="initialEdges"
       :node-types="nodeTypes"
       :nodes-draggable="isEditMode"
       :nodes-connectable="isEditMode"
       :edges-updatable="isEditMode"
+      :elements-selectable="isEditMode"
+      :delete-key-code="isEditMode ? ['Backspace', 'Delete'] : null"
       :pan-on-drag="true"
       :zoom-on-scroll="true"
       :zoom-on-pinch="true"
@@ -185,11 +277,14 @@ onMounted(() => {
       :prevent-scrolling="true"
       :min-zoom="0.2"
       :max-zoom="2"
+      :fit-view-on-init="true"
+      :fit-view-options="{ padding: 0.3, minZoom: 0.5, maxZoom: 1.2 }"
+      :default-edge-options="{ type: 'smoothstep', animated: false }"
       @node-drag-stop="onNodeDragStop"
       @node-click="onNodeClick"
       @node-double-click="onNodeDoubleClick"
       @connect="onConnectHandler"
-      @edges-change="(changes) => changes.filter(c => c.type === 'remove').length > 0 && onEdgesDelete(changes.filter(c => c.type === 'remove').map(c => ({ id: c.id })))"
+      @edges-change="handleEdgesChange"
     >
       <!-- Background pattern -->
       <Background
@@ -222,6 +317,21 @@ onMounted(() => {
 </template>
 
 <style>
+/* Ensure the wrapper takes full height of parent */
+.process-flow-wrapper {
+  width: 100%;
+  height: 100%;
+  background: rgba(17, 24, 39, 0.5);
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+/* Make sure VueFlow container fills the wrapper */
+.process-flow-wrapper .vue-flow {
+  width: 100%;
+  height: 100%;
+}
+
 /* Custom Vue Flow styles for dark theme */
 .vue-flow__edge-path {
   stroke: rgba(255, 255, 255, 0.3);

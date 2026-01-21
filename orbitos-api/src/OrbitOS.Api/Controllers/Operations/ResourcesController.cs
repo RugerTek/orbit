@@ -89,7 +89,8 @@ public class ResourcesController : ControllerBase
         if (subtype == null)
             return NotFound();
 
-        _dbContext.ResourceSubtypes.Remove(subtype);
+        // Soft delete - CLAUDE.md compliance
+        subtype.SoftDelete();
         await _dbContext.SaveChangesAsync();
 
         return NoContent();
@@ -262,7 +263,8 @@ public class ResourcesController : ControllerBase
         if (resource == null)
             return NotFound();
 
-        _dbContext.Resources.Remove(resource);
+        // Soft delete - CLAUDE.md compliance
+        resource.SoftDelete();
         await _dbContext.SaveChangesAsync();
 
         return NoContent();
@@ -360,7 +362,8 @@ public class ResourcesController : ControllerBase
         if (assignment == null)
             return NotFound();
 
-        _dbContext.RoleAssignments.Remove(assignment);
+        // Soft delete - CLAUDE.md compliance
+        assignment.SoftDelete();
         await _dbContext.SaveChangesAsync();
 
         return NoContent();
@@ -419,17 +422,38 @@ public class ResourcesController : ControllerBase
         if (function == null)
             return BadRequest("Invalid function");
 
-        var capability = new FunctionCapability
-        {
-            ResourceId = request.ResourceId,
-            FunctionId = request.FunctionId,
-            Level = request.Level,
-            CertifiedDate = request.CertifiedDate,
-            ExpiresAt = request.ExpiresAt,
-            Notes = request.Notes
-        };
+        // Check for soft-deleted existing record and undelete it instead of creating new
+        var existingSoftDeleted = await _dbContext.FunctionCapabilities
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(fc => fc.ResourceId == request.ResourceId
+                && fc.FunctionId == request.FunctionId
+                && fc.DeletedAt != null);
 
-        _dbContext.FunctionCapabilities.Add(capability);
+        FunctionCapability capability;
+        if (existingSoftDeleted != null)
+        {
+            // Restore the soft-deleted record with new values
+            existingSoftDeleted.DeletedAt = null;
+            existingSoftDeleted.Level = request.Level;
+            existingSoftDeleted.CertifiedDate = request.CertifiedDate;
+            existingSoftDeleted.ExpiresAt = request.ExpiresAt;
+            existingSoftDeleted.Notes = request.Notes;
+            capability = existingSoftDeleted;
+        }
+        else
+        {
+            capability = new FunctionCapability
+            {
+                ResourceId = request.ResourceId,
+                FunctionId = request.FunctionId,
+                Level = request.Level,
+                CertifiedDate = request.CertifiedDate,
+                ExpiresAt = request.ExpiresAt,
+                Notes = request.Notes
+            };
+            _dbContext.FunctionCapabilities.Add(capability);
+        }
+
         await _dbContext.SaveChangesAsync();
 
         return CreatedAtAction(nameof(GetFunctionCapabilities), new { organizationId },
@@ -448,6 +472,42 @@ public class ResourcesController : ControllerBase
             });
     }
 
+    [HttpPut("function-capabilities/{id}")]
+    public async Task<ActionResult<FunctionCapabilityDto>> UpdateFunctionCapability(
+        Guid organizationId,
+        Guid id,
+        [FromBody] UpdateFunctionCapabilityRequest request)
+    {
+        var capability = await _dbContext.FunctionCapabilities
+            .Include(fc => fc.Resource)
+            .Include(fc => fc.Function)
+            .FirstOrDefaultAsync(fc => fc.Id == id && fc.Resource.OrganizationId == organizationId);
+
+        if (capability == null)
+            return NotFound();
+
+        capability.Level = request.Level;
+        capability.CertifiedDate = request.CertifiedDate;
+        capability.ExpiresAt = request.ExpiresAt;
+        capability.Notes = request.Notes;
+
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new FunctionCapabilityDto
+        {
+            Id = capability.Id,
+            ResourceId = capability.ResourceId,
+            ResourceName = capability.Resource.Name,
+            FunctionId = capability.FunctionId,
+            FunctionName = capability.Function.Name,
+            Level = capability.Level,
+            CertifiedDate = capability.CertifiedDate,
+            ExpiresAt = capability.ExpiresAt,
+            Notes = capability.Notes,
+            CreatedAt = capability.CreatedAt
+        });
+    }
+
     [HttpDelete("function-capabilities/{id}")]
     public async Task<IActionResult> DeleteFunctionCapability(Guid organizationId, Guid id)
     {
@@ -458,10 +518,440 @@ public class ResourcesController : ControllerBase
         if (capability == null)
             return NotFound();
 
-        _dbContext.FunctionCapabilities.Remove(capability);
+        // Soft delete - CLAUDE.md compliance
+        capability.SoftDelete();
         await _dbContext.SaveChangesAsync();
 
         return NoContent();
+    }
+
+    #endregion
+
+    #region Org Chart
+
+    /// <summary>
+    /// Get the full organizational chart tree structure (people hierarchy)
+    /// </summary>
+    [HttpGet("org-chart")]
+    public async Task<ActionResult<OrgChartTreeDto>> GetOrgChart(Guid organizationId)
+    {
+        // Get all person-type resources with their reporting relationships
+        var people = await _dbContext.Resources
+            .Include(r => r.ResourceSubtype)
+            .Include(r => r.LinkedUser)
+            .Include(r => r.ReportsToResource)
+            .Include(r => r.DirectReports)
+            .Where(r => r.OrganizationId == organizationId)
+            .Where(r => r.ResourceSubtype.ResourceType == ResourceType.Person)
+            .ToListAsync();
+
+        // Build lookup maps
+        var peopleById = people.ToDictionary(p => p.Id);
+        var childrenMap = people
+            .Where(p => p.ReportsToResourceId.HasValue)
+            .GroupBy(p => p.ReportsToResourceId!.Value)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        // Calculate indirect reports count recursively
+        int CountIndirectReports(Guid resourceId)
+        {
+            if (!childrenMap.TryGetValue(resourceId, out var children))
+                return 0;
+
+            int count = children.Count;
+            foreach (var child in children)
+            {
+                count += CountIndirectReports(child.Id);
+            }
+            return count;
+        }
+
+        // Calculate management depth (distance from root)
+        int CalculateDepth(Resource resource)
+        {
+            int depth = 0;
+            var current = resource;
+            while (current.ReportsToResourceId.HasValue &&
+                   peopleById.TryGetValue(current.ReportsToResourceId.Value, out var manager))
+            {
+                depth++;
+                current = manager;
+            }
+            return depth;
+        }
+
+        // Convert to DTOs with computed fields
+        OrgChartResourceDto ToDto(Resource r, int depth)
+        {
+            var directReportsCount = childrenMap.TryGetValue(r.Id, out var children) ? children.Count : 0;
+            return new OrgChartResourceDto
+            {
+                Id = r.Id,
+                Name = r.Name,
+                Description = r.Description,
+                Status = r.Status,
+                OrganizationId = r.OrganizationId,
+                ResourceSubtypeId = r.ResourceSubtypeId,
+                ResourceSubtypeName = r.ResourceSubtype.Name,
+                ResourceType = r.ResourceSubtype.ResourceType,
+                LinkedUserId = r.LinkedUserId,
+                LinkedUserName = r.LinkedUser?.DisplayName,
+                CreatedAt = r.CreatedAt,
+                UpdatedAt = r.UpdatedAt,
+                ReportsToResourceId = r.ReportsToResourceId,
+                ManagerName = r.ReportsToResource?.Name,
+                IsVacant = r.IsVacant,
+                VacantPositionTitle = r.VacantPositionTitle,
+                DirectReportsCount = directReportsCount,
+                IndirectReportsCount = CountIndirectReports(r.Id),
+                ManagementDepth = depth
+            };
+        }
+
+        // Build tree recursively
+        List<OrgChartResourceDto> BuildSubtree(Guid? parentId, int depth)
+        {
+            var nodes = people
+                .Where(p => p.ReportsToResourceId == parentId)
+                .Select(p =>
+                {
+                    var dto = ToDto(p, depth);
+                    dto.DirectReports = BuildSubtree(p.Id, depth + 1);
+                    return dto;
+                })
+                .OrderBy(d => d.Name)
+                .ToList();
+            return nodes;
+        }
+
+        var rootNodes = BuildSubtree(null, 0);
+
+        // Calculate metrics
+        var peopleByDepth = people
+            .GroupBy(p => CalculateDepth(p))
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        var maxDepth = peopleByDepth.Keys.Any() ? peopleByDepth.Keys.Max() : 0;
+
+        return Ok(new OrgChartTreeDto
+        {
+            RootNodes = rootNodes,
+            TotalPeople = people.Count(p => !p.IsVacant),
+            TotalVacancies = people.Count(p => p.IsVacant),
+            MaxDepth = maxDepth,
+            PeopleByDepth = peopleByDepth
+        });
+    }
+
+    /// <summary>
+    /// Get organizational chart metrics (span of control, vacancies, depth)
+    /// </summary>
+    [HttpGet("org-chart/metrics")]
+    public async Task<ActionResult<OrgChartMetricsDto>> GetOrgChartMetrics(Guid organizationId)
+    {
+        var people = await _dbContext.Resources
+            .Include(r => r.ResourceSubtype)
+            .Include(r => r.DirectReports)
+            .Where(r => r.OrganizationId == organizationId)
+            .Where(r => r.ResourceSubtype.ResourceType == ResourceType.Person)
+            .ToListAsync();
+
+        var peopleById = people.ToDictionary(p => p.Id);
+        var childrenMap = people
+            .Where(p => p.ReportsToResourceId.HasValue)
+            .GroupBy(p => p.ReportsToResourceId!.Value)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        int CountIndirectReports(Guid resourceId)
+        {
+            if (!childrenMap.TryGetValue(resourceId, out var children))
+                return 0;
+            return children.Count + children.Sum(c => CountIndirectReports(c.Id));
+        }
+
+        int CalculateDepth(Resource resource)
+        {
+            int depth = 0;
+            var current = resource;
+            while (current.ReportsToResourceId.HasValue &&
+                   peopleById.TryGetValue(current.ReportsToResourceId.Value, out var manager))
+            {
+                depth++;
+                current = manager;
+            }
+            return depth;
+        }
+
+        // Managers are people who have at least one direct report
+        var managers = people.Where(p => childrenMap.ContainsKey(p.Id)).ToList();
+
+        var spanOfControlEntries = managers
+            .Select(m => new SpanOfControlEntry
+            {
+                ManagerId = m.Id,
+                ManagerName = m.Name,
+                DirectReports = childrenMap[m.Id].Count,
+                IndirectReports = CountIndirectReports(m.Id),
+                Depth = CalculateDepth(m)
+            })
+            .OrderByDescending(e => e.DirectReports)
+            .ToList();
+
+        var avgSpan = managers.Count > 0
+            ? (decimal)managers.Sum(m => childrenMap[m.Id].Count) / managers.Count
+            : 0;
+
+        var maxDepth = people.Count > 0 ? people.Max(p => CalculateDepth(p)) : 0;
+
+        return Ok(new OrgChartMetricsDto
+        {
+            TotalPeople = people.Count(p => !p.IsVacant),
+            TotalVacancies = people.Count(p => p.IsVacant),
+            MaxDepth = maxDepth,
+            AverageSpanOfControl = Math.Round(avgSpan, 2),
+            SpanOfControlByManager = spanOfControlEntries
+        });
+    }
+
+    /// <summary>
+    /// Update a person's reporting relationship (change manager)
+    /// </summary>
+    [HttpPatch("{id}/reporting")]
+    public async Task<ActionResult<OrgChartResourceDto>> UpdateReporting(
+        Guid organizationId,
+        Guid id,
+        [FromBody] UpdateReportingRequest request)
+    {
+        var resource = await _dbContext.Resources
+            .Include(r => r.ResourceSubtype)
+            .Include(r => r.LinkedUser)
+            .FirstOrDefaultAsync(r => r.Id == id && r.OrganizationId == organizationId);
+
+        if (resource == null)
+            return NotFound();
+
+        if (resource.ResourceSubtype.ResourceType != ResourceType.Person)
+            return BadRequest("Only person resources can have reporting relationships");
+
+        // Validate: cannot report to self
+        if (request.ReportsToResourceId == id)
+            return BadRequest(new { error = "RESOURCE_SELF_REPORT", message = "A person cannot report to themselves" });
+
+        // Validate manager exists and is a person in same org
+        if (request.ReportsToResourceId.HasValue)
+        {
+            var manager = await _dbContext.Resources
+                .Include(r => r.ResourceSubtype)
+                .FirstOrDefaultAsync(r => r.Id == request.ReportsToResourceId.Value && r.OrganizationId == organizationId);
+
+            if (manager == null)
+                return BadRequest(new { error = "RESOURCE_INVALID_MANAGER", message = "Manager not found in this organization" });
+
+            if (manager.ResourceSubtype.ResourceType != ResourceType.Person)
+                return BadRequest(new { error = "RESOURCE_INVALID_MANAGER", message = "Manager must be a person" });
+
+            // Check for circular reference
+            if (await WouldCreateCircularReference(id, request.ReportsToResourceId.Value, organizationId))
+                return BadRequest(new { error = "RESOURCE_CIRCULAR_REPORT", message = "This would create a circular reporting relationship" });
+        }
+
+        resource.ReportsToResourceId = request.ReportsToResourceId;
+        await _dbContext.SaveChangesAsync();
+
+        // Reload with manager info
+        await _dbContext.Entry(resource).Reference(r => r.ReportsToResource).LoadAsync();
+
+        var directReportsCount = await _dbContext.Resources
+            .CountAsync(r => r.ReportsToResourceId == id);
+
+        return Ok(new OrgChartResourceDto
+        {
+            Id = resource.Id,
+            Name = resource.Name,
+            Description = resource.Description,
+            Status = resource.Status,
+            OrganizationId = resource.OrganizationId,
+            ResourceSubtypeId = resource.ResourceSubtypeId,
+            ResourceSubtypeName = resource.ResourceSubtype.Name,
+            ResourceType = resource.ResourceSubtype.ResourceType,
+            LinkedUserId = resource.LinkedUserId,
+            LinkedUserName = resource.LinkedUser?.DisplayName,
+            CreatedAt = resource.CreatedAt,
+            UpdatedAt = resource.UpdatedAt,
+            ReportsToResourceId = resource.ReportsToResourceId,
+            ManagerName = resource.ReportsToResource?.Name,
+            IsVacant = resource.IsVacant,
+            VacantPositionTitle = resource.VacantPositionTitle,
+            DirectReportsCount = directReportsCount
+        });
+    }
+
+    /// <summary>
+    /// Create a vacant position in the org chart
+    /// </summary>
+    [HttpPost("vacancies")]
+    public async Task<ActionResult<OrgChartResourceDto>> CreateVacancy(
+        Guid organizationId,
+        [FromBody] CreateVacantPositionRequest request)
+    {
+        // Validate subtype exists and is Person type
+        var subtype = await _dbContext.ResourceSubtypes
+            .FirstOrDefaultAsync(s => s.Id == request.ResourceSubtypeId && s.OrganizationId == organizationId);
+
+        if (subtype == null)
+            return BadRequest("Invalid resource subtype");
+
+        if (subtype.ResourceType != ResourceType.Person)
+            return BadRequest("Only person subtypes can be used for vacant positions");
+
+        // Validate manager if specified
+        if (request.ReportsToResourceId.HasValue)
+        {
+            var manager = await _dbContext.Resources
+                .Include(r => r.ResourceSubtype)
+                .FirstOrDefaultAsync(r => r.Id == request.ReportsToResourceId.Value && r.OrganizationId == organizationId);
+
+            if (manager == null)
+                return BadRequest("Manager not found");
+
+            if (manager.ResourceSubtype.ResourceType != ResourceType.Person)
+                return BadRequest("Manager must be a person");
+        }
+
+        var vacancy = new Resource
+        {
+            Name = $"[Vacant] {request.VacantPositionTitle}",
+            Description = request.Description,
+            Status = ResourceStatus.Planned,
+            OrganizationId = organizationId,
+            ResourceSubtypeId = request.ResourceSubtypeId,
+            IsVacant = true,
+            VacantPositionTitle = request.VacantPositionTitle,
+            ReportsToResourceId = request.ReportsToResourceId
+        };
+
+        _dbContext.Resources.Add(vacancy);
+        await _dbContext.SaveChangesAsync();
+
+        // Load manager name if exists
+        Resource? manager2 = null;
+        if (vacancy.ReportsToResourceId.HasValue)
+        {
+            manager2 = await _dbContext.Resources.FindAsync(vacancy.ReportsToResourceId.Value);
+        }
+
+        return CreatedAtAction(nameof(GetResource), new { organizationId, id = vacancy.Id },
+            new OrgChartResourceDto
+            {
+                Id = vacancy.Id,
+                Name = vacancy.Name,
+                Description = vacancy.Description,
+                Status = vacancy.Status,
+                OrganizationId = vacancy.OrganizationId,
+                ResourceSubtypeId = vacancy.ResourceSubtypeId,
+                ResourceSubtypeName = subtype.Name,
+                ResourceType = subtype.ResourceType,
+                CreatedAt = vacancy.CreatedAt,
+                UpdatedAt = vacancy.UpdatedAt,
+                ReportsToResourceId = vacancy.ReportsToResourceId,
+                ManagerName = manager2?.Name,
+                IsVacant = true,
+                VacantPositionTitle = vacancy.VacantPositionTitle,
+                DirectReportsCount = 0
+            });
+    }
+
+    /// <summary>
+    /// Fill a vacant position with person details
+    /// </summary>
+    [HttpPost("vacancies/{id}/fill")]
+    public async Task<ActionResult<OrgChartResourceDto>> FillVacancy(
+        Guid organizationId,
+        Guid id,
+        [FromBody] FillVacancyRequest request)
+    {
+        var vacancy = await _dbContext.Resources
+            .Include(r => r.ResourceSubtype)
+            .Include(r => r.ReportsToResource)
+            .FirstOrDefaultAsync(r => r.Id == id && r.OrganizationId == organizationId);
+
+        if (vacancy == null)
+            return NotFound();
+
+        if (!vacancy.IsVacant)
+            return BadRequest("This position is not vacant");
+
+        // Fill the vacancy
+        vacancy.Name = request.Name;
+        vacancy.Description = request.Description;
+        vacancy.LinkedUserId = request.LinkedUserId;
+        vacancy.IsVacant = false;
+        vacancy.Status = ResourceStatus.Active;
+
+        await _dbContext.SaveChangesAsync();
+
+        // Load linked user if exists
+        if (vacancy.LinkedUserId.HasValue)
+        {
+            await _dbContext.Entry(vacancy).Reference(r => r.LinkedUser).LoadAsync();
+        }
+
+        var directReportsCount = await _dbContext.Resources
+            .CountAsync(r => r.ReportsToResourceId == id);
+
+        return Ok(new OrgChartResourceDto
+        {
+            Id = vacancy.Id,
+            Name = vacancy.Name,
+            Description = vacancy.Description,
+            Status = vacancy.Status,
+            OrganizationId = vacancy.OrganizationId,
+            ResourceSubtypeId = vacancy.ResourceSubtypeId,
+            ResourceSubtypeName = vacancy.ResourceSubtype.Name,
+            ResourceType = vacancy.ResourceSubtype.ResourceType,
+            LinkedUserId = vacancy.LinkedUserId,
+            LinkedUserName = vacancy.LinkedUser?.DisplayName,
+            CreatedAt = vacancy.CreatedAt,
+            UpdatedAt = vacancy.UpdatedAt,
+            ReportsToResourceId = vacancy.ReportsToResourceId,
+            ManagerName = vacancy.ReportsToResource?.Name,
+            IsVacant = false,
+            VacantPositionTitle = null,
+            DirectReportsCount = directReportsCount
+        });
+    }
+
+    /// <summary>
+    /// Check if setting a new manager would create a circular reference
+    /// </summary>
+    private async Task<bool> WouldCreateCircularReference(Guid resourceId, Guid newManagerId, Guid organizationId)
+    {
+        if (resourceId == newManagerId)
+            return true;
+
+        var visited = new HashSet<Guid> { resourceId };
+        var currentId = newManagerId;
+
+        // Walk up the chain from the proposed new manager
+        while (true)
+        {
+            if (visited.Contains(currentId))
+                return true;
+
+            visited.Add(currentId);
+
+            var managerId = await _dbContext.Resources
+                .Where(r => r.Id == currentId && r.OrganizationId == organizationId)
+                .Select(r => r.ReportsToResourceId)
+                .FirstOrDefaultAsync();
+
+            if (!managerId.HasValue)
+                break;
+
+            currentId = managerId.Value;
+        }
+
+        return false;
     }
 
     #endregion

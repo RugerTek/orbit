@@ -1,0 +1,274 @@
+{
+  "$schema": "./schema.json",
+  "id": "ENT026",
+  "name": "OrgChartExtension",
+  "description": "Extensions to Resource entity (ENT014) for organizational chart hierarchy. Adds reporting relationships, vacancy tracking, and span of control metrics for people-type resources.",
+  "extends": "ENT014",
+  "table": "Resources",
+  "status": "draft",
+  "created_at": "2026-01-17",
+  "updated_at": "2026-01-17",
+
+  "fields": [
+    {
+      "name": "ReportsToResourceId",
+      "type": "Guid",
+      "nullable": true,
+      "self_reference": "Resource",
+      "description": "The resource (person) this resource reports to in the organizational hierarchy. Only applicable for People-type resources."
+    },
+    {
+      "name": "IsVacant",
+      "type": "bool",
+      "nullable": false,
+      "default": false,
+      "description": "True if this represents an unfilled/vacant position in the org chart. Vacant positions appear in the hierarchy but don't have a real person assigned."
+    },
+    {
+      "name": "VacantPositionTitle",
+      "type": "string",
+      "nullable": true,
+      "max_length": 255,
+      "description": "The job title or role name for vacant positions. Used when IsVacant=true to display what position needs to be filled."
+    }
+  ],
+
+  "validation_rules": [
+    {
+      "id": "R-ORG-001",
+      "field": "ReportsToResourceId",
+      "rule": "A resource cannot report to itself",
+      "error_code": "RESOURCE_SELF_REPORT",
+      "error_message": "A person cannot report to themselves"
+    },
+    {
+      "id": "R-ORG-002",
+      "field": "ReportsToResourceId",
+      "rule": "The manager (ReportsToResourceId) must be a People-type resource in the same organization",
+      "error_code": "RESOURCE_INVALID_MANAGER",
+      "error_message": "Manager must be a person in the same organization"
+    },
+    {
+      "id": "R-ORG-003",
+      "field": "ReportsToResourceId",
+      "rule": "Updating ReportsToResourceId must not create a circular reporting chain (A reports to B reports to C reports to A)",
+      "error_code": "RESOURCE_CIRCULAR_REPORT",
+      "error_message": "Circular reporting relationship detected. This would create a loop in the organization hierarchy."
+    },
+    {
+      "id": "R-ORG-004",
+      "field": "VacantPositionTitle",
+      "rule": "VacantPositionTitle should only be set when IsVacant is true",
+      "error_code": "RESOURCE_VACANCY_TITLE_MISMATCH",
+      "error_message": "Vacant position title should only be set for vacant positions"
+    },
+    {
+      "id": "R-ORG-005",
+      "field": "IsVacant",
+      "rule": "Only People-type resources can be marked as vacant positions",
+      "error_code": "RESOURCE_VACANCY_TYPE_MISMATCH",
+      "error_message": "Only people resources can be marked as vacant positions"
+    }
+  ],
+
+  "relationships": [
+    {
+      "type": "many-to-one",
+      "entity": "ENT014",
+      "foreign_key": "ReportsToResourceId",
+      "navigation": "ReportsToResource",
+      "description": "The manager this resource reports to"
+    },
+    {
+      "type": "one-to-many",
+      "entity": "ENT014",
+      "inverse_key": "ReportsToResourceId",
+      "navigation": "DirectReports",
+      "description": "Resources (people) that directly report to this resource"
+    }
+  ],
+
+  "indexes": [
+    {
+      "name": "IX_Resources_ReportsToResourceId",
+      "columns": ["ReportsToResourceId"],
+      "unique": false,
+      "filter": "ReportsToResourceId IS NOT NULL"
+    },
+    {
+      "name": "IX_Resources_OrganizationId_IsVacant",
+      "columns": ["OrganizationId", "IsVacant"],
+      "unique": false,
+      "description": "Efficiently query vacant positions within an organization"
+    }
+  ],
+
+  "api_representation": {
+    "dto_name": "OrgChartResourceDto",
+    "extends": "ResourceDto",
+    "include_fields": ["ReportsToResourceId", "IsVacant", "VacantPositionTitle"],
+    "computed_fields": [
+      {
+        "name": "ManagerName",
+        "type": "string",
+        "computation": "ReportsToResource.Name if ReportsToResourceId is set"
+      },
+      {
+        "name": "DirectReportsCount",
+        "type": "int",
+        "computation": "Count of resources where ReportsToResourceId equals this resource's Id"
+      },
+      {
+        "name": "IndirectReportsCount",
+        "type": "int",
+        "computation": "Recursive count of all descendant reports (direct reports + their reports + ...)"
+      },
+      {
+        "name": "ManagementDepth",
+        "type": "int",
+        "computation": "Distance from the root of the hierarchy (CEO level = 0, their reports = 1, etc.)"
+      }
+    ],
+    "tree_representation": {
+      "name": "OrgChartTreeDto",
+      "description": "Full org chart tree structure for visualization",
+      "fields": [
+        {
+          "name": "RootNodes",
+          "type": "List<OrgChartResourceDto>",
+          "description": "Top-level resources with no manager (typically CEO/founders)"
+        },
+        {
+          "name": "TotalPeople",
+          "type": "int",
+          "description": "Total count of people in the organization"
+        },
+        {
+          "name": "TotalVacancies",
+          "type": "int",
+          "description": "Total count of unfilled positions"
+        },
+        {
+          "name": "MaxDepth",
+          "type": "int",
+          "description": "Maximum depth of the org chart hierarchy"
+        },
+        {
+          "name": "PeopleByDepth",
+          "type": "Dictionary<int, int>",
+          "description": "Count of people at each level (depth -> count)"
+        }
+      ]
+    },
+    "metrics_representation": {
+      "name": "OrgChartMetricsDto",
+      "description": "Summary metrics for organizational health and span of control",
+      "fields": [
+        {
+          "name": "TotalPeople",
+          "type": "int"
+        },
+        {
+          "name": "TotalVacancies",
+          "type": "int"
+        },
+        {
+          "name": "MaxDepth",
+          "type": "int"
+        },
+        {
+          "name": "AverageSpanOfControl",
+          "type": "decimal",
+          "description": "Average number of direct reports per manager"
+        },
+        {
+          "name": "SpanOfControlByManager",
+          "type": "List<SpanOfControlEntry>",
+          "description": "Breakdown of span of control for each manager"
+        }
+      ]
+    }
+  },
+
+  "api_endpoints": [
+    {
+      "method": "GET",
+      "path": "/api/organizations/{organizationId}/operations/resources/org-chart",
+      "description": "Get the full organizational chart tree structure",
+      "response": "OrgChartTreeDto"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{organizationId}/operations/resources/org-chart/metrics",
+      "description": "Get organizational chart metrics (span of control, vacancies, depth)",
+      "response": "OrgChartMetricsDto"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/organizations/{organizationId}/operations/resources/{id}/reporting",
+      "description": "Update a person's reporting relationship (change manager)",
+      "request": "UpdateReportingRequest",
+      "response": "OrgChartResourceDto",
+      "validation": ["R-ORG-001", "R-ORG-002", "R-ORG-003"]
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizations/{organizationId}/operations/resources/vacancies",
+      "description": "Create a vacant position in the org chart",
+      "request": "CreateVacantPositionRequest",
+      "response": "OrgChartResourceDto"
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizations/{organizationId}/operations/resources/vacancies/{id}/fill",
+      "description": "Fill a vacant position with person details",
+      "request": "FillVacancyRequest",
+      "response": "OrgChartResourceDto"
+    }
+  ],
+
+  "multi_tenancy": {
+    "is_tenant_root": false,
+    "scope_field": "OrganizationId",
+    "scoping_behavior": "All org chart queries must be filtered by OrganizationId. Reporting relationships cannot cross organization boundaries."
+  },
+
+  "ai_capabilities": {
+    "description": "AI can analyze organizational structure to identify issues and provide recommendations",
+    "analyzable_fields": ["ReportsToResourceId", "IsVacant", "DirectReportsCount", "IndirectReportsCount", "ManagementDepth"],
+    "cross_entity_analysis": [
+      "Identify managers with excessive span of control (>8 direct reports)",
+      "Identify managers with too few direct reports (<3) suggesting potential consolidation",
+      "Find vacant positions that have been open longest",
+      "Analyze org chart balance (flat vs deep hierarchy)",
+      "Identify single points of failure (critical roles with no backup)",
+      "Suggest optimal team structures based on function alignment"
+    ],
+    "ai_queries": [
+      {
+        "query": "span_of_control_analysis",
+        "description": "Find managers with span of control outside recommended range (3-8)",
+        "example": "Resources WHERE DirectReportsCount > 8 OR (DirectReportsCount < 3 AND DirectReportsCount > 0)"
+      },
+      {
+        "query": "vacancy_aging",
+        "description": "List vacancies ordered by age",
+        "example": "Resources WHERE IsVacant = true ORDER BY CreatedAt ASC"
+      },
+      {
+        "query": "org_depth_distribution",
+        "description": "Analyze distribution of people across management levels",
+        "example": "COUNT(*) GROUP BY ManagementDepth"
+      }
+    ]
+  },
+
+  "code_location": {
+    "entity": "orbitos-api/src/OrbitOS.Domain/Entities/Resource.cs",
+    "controller": "orbitos-api/src/OrbitOS.Api/Controllers/Operations/ResourcesController.cs",
+    "dto": "orbitos-api/src/OrbitOS.Api/Controllers/Operations/OperationsDtos.cs",
+    "frontend_type": "orbitos-web/app/types/operations.ts",
+    "frontend_composable": "orbitos-web/app/composables/useOperations.ts",
+    "frontend_page": "orbitos-web/app/pages/app/people/org-chart.vue"
+  }
+}

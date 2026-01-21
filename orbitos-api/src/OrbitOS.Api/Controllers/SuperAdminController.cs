@@ -387,7 +387,8 @@ public class SuperAdminController : ControllerBase
         var user = await _dbContext.Users.FindAsync(id);
         if (user == null) return NotFound();
 
-        _dbContext.Users.Remove(user);
+        // Soft delete - CLAUDE.md compliance
+        user.SoftDelete();
         await _dbContext.SaveChangesAsync();
 
         _logger.LogInformation("Super admin deleted user: {Email}", user.Email);
@@ -562,7 +563,8 @@ public class SuperAdminController : ControllerBase
         var org = await _dbContext.Organizations.FindAsync(id);
         if (org == null) return NotFound();
 
-        _dbContext.Organizations.Remove(org);
+        // Soft delete - CLAUDE.md compliance
+        org.SoftDelete();
         await _dbContext.SaveChangesAsync();
 
         _logger.LogInformation("Super admin deleted organization: {Name}", org.Name);
@@ -638,7 +640,8 @@ public class SuperAdminController : ControllerBase
         var membership = await _dbContext.OrganizationMemberships.FindAsync(id);
         if (membership == null) return NotFound();
 
-        _dbContext.OrganizationMemberships.Remove(membership);
+        // Soft delete - CLAUDE.md compliance
+        membership.SoftDelete();
         await _dbContext.SaveChangesAsync();
 
         return NoContent();
@@ -779,7 +782,8 @@ public class SuperAdminController : ControllerBase
             return BadRequest(new { Message = "Cannot delete built-in system roles" });
         }
 
-        _dbContext.SystemRoles.Remove(role);
+        // Soft delete - CLAUDE.md compliance
+        role.SoftDelete();
         await _dbContext.SaveChangesAsync();
 
         _logger.LogInformation("Super admin deleted system role: {Name}", role.Name);
@@ -937,7 +941,8 @@ public class SuperAdminController : ControllerBase
             return BadRequest(new { Message = "Cannot delete built-in permissions" });
         }
 
-        _dbContext.Permissions.Remove(permission);
+        // Soft delete - CLAUDE.md compliance
+        permission.SoftDelete();
         await _dbContext.SaveChangesAsync();
 
         _logger.LogInformation("Super admin deleted permission: {Name}", permission.Name);

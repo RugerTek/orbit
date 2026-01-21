@@ -114,6 +114,93 @@
       "file": "ENT016-activity.json",
       "table": "Activities",
       "status": "draft"
+    },
+    {
+      "id": "ENT017",
+      "name": "AiAgent",
+      "file": "ENT017-ai-agent.json",
+      "table": "AiAgents",
+      "status": "implemented"
+    },
+    {
+      "id": "ENT018",
+      "name": "Conversation",
+      "file": "ENT018-conversation.json",
+      "table": "Conversations",
+      "status": "implemented"
+    },
+    {
+      "id": "ENT019",
+      "name": "Message",
+      "file": "ENT019-message.json",
+      "table": "Messages",
+      "status": "implemented"
+    },
+    {
+      "id": "ENT020",
+      "name": "ConversationParticipant",
+      "file": "ENT020-conversation-participant.json",
+      "table": "ConversationParticipants",
+      "status": "implemented"
+    },
+    {
+      "id": "ENT021",
+      "name": "Partner",
+      "file": "ENT021-partner.json",
+      "table": "Partners",
+      "status": "draft"
+    },
+    {
+      "id": "ENT022",
+      "name": "Channel",
+      "file": "ENT022-channel.json",
+      "table": "Channels",
+      "status": "draft"
+    },
+    {
+      "id": "ENT023",
+      "name": "ValueProposition",
+      "file": "ENT023-value-proposition.json",
+      "table": "ValuePropositions",
+      "status": "draft"
+    },
+    {
+      "id": "ENT024",
+      "name": "CustomerRelationship",
+      "file": "ENT024-customer-relationship.json",
+      "table": "CustomerRelationships",
+      "status": "draft"
+    },
+    {
+      "id": "ENT025",
+      "name": "RevenueStream",
+      "file": "ENT025-revenue-stream.json",
+      "table": "RevenueStreams",
+      "status": "draft"
+    },
+    {
+      "id": "ENT026",
+      "name": "OrgChartExtension",
+      "file": "ENT026-org-chart-extension.json",
+      "table": "Resources",
+      "status": "draft",
+      "note": "Extension to Resource entity for org chart hierarchy"
+    },
+    {
+      "id": "ENT027",
+      "name": "Language",
+      "file": "ENT027-language.json",
+      "table": "Languages",
+      "status": "draft",
+      "note": "System-wide language registry for i18n support"
+    },
+    {
+      "id": "ENT028",
+      "name": "EntityTranslation",
+      "file": "ENT028-entity-translation.json",
+      "table": "EntityTranslations",
+      "status": "draft",
+      "note": "Polymorphic translation storage for all translatable entities"
     }
   ],
   "base_entity_fields": [

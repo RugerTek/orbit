@@ -1,0 +1,43 @@
+{
+  "id": "F003",
+  "name": "Processes",
+  "description": "Learn how to create and manage business processes",
+  "estimatedTime": "8 minutes",
+  "steps": [
+    {
+      "id": "step1",
+      "title": "Process Management",
+      "content": "Processes help you define and visualize workflows in your organization.",
+      "target": null,
+      "position": "center"
+    },
+    {
+      "id": "step2",
+      "title": "Create a Process",
+      "content": "Click 'New Process' to create a new workflow.",
+      "target": "button:has-text('New Process')",
+      "position": "bottom"
+    },
+    {
+      "id": "step3",
+      "title": "Visual Editor",
+      "content": "Use the drag-and-drop editor to design your process flow.",
+      "target": ".vue-flow",
+      "position": "center"
+    },
+    {
+      "id": "step4",
+      "title": "Adding Activities",
+      "content": "Drag activities from the toolbar to add steps to your process.",
+      "target": "[data-testid='activity-toolbar']",
+      "position": "left"
+    },
+    {
+      "id": "step5",
+      "title": "Connecting Steps",
+      "content": "Connect activities by dragging from one node's handle to another.",
+      "target": null,
+      "position": "center"
+    }
+  ]
+}

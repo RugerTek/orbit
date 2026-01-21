@@ -1,0 +1,130 @@
+{
+  "ENT001.name": {
+    "entity": "ENT001",
+    "entityName": "Organization",
+    "field": "name",
+    "description": "The official name of your organization",
+    "example": "Acme Corporation",
+    "required": true
+  },
+  "ENT001.description": {
+    "entity": "ENT001",
+    "entityName": "Organization",
+    "field": "description",
+    "description": "A brief description of your organization's purpose",
+    "example": "Leading provider of innovative solutions",
+    "required": false
+  },
+  "ENT002.email": {
+    "entity": "ENT002",
+    "entityName": "User",
+    "field": "email",
+    "description": "The user's email address for login and notifications",
+    "example": "john.doe@example.com",
+    "required": true
+  },
+  "ENT002.displayName": {
+    "entity": "ENT002",
+    "entityName": "User",
+    "field": "displayName",
+    "description": "The name shown to other users in the interface",
+    "example": "John Doe",
+    "required": true
+  },
+  "ENT003.name": {
+    "entity": "ENT003",
+    "entityName": "Role",
+    "field": "name",
+    "description": "A unique name identifying this role",
+    "example": "Engineering Manager",
+    "required": true
+  },
+  "ENT003.description": {
+    "entity": "ENT003",
+    "entityName": "Role",
+    "field": "description",
+    "description": "What this role is responsible for",
+    "example": "Manages the engineering team and technical projects",
+    "required": false
+  },
+  "ENT004.name": {
+    "entity": "ENT004",
+    "entityName": "Function",
+    "field": "name",
+    "description": "A clear name for this work unit or responsibility",
+    "example": "Code Review",
+    "required": true
+  },
+  "ENT004.description": {
+    "entity": "ENT004",
+    "entityName": "Function",
+    "field": "description",
+    "description": "What this function involves and its purpose",
+    "example": "Review code submissions for quality and standards",
+    "required": false
+  },
+  "ENT005.name": {
+    "entity": "ENT005",
+    "entityName": "Process",
+    "field": "name",
+    "description": "A descriptive name for this process",
+    "example": "Customer Onboarding",
+    "required": true
+  },
+  "ENT005.description": {
+    "entity": "ENT005",
+    "entityName": "Process",
+    "field": "description",
+    "description": "What this process accomplishes",
+    "example": "Steps to onboard new customers from signup to first value",
+    "required": false
+  },
+  "ENT006.title": {
+    "entity": "ENT006",
+    "entityName": "Goal",
+    "field": "title",
+    "description": "A clear statement of what you want to achieve",
+    "example": "Increase customer retention by 20%",
+    "required": true
+  },
+  "ENT006.targetDate": {
+    "entity": "ENT006",
+    "entityName": "Goal",
+    "field": "targetDate",
+    "description": "When you aim to achieve this goal",
+    "example": "2026-06-30",
+    "required": false
+  },
+  "ENT007.name": {
+    "entity": "ENT007",
+    "entityName": "Canvas",
+    "field": "name",
+    "description": "A name for this canvas",
+    "example": "Q1 Business Model",
+    "required": true
+  },
+  "ENT007.type": {
+    "entity": "ENT007",
+    "entityName": "Canvas",
+    "field": "type",
+    "description": "The canvas template type (Business Model, Lean, etc.)",
+    "example": "business_model",
+    "required": true
+  },
+  "ENT008.name": {
+    "entity": "ENT008",
+    "entityName": "Resource",
+    "field": "name",
+    "description": "What this resource is called",
+    "example": "Marketing Budget",
+    "required": true
+  },
+  "ENT008.type": {
+    "entity": "ENT008",
+    "entityName": "Resource",
+    "field": "type",
+    "description": "The category of resource (Human, Financial, Physical, etc.)",
+    "example": "Financial",
+    "required": true
+  }
+}

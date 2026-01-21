@@ -1,0 +1,359 @@
+{
+  "$schema": "./schema.json",
+  "id": "ENT025",
+  "name": "RevenueStream",
+  "description": "A revenue stream representing how the company generates cash from customer segments. Captures pricing mechanisms, revenue types, and financial projections for each way value is monetized.",
+  "table": "RevenueStreams",
+  "status": "draft",
+  "created_at": "2026-01-17",
+  "updated_at": "2026-01-17",
+
+  "fields": [
+    {
+      "name": "OrganizationId",
+      "type": "Guid",
+      "nullable": false,
+      "references": "ENT002",
+      "description": "Organization that owns this revenue stream"
+    },
+    {
+      "name": "Name",
+      "type": "string",
+      "nullable": false,
+      "max_length": 255,
+      "description": "Revenue stream name"
+    },
+    {
+      "name": "Slug",
+      "type": "string",
+      "nullable": false,
+      "max_length": 100,
+      "description": "URL-friendly unique identifier within organization"
+    },
+    {
+      "name": "Description",
+      "type": "string",
+      "nullable": true,
+      "max_length": 2000,
+      "description": "Description of how this revenue is generated"
+    },
+    {
+      "name": "Type",
+      "type": "enum",
+      "nullable": false,
+      "enum_values": ["AssetSale", "UsageFee", "Subscription", "Licensing", "Brokerage", "Advertising", "Leasing", "Commission"],
+      "description": "Primary type of revenue stream"
+    },
+    {
+      "name": "Status",
+      "type": "enum",
+      "nullable": false,
+      "enum_values": ["Planned", "Active", "Growing", "Mature", "Declining", "Sunset"],
+      "description": "Current lifecycle status"
+    },
+    {
+      "name": "ProductId",
+      "type": "Guid",
+      "nullable": true,
+      "references": "ENT008",
+      "description": "Product that generates this revenue (optional)"
+    },
+    {
+      "name": "SegmentId",
+      "type": "Guid",
+      "nullable": true,
+      "references": "ENT009",
+      "description": "Customer segment that pays (optional)"
+    },
+    {
+      "name": "PricingMechanism",
+      "type": "enum",
+      "nullable": false,
+      "enum_values": ["Fixed", "Dynamic", "Negotiated", "Auction", "MarketDependent", "VolumeDependent"],
+      "description": "How prices are determined"
+    },
+    {
+      "name": "Pricing",
+      "type": "json",
+      "nullable": true,
+      "description": "Pricing structure details",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "currency": { "type": "string", "default": "USD" },
+          "base_price": { "type": "number" },
+          "billing_period": { "type": "string", "enum": ["one_time", "hourly", "daily", "weekly", "monthly", "quarterly", "annually"] },
+          "tiers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "price": { "type": "number" },
+                "unit": { "type": "string" },
+                "min_quantity": { "type": "number" },
+                "max_quantity": { "type": "number" },
+                "features": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          },
+          "discounts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": { "type": "string" },
+                "condition": { "type": "string" },
+                "percent": { "type": "number" }
+              }
+            }
+          },
+          "payment_terms": { "type": "string" },
+          "payment_methods": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    {
+      "name": "Revenue",
+      "type": "json",
+      "nullable": true,
+      "description": "Actual and projected revenue figures",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "current_mrr": { "type": "number", "description": "Monthly Recurring Revenue" },
+          "current_arr": { "type": "number", "description": "Annual Recurring Revenue" },
+          "last_month_revenue": { "type": "number" },
+          "last_quarter_revenue": { "type": "number" },
+          "last_year_revenue": { "type": "number" },
+          "projected_arr": { "type": "number" },
+          "growth_rate_percent": { "type": "number" },
+          "revenue_share_percent": { "type": "number", "description": "Percentage of total company revenue" }
+        }
+      }
+    },
+    {
+      "name": "Metrics",
+      "type": "json",
+      "nullable": true,
+      "description": "Revenue stream KPIs",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "average_revenue_per_user": { "type": "number" },
+          "lifetime_value": { "type": "number" },
+          "customer_count": { "type": "integer" },
+          "conversion_rate": { "type": "number" },
+          "gross_margin_percent": { "type": "number" },
+          "payback_period_months": { "type": "number" },
+          "revenue_per_employee": { "type": "number" }
+        }
+      }
+    },
+    {
+      "name": "WillingnessToPay",
+      "type": "json",
+      "nullable": true,
+      "description": "What customers value and pay for",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "value_drivers": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "What makes customers willing to pay"
+          },
+          "price_sensitivity": { "type": "string", "enum": ["low", "medium", "high"] },
+          "switching_cost": { "type": "string", "enum": ["low", "medium", "high"] },
+          "alternatives": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    {
+      "name": "Tags",
+      "type": "json",
+      "nullable": true,
+      "description": "Tags for categorization and filtering",
+      "json_schema": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    }
+  ],
+
+  "validation_rules": [
+    {
+      "id": "R-RVS-001",
+      "field": "Slug",
+      "rule": "Must be unique within the organization",
+      "error_code": "REVENUE_STREAM_SLUG_EXISTS",
+      "error_message": "A revenue stream with this slug already exists in this organization"
+    },
+    {
+      "id": "R-RVS-002",
+      "field": "Slug",
+      "rule": "Must be URL-safe (lowercase, alphanumeric, hyphens only)",
+      "error_code": "REVENUE_STREAM_SLUG_INVALID",
+      "error_message": "Slug must contain only lowercase letters, numbers, and hyphens"
+    },
+    {
+      "id": "R-RVS-003",
+      "field": "Name",
+      "rule": "Required, 1-255 characters",
+      "error_code": "REVENUE_STREAM_NAME_REQUIRED",
+      "error_message": "Revenue stream name is required"
+    },
+    {
+      "id": "R-RVS-004",
+      "field": "ProductId",
+      "rule": "If provided, product must belong to the same organization",
+      "error_code": "REVENUE_STREAM_PRODUCT_ORG_MISMATCH",
+      "error_message": "Product does not belong to this organization"
+    },
+    {
+      "id": "R-RVS-005",
+      "field": "SegmentId",
+      "rule": "If provided, segment must belong to the same organization",
+      "error_code": "REVENUE_STREAM_SEGMENT_ORG_MISMATCH",
+      "error_message": "Segment does not belong to this organization"
+    }
+  ],
+
+  "relationships": [
+    {
+      "type": "many-to-one",
+      "entity": "ENT002",
+      "foreign_key": "OrganizationId",
+      "navigation": "Organization",
+      "description": "Organization that owns this revenue stream"
+    },
+    {
+      "type": "many-to-one",
+      "entity": "ENT008",
+      "foreign_key": "ProductId",
+      "navigation": "Product",
+      "description": "Product that generates this revenue (optional)"
+    },
+    {
+      "type": "many-to-one",
+      "entity": "ENT009",
+      "foreign_key": "SegmentId",
+      "navigation": "Segment",
+      "description": "Customer segment (optional)"
+    },
+    {
+      "type": "one-to-many",
+      "entity": "ENT013",
+      "inverse_key": "EntityId",
+      "navigation": "BlockReferences",
+      "description": "Canvas block references that point to this revenue stream",
+      "polymorphic_filter": "EntityType = 'RevenueStream'"
+    }
+  ],
+
+  "indexes": [
+    {
+      "name": "IX_RevenueStreams_OrganizationId_Slug",
+      "columns": ["OrganizationId", "Slug"],
+      "unique": true
+    },
+    {
+      "name": "IX_RevenueStreams_OrganizationId_Type",
+      "columns": ["OrganizationId", "Type"],
+      "unique": false
+    },
+    {
+      "name": "IX_RevenueStreams_OrganizationId_Status",
+      "columns": ["OrganizationId", "Status"],
+      "unique": false
+    },
+    {
+      "name": "IX_RevenueStreams_ProductId",
+      "columns": ["ProductId"],
+      "unique": false,
+      "filter": "ProductId IS NOT NULL"
+    },
+    {
+      "name": "IX_RevenueStreams_SegmentId",
+      "columns": ["SegmentId"],
+      "unique": false,
+      "filter": "SegmentId IS NOT NULL"
+    }
+  ],
+
+  "api_representation": {
+    "dto_name": "RevenueStreamDto",
+    "include_fields": ["Id", "OrganizationId", "Name", "Slug", "Description", "Type", "Status", "ProductId", "SegmentId", "PricingMechanism", "Pricing", "Revenue", "Metrics", "WillingnessToPay", "Tags", "CreatedAt", "UpdatedAt"],
+    "computed_fields": [
+      {
+        "name": "ProductName",
+        "type": "string",
+        "computation": "Product.Name if ProductId is set"
+      },
+      {
+        "name": "SegmentName",
+        "type": "string",
+        "computation": "Segment.Name if SegmentId is set"
+      },
+      {
+        "name": "CanvasReferenceCount",
+        "type": "int",
+        "computation": "Count of BlockReferences pointing to this revenue stream"
+      },
+      {
+        "name": "MonthlyRecurringRevenue",
+        "type": "decimal",
+        "computation": "Revenue.current_mrr or calculated from pricing"
+      }
+    ]
+  },
+
+  "audit_requirements": {
+    "log_create": true,
+    "log_update": true,
+    "log_delete": true,
+    "sensitive_fields": ["Pricing", "Revenue", "Metrics"]
+  },
+
+  "multi_tenancy": {
+    "is_tenant_root": false,
+    "scope_field": "OrganizationId",
+    "scoping_behavior": "All queries must be filtered by OrganizationId"
+  },
+
+  "ai_capabilities": {
+    "description": "AI can analyze revenue streams to optimize pricing, forecast growth, and identify opportunities",
+    "analyzable_fields": ["Type", "Status", "PricingMechanism", "Pricing", "Revenue", "Metrics", "WillingnessToPay"],
+    "cross_entity_analysis": [
+      "Forecast revenue growth by stream",
+      "Identify pricing optimization opportunities",
+      "Calculate product profitability",
+      "Compare revenue per segment",
+      "Analyze revenue concentration risk",
+      "Suggest pricing tier adjustments"
+    ],
+    "ai_queries": [
+      {
+        "query": "revenue_concentration",
+        "description": "Identify if revenue is concentrated in few streams",
+        "example": "Streams where revenue_share_percent > 50%"
+      },
+      {
+        "query": "growth_opportunities",
+        "description": "Find high-potential streams",
+        "example": "Active streams with high growth_rate but low revenue_share"
+      },
+      {
+        "query": "pricing_analysis",
+        "description": "Compare pricing across similar products",
+        "example": "Compare ARPU and LTV across revenue streams"
+      }
+    ]
+  },
+
+  "code_location": {
+    "entity": "orbitos-api/src/OrbitOS.Domain/Entities/RevenueStream.cs",
+    "dto": "orbitos-api/src/OrbitOS.Api/Controllers/RevenueStreamsController.cs",
+    "frontend_type": "orbitos-web/app/types/entities/revenue-stream.ts"
+  }
+}

@@ -1,0 +1,986 @@
+{
+  "$schema": "./schema.json",
+  "id": "F004",
+  "name": "Business Model Canvas",
+  "description": "Visual strategic planning tool using the Business Model Canvas framework. Enables organizations to create a master company canvas and product-specific canvases with reusable operational entities (resources, partners, activities, etc.) that can be shared across canvases.",
+  "status": "draft",
+  "priority": "must-have",
+  "created_at": "2026-01-17",
+  "updated_at": "2026-01-17",
+  "owner": "product-team",
+
+  "product_vision": {
+    "summary": "Each product/service has its own BMC for commercial and marketing strategy. A company-level canvas serves as a master template. Operational entities are reusable first-class objects shared across canvases.",
+    "key_principles": [
+      "One product = one canvas (if GTM differs enough, treat as separate product)",
+      "Company canvas acts as master template with shared organizational resources",
+      "Entities (resources, partners, activities) are reusable and linkable across canvases",
+      "Default behavior: linked references (single source of truth), with option to copy for customization",
+      "Smart suggestions when creating product canvases from company-level items"
+    ]
+  },
+
+  "canvas_hierarchy": {
+    "description": "Canvases form a hierarchy with the company canvas at the root",
+    "levels": [
+      {
+        "type": "Organization",
+        "description": "Master company canvas - one per organization",
+        "purpose": "Defines shared resources, partners, and organizational capabilities",
+        "constraints": ["Only one active Organization canvas per org"]
+      },
+      {
+        "type": "Product",
+        "description": "Product-specific canvas linked to a Product entity",
+        "purpose": "Commercial and marketing strategy for a specific product/service",
+        "constraints": ["One canvas per Product", "Must reference a valid Product entity"]
+      },
+      {
+        "type": "Segment",
+        "description": "Optional segment-specific canvas for different customer segments",
+        "purpose": "Tailored strategy for specific customer segments within a product",
+        "constraints": ["Must reference a valid Segment entity"]
+      },
+      {
+        "type": "Initiative",
+        "description": "Temporary canvas for strategic initiatives or experiments",
+        "purpose": "Plan and track new ventures, pivots, or market tests",
+        "constraints": ["Should have an expiration/review date"]
+      }
+    ]
+  },
+
+  "reusable_entities": {
+    "description": "Operational entities that can be referenced across multiple canvases",
+    "sync_behavior": {
+      "default": "linked",
+      "linked": "Entity is single source of truth. Changes propagate to all canvases referencing it.",
+      "copied": "Canvas gets a snapshot. Changes don't propagate. User explicitly chooses this for customization."
+    },
+    "entities": [
+      {
+        "entity_id": "ENT014",
+        "name": "Resource",
+        "description": "Physical, intellectual, human, or financial assets",
+        "subtypes": ["People", "Asset", "Technology", "Financial", "Intellectual"],
+        "used_in_blocks": ["KeyResources", "CostStructure"],
+        "spec_status": "draft"
+      },
+      {
+        "entity_id": "ENT021",
+        "name": "Partner",
+        "description": "External organizations that contribute to the business model",
+        "attributes": ["contact_info", "contract_details", "partnership_type", "strategic_value"],
+        "used_in_blocks": ["KeyPartners"],
+        "spec_status": "draft"
+      },
+      {
+        "entity_id": "ENT022",
+        "name": "Channel",
+        "description": "Communication, distribution, and sales channels",
+        "subtypes": ["Direct", "Indirect", "Digital", "Physical", "Hybrid"],
+        "attributes": ["channel_type", "phases", "cost", "metrics"],
+        "used_in_blocks": ["Channels"],
+        "spec_status": "draft"
+      },
+      {
+        "entity_id": "ENT015",
+        "name": "Process",
+        "description": "Business processes that deliver value",
+        "used_in_blocks": ["KeyActivities", "CustomerRelationships", "CostStructure"],
+        "spec_status": "draft"
+      },
+      {
+        "entity_id": "ENT016",
+        "name": "Activity",
+        "description": "Discrete actions within processes",
+        "used_in_blocks": ["KeyActivities", "CostStructure"],
+        "spec_status": "draft"
+      },
+      {
+        "entity_id": "ENT023",
+        "name": "ValueProposition",
+        "description": "Specific value delivered to customers based on Value Proposition Canvas",
+        "attributes": ["customer_jobs", "pains", "gains", "pain_relievers", "gain_creators"],
+        "used_in_blocks": ["ValuePropositions"],
+        "spec_status": "draft"
+      },
+      {
+        "entity_id": "ENT024",
+        "name": "CustomerRelationship",
+        "description": "Types of relationships established with customer segments",
+        "subtypes": ["PersonalAssistance", "DedicatedAssistance", "SelfService", "AutomatedService", "Communities", "CoCreation"],
+        "attributes": ["purpose", "touchpoints", "lifecycle", "metrics", "cost"],
+        "used_in_blocks": ["CustomerRelationships"],
+        "spec_status": "draft"
+      },
+      {
+        "entity_id": "ENT025",
+        "name": "RevenueStream",
+        "description": "How the company generates revenue from each customer segment",
+        "subtypes": ["AssetSale", "UsageFee", "Subscription", "Licensing", "Brokerage", "Advertising", "Leasing", "Commission"],
+        "attributes": ["pricing_mechanism", "pricing", "revenue", "metrics", "willingness_to_pay"],
+        "used_in_blocks": ["RevenueStreams"],
+        "spec_status": "draft"
+      },
+      {
+        "entity_id": "ENT008",
+        "name": "Product",
+        "description": "Products and services offered",
+        "used_in_blocks": ["ValuePropositions", "RevenueStreams"],
+        "spec_status": "exists"
+      },
+      {
+        "entity_id": "ENT009",
+        "name": "Segment",
+        "description": "Customer segments",
+        "used_in_blocks": ["CustomerSegments"],
+        "spec_status": "exists"
+      }
+    ]
+  },
+
+  "block_to_entity_mapping": {
+    "description": "Defines which entity types are valid for each BMC block",
+    "mapping": {
+      "KeyPartners": ["Partner"],
+      "KeyActivities": ["Activity", "Process"],
+      "KeyResources": ["Resource"],
+      "ValuePropositions": ["ValueProposition", "Product"],
+      "CustomerRelationships": ["CustomerRelationship", "Process"],
+      "Channels": ["Channel"],
+      "CustomerSegments": ["Segment"],
+      "CostStructure": ["Resource", "Activity", "Process", "Partner"],
+      "RevenueStreams": ["RevenueStream", "Product"]
+    }
+  },
+
+  "ux_design": {
+    "philosophy": {
+      "summary": "World-class UX inspired by Notion, Linear, Figma, and Miro. Progressive disclosure, multiple views for different tasks, smooth transitions that preserve context.",
+      "principles": [
+        "Progressive disclosure - show just enough, reveal more on demand",
+        "Multiple views - same data, different lenses for different tasks",
+        "Smooth transitions - context preserved when switching views",
+        "Responsive - works on desktop, tablet, and mobile",
+        "Accessibility - keyboard navigation, screen reader support, high contrast"
+      ],
+      "anti_patterns": [
+        "Don't replicate physical Post-it limitations in digital",
+        "Don't force users into single view",
+        "Don't hide important information behind too many clicks",
+        "Don't make users scroll horizontally on desktop"
+      ]
+    },
+
+    "views": {
+      "description": "Three views for different tasks, seamlessly switchable",
+      "available_views": [
+        {
+          "id": "canvas",
+          "name": "Canvas View",
+          "purpose": "Strategic overview, visual thinking, presentations",
+          "when_to_use": ["Planning sessions", "Stakeholder presentations", "High-level strategy review"],
+          "inspiration": "Miro, FigJam"
+        },
+        {
+          "id": "kanban",
+          "name": "Kanban View",
+          "purpose": "Workflow management, status tracking, completeness",
+          "when_to_use": ["Managing items", "Tracking block completeness", "Team collaboration"],
+          "inspiration": "Linear, Trello"
+        },
+        {
+          "id": "list",
+          "name": "List/Table View",
+          "purpose": "Bulk editing, filtering, sorting, data analysis",
+          "when_to_use": ["Data entry", "Bulk operations", "Export preparation", "Detailed analysis"],
+          "inspiration": "Airtable, Notion"
+        }
+      ],
+      "view_switching": {
+        "location": "Top toolbar, persistent across navigation",
+        "behavior": "Instant switch, preserves filters and selections",
+        "keyboard_shortcut": "Cmd/Ctrl + 1/2/3"
+      }
+    },
+
+    "canvas_view": {
+      "description": "The primary view - beautiful 9-block BMC grid optimized for many items",
+      "layout": {
+        "grid": "Standard BMC 5-column, 3-row layout",
+        "responsive": {
+          "desktop": "Full 9-block grid visible",
+          "tablet": "2-column scrollable layout",
+          "mobile": "Single column, block accordion"
+        }
+      },
+      "block_display": {
+        "header": {
+          "elements": ["Block title", "Item count badge", "Health indicator (optional dot/ring)", "Expand button"],
+          "health_indicator": "Subtle - green/yellow/red dot or mini progress ring based on AI completeness score"
+        },
+        "items": {
+          "display_mode": "compact_chips",
+          "max_visible": 5,
+          "overflow_behavior": "'+N more...' link that opens side panel",
+          "chip_design": {
+            "content": "Name only (truncated if long)",
+            "color_coding": "By entity type or status (configurable)",
+            "indicators": ["Linked icon (if from company)", "Primary badge (if marked primary)"],
+            "max_width": "150px with ellipsis"
+          }
+        },
+        "empty_state": {
+          "message": "Click to add {block_type}",
+          "style": "Subtle dashed border, muted text"
+        }
+      },
+      "interactions": {
+        "hover_preview": {
+          "trigger": "Hover on chip for 300ms",
+          "content": "Tooltip card with: Name, Type, Description (truncated), Key metric",
+          "position": "Above or below chip, auto-positioned"
+        },
+        "click_chip": {
+          "action": "Open entity detail in side panel",
+          "panel_position": "Right side, 400px width"
+        },
+        "click_block_header": {
+          "action": "Open block in expanded side panel with all items"
+        },
+        "click_more_link": {
+          "action": "Open block in expanded side panel"
+        },
+        "drag_chip": {
+          "within_block": "Reorder items",
+          "between_blocks": "Move item (if entity type valid for target block)",
+          "visual_feedback": "Ghost chip, valid/invalid drop zone highlighting"
+        },
+        "keyboard": {
+          "tab": "Navigate between blocks",
+          "enter": "Open focused block",
+          "arrow_keys": "Navigate within block",
+          "escape": "Close panel"
+        }
+      },
+      "zoom_controls": {
+        "location": "Bottom-right corner",
+        "options": ["Fit all", "100%", "Zoom in/out"],
+        "keyboard": "Cmd/Ctrl + +/- and Cmd/Ctrl + 0"
+      },
+      "toolbar": {
+        "location": "Top of canvas",
+        "elements": [
+          "Canvas name (editable)",
+          "Canvas type badge",
+          "View switcher (Canvas/Kanban/List)",
+          "AI Analyze button",
+          "Share button",
+          "Export button (PDF/PNG)",
+          "More menu (Settings, Version history, Delete)"
+        ]
+      }
+    },
+
+    "block_expansion_panel": {
+      "description": "Side panel for viewing/editing all items in a block",
+      "trigger": "Click block header, '+N more', or double-click block",
+      "layout": {
+        "width": "400px (resizable)",
+        "position": "Right side, overlays canvas (canvas dims slightly)",
+        "animation": "Slide in from right, 200ms ease-out"
+      },
+      "content": {
+        "header": {
+          "elements": ["Block title", "Block description", "Close button"],
+          "block_note": "Editable summary note field below header"
+        },
+        "search": {
+          "placeholder": "Search {block_type}...",
+          "behavior": "Filter items in real-time"
+        },
+        "grouping": {
+          "enabled": true,
+          "group_by": "Entity subtype (e.g., People, Technology for Resources)",
+          "collapsible": true
+        },
+        "item_cards": {
+          "layout": "Vertical list of cards",
+          "card_content": {
+            "primary": "Name",
+            "secondary": "Type/subtype",
+            "tertiary": "Key metric or status",
+            "indicators": ["Linked badge", "Primary badge", "Drag handle"]
+          },
+          "card_actions": {
+            "hover": "Show edit, unlink/remove buttons",
+            "click": "Open entity detail panel (replaces block panel)",
+            "drag": "Reorder within block"
+          }
+        },
+        "add_section": {
+          "location": "Bottom of panel, sticky",
+          "options": [
+            {
+              "label": "Create New",
+              "action": "Open inline creation form or modal"
+            },
+            {
+              "label": "Link Existing",
+              "action": "Open entity picker with 'Available from Company' section"
+            }
+          ]
+        }
+      }
+    },
+
+    "entity_detail_panel": {
+      "description": "Side panel for viewing/editing a single entity",
+      "trigger": "Click entity chip or card",
+      "layout": {
+        "width": "450px",
+        "position": "Right side (replaces block panel if open)"
+      },
+      "content": {
+        "header": {
+          "elements": ["Entity type icon", "Name (editable)", "Close button"],
+          "breadcrumb": "Block name > Entity name (clickable to go back)"
+        },
+        "fields": {
+          "layout": "Form fields matching entity schema",
+          "auto_save": "Save on blur with subtle confirmation"
+        },
+        "context_section": {
+          "title": "Canvas Context",
+          "fields": ["Context note (this canvas only)", "Role (Primary/Supporting/etc)", "Highlight toggle"]
+        },
+        "usage_section": {
+          "title": "Used In",
+          "content": "List of canvases referencing this entity",
+          "item_format": "Canvas name - Block name",
+          "click_action": "Navigate to that canvas"
+        },
+        "actions": {
+          "footer_buttons": ["Save", "Unlink from canvas", "View full entity page"]
+        }
+      }
+    },
+
+    "kanban_view": {
+      "description": "Columns for each block, cards for each item",
+      "layout": {
+        "columns": "9 columns (one per BMC block), horizontal scroll",
+        "column_width": "280px fixed",
+        "responsive": {
+          "desktop": "Horizontal scroll for all columns",
+          "tablet": "Same, touch-friendly scroll",
+          "mobile": "Single column selector dropdown"
+        }
+      },
+      "column_design": {
+        "header": {
+          "elements": ["Block name", "Item count", "Add button", "Collapse toggle"]
+        },
+        "cards": {
+          "content": {
+            "title": "Entity name",
+            "subtitle": "Type or key attribute",
+            "badges": ["Status", "Linked indicator"],
+            "footer": "Key metric (optional)"
+          },
+          "size": "Compact but scannable"
+        },
+        "interactions": {
+          "drag_card": "Reorder within column",
+          "click_card": "Open entity detail panel",
+          "add_button": "Open quick-add dropdown"
+        }
+      },
+      "filtering": {
+        "location": "Top toolbar",
+        "options": ["Entity type", "Status", "Linked/Local", "Tags"]
+      },
+      "grouping": {
+        "options": ["By block (default)", "By entity type", "By status"]
+      }
+    },
+
+    "list_view": {
+      "description": "Table view for bulk operations and analysis",
+      "layout": {
+        "type": "Data table with sortable columns",
+        "responsive": {
+          "desktop": "Full table with all columns",
+          "tablet": "Horizontal scroll",
+          "mobile": "Card list instead of table"
+        }
+      },
+      "columns": {
+        "default_visible": ["Checkbox", "Name", "Block", "Type", "Status", "Cost", "Updated"],
+        "additional": ["Description", "Tags", "Created", "Linked", "Canvas count"],
+        "customizable": true,
+        "resizable": true
+      },
+      "interactions": {
+        "click_row": "Open entity detail panel",
+        "checkbox": "Select for bulk actions",
+        "column_header": "Sort ascending/descending",
+        "inline_edit": "Double-click cell for quick edit (where applicable)"
+      },
+      "bulk_actions": {
+        "trigger": "Appear when items selected",
+        "actions": ["Delete", "Change status", "Add tags", "Move to block", "Export"]
+      },
+      "filtering": {
+        "location": "Above table",
+        "type": "Filter bar with dropdowns and search",
+        "filters": ["Block", "Entity type", "Status", "Tags", "Date range"]
+      },
+      "pagination": {
+        "type": "Infinite scroll with 'Load more' fallback",
+        "page_size": 50
+      }
+    },
+
+    "entity_picker": {
+      "description": "Modal/panel for selecting entities to add to a block",
+      "trigger": "'Link Existing' button in add section",
+      "layout": {
+        "type": "Modal or slide-over panel",
+        "width": "500px"
+      },
+      "sections": {
+        "search": {
+          "placeholder": "Search all {entity_type}s...",
+          "behavior": "Search across name, description, tags"
+        },
+        "available_from_company": {
+          "title": "Available from Company Canvas",
+          "description": "Shared resources you can link",
+          "display": "List of entities from company canvas not yet in this product canvas",
+          "badge": "Shows if already used in other product canvases"
+        },
+        "all_entities": {
+          "title": "All {Entity Type}s",
+          "description": "All entities in your organization",
+          "display": "Searchable list with type filters"
+        },
+        "ai_suggestions": {
+          "title": "Suggested for You",
+          "description": "AI-recommended based on similar canvases",
+          "display": "3-5 suggestions with reason tooltip"
+        }
+      },
+      "selection": {
+        "type": "Single or multi-select",
+        "action_button": "Add Selected (N)",
+        "link_copy_toggle": "Link (recommended) / Copy"
+      }
+    },
+
+    "quick_add": {
+      "description": "Fast inline creation without leaving context",
+      "trigger": "'+' button in block or 'Create New' option",
+      "options": [
+        {
+          "type": "inline",
+          "description": "Name-only field that expands",
+          "flow": "Type name > Press Enter > Entity created with defaults > Click to expand and edit"
+        },
+        {
+          "type": "modal",
+          "description": "Full creation form",
+          "flow": "Click 'Create New' > Modal with full form > Save > Added to block"
+        }
+      ],
+      "smart_defaults": {
+        "enabled": true,
+        "examples": [
+          "Block type determines entity type",
+          "Status defaults to 'Active'",
+          "Linked to company canvas by default"
+        ]
+      }
+    },
+
+    "responsive_design": {
+      "breakpoints": {
+        "desktop": ">= 1280px",
+        "tablet": "768px - 1279px",
+        "mobile": "< 768px"
+      },
+      "desktop": {
+        "canvas": "Full 9-block grid",
+        "panels": "Side panels overlay",
+        "navigation": "Full sidebar + top toolbar"
+      },
+      "tablet": {
+        "canvas": "2-column grid, vertical scroll",
+        "panels": "Full-width slide-over",
+        "navigation": "Collapsible sidebar, full toolbar"
+      },
+      "mobile": {
+        "canvas": "Single column accordion blocks",
+        "panels": "Full-screen modals",
+        "navigation": "Bottom tab bar, hamburger menu"
+      }
+    },
+
+    "theming": {
+      "color_coding": {
+        "entity_types": {
+          "Partner": "#8B5CF6 (purple)",
+          "Resource": "#3B82F6 (blue)",
+          "Activity": "#F59E0B (amber)",
+          "Process": "#10B981 (emerald)",
+          "Channel": "#EC4899 (pink)",
+          "Segment": "#6366F1 (indigo)",
+          "ValueProposition": "#14B8A6 (teal)",
+          "CustomerRelationship": "#F97316 (orange)",
+          "RevenueStream": "#22C55E (green)",
+          "Product": "#EF4444 (red)"
+        },
+        "usage": "Chip backgrounds, card accents, icons"
+      },
+      "dark_mode": {
+        "supported": true,
+        "auto_detect": "System preference",
+        "manual_toggle": "Settings"
+      }
+    },
+
+    "animations": {
+      "philosophy": "Subtle, purposeful, performant. Never block interaction.",
+      "examples": {
+        "panel_open": "200ms ease-out slide from right",
+        "chip_add": "150ms scale-in with fade",
+        "chip_remove": "150ms scale-out with fade",
+        "view_switch": "200ms cross-fade",
+        "drag_feedback": "Ghost element follows cursor, drop zones highlight"
+      },
+      "reduced_motion": "Respect prefers-reduced-motion, instant transitions"
+    },
+
+    "empty_states": {
+      "new_canvas": {
+        "illustration": "Friendly BMC illustration",
+        "headline": "Start Building Your Business Model",
+        "description": "Add your first items to begin mapping your strategy",
+        "actions": ["Start with Value Proposition", "Import from template", "Get AI suggestions"]
+      },
+      "empty_block": {
+        "style": "Subtle dashed border",
+        "text": "Add your first {block_type}",
+        "action": "Click or drag to add"
+      },
+      "no_search_results": {
+        "text": "No items match your search",
+        "action": "Clear filters or create new"
+      }
+    },
+
+    "loading_states": {
+      "canvas_load": "Skeleton grid with pulsing blocks",
+      "panel_load": "Skeleton lines in panel",
+      "ai_analysis": "Progress indicator with status messages",
+      "save": "Subtle spinner on save button, success checkmark"
+    },
+
+    "error_states": {
+      "save_failed": "Inline error message with retry button",
+      "load_failed": "Error card with retry option",
+      "validation": "Field-level errors with clear messages"
+    }
+  },
+
+  "product_canvas_creation": {
+    "description": "Behavior when creating a new product canvas",
+    "approach": "hybrid",
+    "behavior": [
+      "Canvas starts empty (no auto-populated items)",
+      "Sidebar shows 'Available from Company' section with company-level entities",
+      "One-click to link company resources, partners, etc. to product canvas",
+      "Value Propositions, Revenue Streams, Customer Segments always start empty (product-specific)",
+      "AI suggests: 'Similar products use these partners/resources, add them?'",
+      "User makes intentional decisions about what's shared vs unique"
+    ],
+    "smart_suggestions": {
+      "enabled": true,
+      "sources": [
+        "Company canvas items",
+        "Items from similar products (if any)",
+        "Industry best practices (AI-generated)"
+      ]
+    }
+  },
+
+  "capabilities": [
+    {
+      "id": "F004-C01",
+      "name": "Company Canvas Management",
+      "description": "As an organization admin, I want to create and manage a master company canvas so that I can define shared organizational resources and capabilities",
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "Given I am an org admin, when I navigate to Canvas, then I see the company canvas (or option to create it)",
+        "Given no company canvas exists, when I create one, then it becomes the master template",
+        "Given a company canvas exists, when I add a Partner, then it becomes available to all product canvases",
+        "Given I update a linked Resource, when I save, then the change reflects in all product canvases using it"
+      ]
+    },
+    {
+      "id": "F004-C02",
+      "name": "Product Canvas Creation",
+      "description": "As a product manager, I want to create a canvas for my product so that I can plan its commercial and marketing strategy",
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "Given I have a Product entity, when I create its canvas, then I see an empty BMC layout",
+        "Given I'm on a product canvas, when I open Add panel, then I see 'Available from Company' section",
+        "Given company has Resources, when I click 'Add' on one, then it links to my product canvas",
+        "Given I add a linked item, when I view it, then I see indicator showing it's linked to company"
+      ]
+    },
+    {
+      "id": "F004-C03",
+      "name": "Entity Reference Management",
+      "description": "As a user, I want to add, link, and manage entity references within canvas blocks so that I can build my business model",
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "Given I'm on a canvas block, when I click Add, then I can create new entity or link existing",
+        "Given I link an existing entity, when it updates elsewhere, then my canvas shows the update",
+        "Given I want independence, when I add an entity, then I can choose 'Copy' instead of 'Link'",
+        "Given I copied an entity, when the original updates, then my copy remains unchanged",
+        "Given an entity is used in 3 canvases, when I view it, then I see 'Used in 3 canvases' indicator"
+      ]
+    },
+    {
+      "id": "F004-C04",
+      "name": "Canvas Block Editing",
+      "description": "As a user, I want to edit canvas blocks with notes and organize references so that I can capture strategic context",
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "Given I'm on a block, when I add a summary note, then it saves and displays in the block",
+        "Given I have multiple references, when I drag them, then I can reorder within the block",
+        "Given I want to highlight importance, when I mark a reference as 'Primary', then it's visually emphasized",
+        "Given I add context, when I edit reference's context note, then it saves per-canvas context"
+      ]
+    },
+    {
+      "id": "F004-C05",
+      "name": "Multi-View Canvas Experience",
+      "description": "As a user, I want to view and interact with my canvas in multiple views (Canvas, Kanban, List) so that I can work effectively for different tasks",
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "Given I open a canvas, when it loads, then I see the Canvas View with 9-block BMC grid",
+        "Given I'm in Canvas View, when blocks have many items, then I see compact chips with '+N more' overflow",
+        "Given I click '+N more' or block header, when panel opens, then I see all items with search and grouping",
+        "Given I hover on a chip, when 300ms passes, then I see a preview tooltip with key info",
+        "Given I want workflow view, when I click Kanban toggle, then I see columns for each block with draggable cards",
+        "Given I want bulk operations, when I click List toggle, then I see a sortable/filterable table",
+        "Given I switch views, when the view changes, then my filters and selections are preserved",
+        "Given I want to print, when I export from Canvas View, then I get a clean PDF of the canvas"
+      ]
+    },
+    {
+      "id": "F004-C05a",
+      "name": "Canvas View Interactions",
+      "description": "As a user, I want rich interactions in Canvas View so that I can work efficiently without context switching",
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "Given I'm in Canvas View, when I click a chip, then entity detail panel opens on the right",
+        "Given entity panel is open, when I edit and blur a field, then changes auto-save",
+        "Given I have multiple items, when I drag a chip within a block, then items reorder",
+        "Given entity type is valid, when I drag a chip to another block, then it moves to that block",
+        "Given I'm on keyboard, when I press Tab, then I navigate between blocks",
+        "Given a block is focused, when I press Enter, then the block expansion panel opens"
+      ]
+    },
+    {
+      "id": "F004-C06",
+      "name": "Cross-Canvas Entity View",
+      "description": "As a user, I want to see where an entity is used across canvases so that I understand its impact",
+      "priority": "should-have",
+      "acceptance_criteria": [
+        "Given I view a Resource, when I check 'Used In', then I see list of all canvases referencing it",
+        "Given I view entity usage, when I see a canvas link, then I can navigate to that canvas",
+        "Given I want to unlink, when I remove from one canvas, then other canvases are unaffected"
+      ]
+    },
+    {
+      "id": "F004-C07",
+      "name": "AI Canvas Analysis",
+      "description": "As a user, I want AI to analyze my canvas so that I can identify gaps and get suggestions",
+      "priority": "should-have",
+      "acceptance_criteria": [
+        "Given I have a canvas, when I request AI analysis, then I get completeness score per block",
+        "Given blocks are incomplete, when AI analyzes, then I get specific suggestions to fill gaps",
+        "Given I have company and product canvases, when AI compares, then it identifies inconsistencies",
+        "Given I'm creating product canvas, when AI suggests, then it recommends relevant company items"
+      ]
+    },
+    {
+      "id": "F004-C08",
+      "name": "Canvas Versioning",
+      "description": "As a user, I want to version my canvas so that I can track strategic evolution",
+      "priority": "could-have",
+      "acceptance_criteria": [
+        "Given I make significant changes, when I save version, then a snapshot is preserved",
+        "Given I have versions, when I view history, then I see timeline of changes",
+        "Given I want to compare, when I select two versions, then I see diff view"
+      ]
+    }
+  ],
+
+  "entities": [
+    "ENT011",
+    "ENT012",
+    "ENT013",
+    "ENT014",
+    "ENT015",
+    "ENT016",
+    "ENT021",
+    "ENT022",
+    "ENT023",
+    "ENT024",
+    "ENT025",
+    "ENT008",
+    "ENT009"
+  ],
+
+  "api_endpoints": [
+    {
+      "method": "GET",
+      "path": "/api/organizations/{orgId}/canvases",
+      "description": "List all canvases for organization",
+      "response": "CanvasDto[]"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{orgId}/canvases/company",
+      "description": "Get the company (organization-level) canvas",
+      "response": "CanvasDto"
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizations/{orgId}/canvases",
+      "description": "Create a new canvas",
+      "request_body": "CreateCanvasDto",
+      "response": "CanvasDto"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{orgId}/canvases/{canvasId}",
+      "description": "Get canvas with all blocks and references",
+      "response": "CanvasDetailDto"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/organizations/{orgId}/canvases/{canvasId}",
+      "description": "Update canvas metadata",
+      "request_body": "UpdateCanvasDto",
+      "response": "CanvasDto"
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizations/{orgId}/canvases/{canvasId}/blocks",
+      "description": "Add a block to canvas",
+      "request_body": "CreateCanvasBlockDto",
+      "response": "CanvasBlockDto"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/organizations/{orgId}/canvases/{canvasId}/blocks/{blockId}",
+      "description": "Update block (notes, position)",
+      "request_body": "UpdateCanvasBlockDto",
+      "response": "CanvasBlockDto"
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizations/{orgId}/canvases/{canvasId}/blocks/{blockId}/references",
+      "description": "Add entity reference to block",
+      "request_body": "CreateBlockReferenceDto",
+      "response": "BlockReferenceDto"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/organizations/{orgId}/canvases/{canvasId}/blocks/{blockId}/references/{refId}",
+      "description": "Update reference (context note, role, order)",
+      "request_body": "UpdateBlockReferenceDto",
+      "response": "BlockReferenceDto"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/organizations/{orgId}/canvases/{canvasId}/blocks/{blockId}/references/{refId}",
+      "description": "Remove reference from block",
+      "response": "204 No Content"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{orgId}/canvases/{canvasId}/suggestions",
+      "description": "Get AI suggestions for canvas (items from company, similar products)",
+      "response": "CanvasSuggestionsDto"
+    },
+    {
+      "method": "POST",
+      "path": "/api/organizations/{orgId}/canvases/{canvasId}/analyze",
+      "description": "Run AI analysis on canvas",
+      "response": "CanvasAnalysisDto"
+    },
+    {
+      "method": "GET",
+      "path": "/api/organizations/{orgId}/entities/{entityType}/{entityId}/usage",
+      "description": "Get all canvases where an entity is referenced",
+      "response": "EntityUsageDto"
+    }
+  ],
+
+  "ui_screens": [
+    {
+      "id": "SCR-CNV-01",
+      "name": "Canvas List",
+      "description": "Overview of all canvases with company canvas prominently displayed at top",
+      "route": "/app/canvases",
+      "components": ["CanvasCard", "CanvasGrid", "CreateCanvasButton"]
+    },
+    {
+      "id": "SCR-CNV-02",
+      "name": "Canvas Editor - Canvas View",
+      "description": "Primary view: Beautiful 9-block BMC grid with compact chips, expandable blocks",
+      "route": "/app/canvases/{id}?view=canvas",
+      "components": ["CanvasGrid", "BlockChips", "BlockExpansionPanel", "EntityDetailPanel", "CanvasToolbar"]
+    },
+    {
+      "id": "SCR-CNV-03",
+      "name": "Canvas Editor - Kanban View",
+      "description": "Columns for each block, draggable cards for workflow management",
+      "route": "/app/canvases/{id}?view=kanban",
+      "components": ["KanbanBoard", "KanbanColumn", "EntityCard", "EntityDetailPanel", "CanvasToolbar"]
+    },
+    {
+      "id": "SCR-CNV-04",
+      "name": "Canvas Editor - List View",
+      "description": "Table view for bulk editing, filtering, sorting all canvas items",
+      "route": "/app/canvases/{id}?view=list",
+      "components": ["DataTable", "FilterBar", "BulkActionsBar", "EntityDetailPanel", "CanvasToolbar"]
+    },
+    {
+      "id": "SCR-CNV-05",
+      "name": "Entity Library",
+      "description": "Browse and manage all reusable entities across the organization",
+      "route": "/app/entities",
+      "components": ["EntityTable", "EntityFilters", "CreateEntityButton"]
+    },
+    {
+      "id": "SCR-CNV-06",
+      "name": "Entity Detail Page",
+      "description": "Full page view/edit for entity with 'Used In' showing all canvas references",
+      "route": "/app/entities/{type}/{id}",
+      "components": ["EntityForm", "UsageList", "ActivityLog"]
+    },
+    {
+      "id": "SCR-CNV-07",
+      "name": "Block Expansion Panel",
+      "description": "Side panel showing all items in a block with grouping and search",
+      "route": "Panel within Canvas Editor",
+      "components": ["PanelHeader", "SearchInput", "GroupedItemList", "AddEntitySection"]
+    },
+    {
+      "id": "SCR-CNV-08",
+      "name": "Entity Detail Panel",
+      "description": "Side panel for viewing/editing single entity with canvas context",
+      "route": "Panel within Canvas Editor",
+      "components": ["EntityForm", "ContextFields", "UsageSection", "ActionButtons"]
+    },
+    {
+      "id": "SCR-CNV-09",
+      "name": "Entity Picker Modal",
+      "description": "Modal for selecting existing entities to link, with 'Available from Company' section",
+      "route": "Modal within Canvas Editor",
+      "components": ["SearchInput", "CompanySuggestions", "EntityList", "SelectionFooter"]
+    },
+    {
+      "id": "SCR-CNV-10",
+      "name": "AI Analysis Panel",
+      "description": "Panel showing AI analysis results: completeness scores, suggestions, warnings",
+      "route": "Panel within Canvas Editor",
+      "components": ["HealthScoreCard", "BlockScores", "SuggestionsList", "WarningsList"]
+    }
+  ],
+
+  "security_requirements": [
+    "All canvas operations require authentication",
+    "Canvas access scoped by organization membership",
+    "Company canvas creation requires Admin role",
+    "Product canvas creation requires Editor role or higher",
+    "Entity creation requires Editor role or higher",
+    "Viewing canvases requires Viewer role or higher"
+  ],
+
+  "performance_requirements": [
+    "Canvas list load < 200ms for P95",
+    "Canvas detail load (with blocks and references) < 500ms for P95",
+    "Add reference to block < 200ms for P95",
+    "AI analysis < 5s for P95 (async with loading indicator)",
+    "Support canvases with up to 100 references total"
+  ],
+
+  "dependencies": {
+    "features": ["F001-authentication", "F002-super-admin"],
+    "entities": ["ENT002-organization", "ENT003-user", "ENT008-product", "ENT009-segment"],
+    "external_services": ["OpenAI API for AI analysis (optional)"]
+  },
+
+  "implementation_phases": [
+    {
+      "phase": 1,
+      "name": "Core Canvas",
+      "scope": ["Canvas CRUD", "Block management", "Basic BMC view"],
+      "capabilities": ["F004-C01 (partial)", "F004-C05"]
+    },
+    {
+      "phase": 2,
+      "name": "Reusable Entities",
+      "scope": ["Entity definitions", "Block references", "Link/copy behavior"],
+      "capabilities": ["F004-C02", "F004-C03", "F004-C04"]
+    },
+    {
+      "phase": 3,
+      "name": "Cross-Canvas Features",
+      "scope": ["Entity usage tracking", "Smart suggestions", "Company-to-product linking"],
+      "capabilities": ["F004-C06"]
+    },
+    {
+      "phase": 4,
+      "name": "AI Features",
+      "scope": ["Canvas analysis", "Completeness scoring", "Gap suggestions"],
+      "capabilities": ["F004-C07"]
+    },
+    {
+      "phase": 5,
+      "name": "Advanced",
+      "scope": ["Versioning", "Export/Print", "Comparison views"],
+      "capabilities": ["F004-C08"]
+    }
+  ],
+
+  "test_coverage": {
+    "unit_tests": [
+      "Canvas validation rules",
+      "Block type constraints",
+      "Reference link/copy behavior",
+      "Entity type to block mapping"
+    ],
+    "integration_tests": [
+      "Canvas CRUD API",
+      "Reference propagation when entity updated",
+      "Multi-tenancy isolation",
+      "Company canvas singleton constraint"
+    ],
+    "e2e_tests": [
+      "Create company canvas and add entities",
+      "Create product canvas and link company items",
+      "Edit entity and verify update in linked canvases",
+      "Copy entity and verify independence"
+    ]
+  }
+}
