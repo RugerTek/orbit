@@ -216,7 +216,7 @@ public class OperationsControllerTests : IClassFixture<OperationsTestFactory>
         createdResource.Should().NotBeNull();
         createdResource!.Name.Should().Be("Test Person");
         createdResource.Description.Should().Be("Senior Developer");
-        createdResource.ResourceType.Should().Be(0); // Person = 0
+        createdResource.ResourceType.Should().Be("Person"); // Enum serialized as PascalCase string
         createdResource.Id.Should().NotBe(Guid.Empty);
     }
 
@@ -349,12 +349,13 @@ public class OperationsControllerTests : IClassFixture<OperationsTestFactory>
 }
 
 // DTOs for Operations tests
+// Note: Enums are serialized as PascalCase strings due to JsonStringEnumConverter
 public record ResourceSubtypeDto
 {
     public Guid Id { get; init; }
     public string Name { get; init; } = "";
     public string? Description { get; init; }
-    public int ResourceType { get; init; }
+    public string ResourceType { get; init; } = ""; // Enum serialized as string (e.g., "Person", "Tool")
     public string? Icon { get; init; }
     public Guid OrganizationId { get; init; }
     public DateTime CreatedAt { get; init; }
@@ -366,12 +367,12 @@ public record ResourceDto
     public Guid Id { get; init; }
     public string Name { get; init; } = "";
     public string? Description { get; init; }
-    public int Status { get; init; }
+    public string Status { get; init; } = ""; // Enum serialized as string (e.g., "Active", "Inactive")
     public string? Metadata { get; init; }
     public Guid OrganizationId { get; init; }
     public Guid ResourceSubtypeId { get; init; }
     public string ResourceSubtypeName { get; init; } = "";
-    public int ResourceType { get; init; }
+    public string ResourceType { get; init; } = ""; // Enum serialized as string (e.g., "Person", "Tool")
     public Guid? LinkedUserId { get; init; }
     public string? LinkedUserName { get; init; }
     public DateTime CreatedAt { get; init; }
