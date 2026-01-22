@@ -30,6 +30,7 @@ public class GoalsController : ControllerBase
         var query = _dbContext.Goals
             .Include(g => g.Parent)
             .Include(g => g.Owner)
+            .Include(g => g.Children)
             .Where(g => g.OrganizationId == organizationId);
 
         if (type.HasValue)
@@ -64,7 +65,28 @@ public class GoalsController : ControllerBase
                 OwnerId = g.OwnerId,
                 OwnerName = g.Owner != null ? g.Owner.Name : null,
                 CreatedAt = g.CreatedAt,
-                UpdatedAt = g.UpdatedAt
+                UpdatedAt = g.UpdatedAt,
+                Children = g.Children.Select(c => new GoalDto
+                {
+                    Id = c.Id,
+                    Name = c.Name,
+                    Description = c.Description,
+                    GoalType = c.GoalType,
+                    Status = c.Status,
+                    TimeframeStart = c.TimeframeStart,
+                    TimeframeEnd = c.TimeframeEnd,
+                    TargetValue = c.TargetValue,
+                    CurrentValue = c.CurrentValue,
+                    Unit = c.Unit,
+                    Progress = c.TargetValue.HasValue && c.TargetValue.Value != 0
+                        ? (c.CurrentValue ?? 0) / c.TargetValue.Value * 100
+                        : null,
+                    OrganizationId = c.OrganizationId,
+                    ParentId = c.ParentId,
+                    OwnerId = c.OwnerId,
+                    CreatedAt = c.CreatedAt,
+                    UpdatedAt = c.UpdatedAt
+                }).ToList()
             })
             .OrderBy(g => g.Name)
             .ToListAsync();

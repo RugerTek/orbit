@@ -54,6 +54,11 @@ public class Conversation : BaseEntity
     public long? MaxTokens { get; set; }
 
     /// <summary>
+    /// JSON-serialized EmergentModeSettings for Emergent mode conversations
+    /// </summary>
+    public string? EmergentSettingsJson { get; set; }
+
+    /// <summary>
     /// Timestamp of the most recent message
     /// </summary>
     public DateTime? LastMessageAt { get; set; }
@@ -99,7 +104,13 @@ public enum ConversationMode
     /// <summary>
     /// All AI agents may respond freely (can lead to high token usage)
     /// </summary>
-    Free
+    Free,
+
+    /// <summary>
+    /// Agents self-moderate using relevance scoring - only respond if they have valuable input.
+    /// Supports multiple rounds where agents react to each other's responses.
+    /// </summary>
+    Emergent
 }
 
 /// <summary>

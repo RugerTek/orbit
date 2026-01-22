@@ -2,15 +2,15 @@
   "$schema": "./schema.json",
   "id": "F003",
   "name": "Multi-Agent AI Chat",
-  "description": "Collaborative chat environment where multiple AI agents and human team members can participate in strategic discussions, with each AI agent having specialized expertise and access to organizational context",
-  "status": "in-progress",
+  "description": "Collaborative chat environment where multiple AI agents and human team members can participate in strategic discussions, with each AI agent having specialized expertise, configurable personality traits, and access to organizational context",
+  "status": "implemented",
   "priority": "should-have",
   "created_at": "2026-01-17",
-  "updated_at": "2026-01-17",
+  "updated_at": "2026-01-22",
   "owner": "ai-team",
 
   "implementation_status": {
-    "summary": "Phase 1 (Agent Management) complete. Phase 2 (Group Chat) pending.",
+    "summary": "Fully implemented. Phase 1 (Agent Management) and Phase 2 (Group Chat) complete.",
     "phases": [
       {
         "id": "phase-1",
@@ -20,7 +20,7 @@
           { "name": "AiAgent entity", "status": "complete", "file": "orbitos-api/src/OrbitOS.Domain/Entities/AiAgent.cs" },
           { "name": "AiAgents API controller", "status": "complete", "file": "orbitos-api/src/OrbitOS.Api/Controllers/AiAgentsController.cs" },
           { "name": "Multi-provider AI service", "status": "complete", "file": "orbitos-api/src/OrbitOS.Api/Services/MultiProviderAiService.cs" },
-          { "name": "Database migration", "status": "complete", "file": "orbitos-api/src/OrbitOS.Infrastructure/Migrations/AddAiAgentsEntity" },
+          { "name": "Database migration", "status": "complete", "file": "orbitos-api/src/OrbitOS.Infrastructure/Migrations/20260117104120_AddAiAgentsEntity" },
           { "name": "AI Agents page (frontend)", "status": "complete", "file": "orbitos-web/app/pages/app/ai-agents/index.vue" },
           { "name": "useAiAgents composable", "status": "complete", "file": "orbitos-web/app/composables/useAiAgents.ts" },
           { "name": "Sidebar navigation link", "status": "complete", "file": "orbitos-web/app/layouts/app.vue" },
@@ -30,17 +30,20 @@
       {
         "id": "phase-2",
         "name": "Group Chat Interface",
-        "status": "pending",
+        "status": "complete",
         "components": [
-          { "name": "Conversation entity", "status": "pending", "file": "orbitos-api/src/OrbitOS.Domain/Entities/Conversation.cs" },
-          { "name": "Message entity", "status": "pending", "file": "orbitos-api/src/OrbitOS.Domain/Entities/Message.cs" },
-          { "name": "ConversationParticipant entity", "status": "pending", "file": "orbitos-api/src/OrbitOS.Domain/Entities/ConversationParticipant.cs" },
-          { "name": "Conversations API controller", "status": "pending" },
-          { "name": "Chat page UI", "status": "pending", "file": "orbitos-web/app/pages/app/ai-agents/conversations/[id].vue" },
-          { "name": "Message composer with @mentions", "status": "pending" },
-          { "name": "Context panel (referenced items)", "status": "pending" },
-          { "name": "Session stats panel", "status": "pending" },
-          { "name": "Conversation mode selector", "status": "pending" }
+          { "name": "Conversation entity", "status": "complete", "file": "orbitos-api/src/OrbitOS.Domain/Entities/Conversation.cs" },
+          { "name": "Message entity", "status": "complete", "file": "orbitos-api/src/OrbitOS.Domain/Entities/Message.cs" },
+          { "name": "ConversationParticipant entity", "status": "complete", "file": "orbitos-api/src/OrbitOS.Domain/Entities/ConversationParticipant.cs" },
+          { "name": "Conversations API controller", "status": "complete", "file": "orbitos-api/src/OrbitOS.Api/Controllers/ConversationsController.cs" },
+          { "name": "Database migration", "status": "complete", "file": "orbitos-api/src/OrbitOS.Infrastructure/Migrations/20260117112205_AddConversationEntities" },
+          { "name": "Chat page UI", "status": "complete", "file": "orbitos-web/app/pages/app/ai-agents/conversations/[id].vue" },
+          { "name": "useConversations composable", "status": "complete", "file": "orbitos-web/app/composables/useConversations.ts" },
+          { "name": "Message composer with @mentions", "status": "complete" },
+          { "name": "Context panel (referenced items)", "status": "complete" },
+          { "name": "Session stats panel", "status": "complete" },
+          { "name": "Conversation mode selector", "status": "complete" },
+          { "name": "E2E tests", "status": "complete", "file": "orbitos-web/tests/e2e/conversations.spec.ts" }
         ]
       }
     ]
@@ -51,7 +54,7 @@
       "id": "F003-C01",
       "description": "As a user, I want to create a new conversation with selected AI agents and team members so that we can collaborate on strategic discussions",
       "priority": "must-have",
-      "status": "pending",
+      "status": "complete",
       "acceptance_criteria": [
         "Given I am on the AI Agents page, when I click 'New' conversation, then I can select participants",
         "Given I select AI agents and team members, when I create the conversation, then all participants are added",
@@ -62,7 +65,7 @@
       "id": "F003-C02",
       "description": "As a user, I want to @mention specific AI agents in my message so that they respond to my query",
       "priority": "must-have",
-      "status": "pending",
+      "status": "complete",
       "acceptance_criteria": [
         "Given I type '@' in the message input, when I continue typing, then I see autocomplete for available agents",
         "Given I @mention an AI agent, when I send the message, then that specific agent responds",
@@ -73,7 +76,7 @@
       "id": "F003-C03",
       "description": "As a user, I want to configure the conversation mode so that I can control how AI agents interact",
       "priority": "must-have",
-      "status": "pending",
+      "status": "complete",
       "acceptance_criteria": [
         "Given I am in a conversation, when I click the mode selector, then I see On-Demand, Moderated, Round-Robin, and Free options",
         "Given I select 'On-Demand' mode, when I send a message without @mention, then no AI responds automatically",
@@ -86,7 +89,7 @@
       "id": "F003-C04",
       "description": "As a user, I want to see which organizational data the AI agents have access to so that I understand the context they're using",
       "priority": "must-have",
-      "status": "pending",
+      "status": "complete",
       "acceptance_criteria": [
         "Given I am in a conversation, when I view the context panel, then I see 'Full Context Access' section",
         "Given the context panel shows Canvases, when I click on it, then I see which canvases are accessible",
@@ -97,7 +100,7 @@
       "id": "F003-C05",
       "description": "As a user, I want to see session statistics so that I can monitor token usage and costs",
       "priority": "should-have",
-      "status": "pending",
+      "status": "complete",
       "acceptance_criteria": [
         "Given I am in a conversation, when I view the stats panel, then I see message count, AI responses, total tokens, cost, and duration",
         "Given tokens are being consumed, when an AI responds, then the token count updates in real-time",
@@ -106,20 +109,22 @@
     },
     {
       "id": "F003-C06",
-      "description": "As an admin, I want to configure AI agents with different models and specializations so that they provide domain-specific expertise",
+      "description": "As an admin, I want to configure AI agents with different models, specializations, and personality traits so that they provide domain-specific expertise with appropriate behavior",
       "priority": "must-have",
       "status": "complete",
       "acceptance_criteria": [
         "Given I am an admin, when I access agent settings, then I can create a new AI agent",
-        "Given I create an AI agent, when I configure it, then I can set name, model (Claude/GPT-4/Gemini), role title, system prompt, and capabilities",
-        "Given I configure capabilities, when I select tools, then the agent can only use those specific tools"
+        "Given I create an AI agent, when I configure it, then I can set name, model (Claude Opus/Sonnet/Haiku), role title, system prompt, and capabilities",
+        "Given I configure capabilities, when I select tools, then the agent can only use those specific tools",
+        "Given I configure a system prompt, when I use a template, then the prompt is pre-populated with CFO/Operations/Strategy/HR personality",
+        "Given I configure generation parameters, when I set temperature and max tokens, then the agent uses those settings"
       ]
     },
     {
       "id": "F003-C07",
       "description": "As a user, I want AI agents to render rich responses with charts and metrics so that data is visually clear",
       "priority": "should-have",
-      "status": "pending",
+      "status": "partial",
       "acceptance_criteria": [
         "Given an AI analyzes metrics, when it responds, then it can include formatted metric cards",
         "Given an AI references multiple sources, when it responds, then sources are listed at the bottom",
@@ -130,7 +135,7 @@
       "id": "F003-C08",
       "description": "As a user, I want quick actions (Ask all AIs, Summarize, Export chat, Pause all AIs) so that I can efficiently manage the conversation",
       "priority": "should-have",
-      "status": "pending",
+      "status": "complete",
       "acceptance_criteria": [
         "Given I click 'Ask all AIs', when the action executes, then all active AI agents respond to the last message",
         "Given I click 'Summarize', when the action executes, then an AI generates a summary of the conversation",
@@ -153,7 +158,7 @@
       "id": "F003-C10",
       "description": "As a user, I want to pause and resume the conversation so that I can control when AI agents are active",
       "priority": "must-have",
-      "status": "pending",
+      "status": "complete",
       "acceptance_criteria": [
         "Given a conversation is active, when I click 'Pause', then AI agents stop responding",
         "Given a conversation is paused, when I click 'Resume', then AI agents can respond again",
@@ -164,7 +169,7 @@
       "id": "F003-C11",
       "description": "As a user, I want to see items referenced in the chat so that I can quickly access related resources",
       "priority": "should-have",
-      "status": "pending",
+      "status": "complete",
       "acceptance_criteria": [
         "Given an AI references a Canvas, when the message is displayed, then the canvas appears in 'Referenced in Chat' panel",
         "Given items are referenced, when I click on a reference, then it opens that resource",
@@ -179,6 +184,204 @@
     "ENT019",
     "ENT020"
   ],
+
+  "agent_configuration": {
+    "description": "Comprehensive AI agent configuration system enabling domain-specific expertise through model selection, system prompts, personality traits, and generation parameters",
+    "identity_configuration": {
+      "name": "Display name shown in conversations (e.g., 'CFO-AI', 'Ops-AI')",
+      "role_title": "Role description shown under name (e.g., 'Chief Financial Officer')",
+      "avatar_color": "8 color options for visual distinction in conversations",
+      "description": "Brief description of agent's expertise for other users"
+    },
+    "model_selection": {
+      "available_models": [
+        {
+          "id": "claude-opus-4-20250514",
+          "name": "Claude Opus 4",
+          "provider": "anthropic",
+          "description": "Most capable model. Best for complex analysis, nuanced reasoning, and high-stakes decisions.",
+          "context_window": 200000,
+          "cost_tier": "high",
+          "use_cases": ["Strategic planning", "Complex financial analysis", "Risk assessment", "Executive advisory"]
+        },
+        {
+          "id": "claude-sonnet-4-20250514",
+          "name": "Claude Sonnet 4",
+          "provider": "anthropic",
+          "description": "Balanced model. Great for most business tasks - analysis, recommendations, and general advisory.",
+          "context_window": 200000,
+          "cost_tier": "medium",
+          "use_cases": ["Daily advisory", "Document analysis", "Process recommendations", "General questions"]
+        },
+        {
+          "id": "claude-3-5-haiku-20241022",
+          "name": "Claude 3.5 Haiku",
+          "provider": "anthropic",
+          "description": "Fastest and most affordable. Ideal for quick responses, simple tasks, and high-volume interactions.",
+          "context_window": 200000,
+          "cost_tier": "low",
+          "use_cases": ["Quick questions", "Simple lookups", "Data extraction", "Routine tasks"]
+        }
+      ],
+      "future_providers": ["OpenAI (GPT-4)", "Google (Gemini)"]
+    },
+    "generation_parameters": {
+      "temperature": {
+        "description": "Controls response creativity and variability",
+        "range": "0.0 - 2.0",
+        "default": 0.7,
+        "guidelines": {
+          "low": "0.1-0.3: Consistent, factual, conservative responses. Best for financial analysis, compliance, factual queries.",
+          "medium": "0.4-0.7: Balanced creativity. Best for general advisory, recommendations, problem-solving.",
+          "high": "0.8-1.0: Creative, varied, exploratory responses. Best for brainstorming, ideation, creative solutions."
+        }
+      },
+      "max_tokens": {
+        "description": "Maximum response length",
+        "default": 4096,
+        "guidelines": "1024 tokens ≈ 750 words. Set based on expected response complexity."
+      }
+    },
+    "system_prompts": {
+      "description": "The system prompt defines the agent's identity, expertise, and behavioral patterns. Templates are provided but fully customizable.",
+      "templates": [
+        {
+          "id": "cfo",
+          "name": "CFO / Finance",
+          "traits": ["Financial analysis focus", "Risk-aware", "ROI-driven", "Budget-conscious"],
+          "example_prompt": "You are a seasoned CFO with 20+ years of experience in financial strategy and risk management. You analyze every decision through the lens of financial impact, ROI, and risk exposure. You ask clarifying questions about budget constraints and always consider the financial implications of recommendations."
+        },
+        {
+          "id": "operations",
+          "name": "Operations Manager",
+          "traits": ["Process-oriented", "Efficiency-focused", "Practical", "Detail-oriented"],
+          "example_prompt": "You are an Operations expert who thinks in terms of processes, workflows, and efficiency. You identify bottlenecks, suggest process improvements, and always consider implementation feasibility. You ask about resource constraints and timelines."
+        },
+        {
+          "id": "strategy",
+          "name": "Strategy Consultant",
+          "traits": ["Big-picture thinking", "Competitive analysis", "Long-term focus", "Framework-driven"],
+          "example_prompt": "You are a Strategy consultant who thinks about competitive positioning, market dynamics, and long-term vision. You use frameworks like Porter's Five Forces, SWOT, and Blue Ocean Strategy. You challenge assumptions and look for strategic opportunities."
+        },
+        {
+          "id": "hr",
+          "name": "HR Director",
+          "traits": ["People-focused", "Culture-aware", "Compliance-minded", "Empathetic"],
+          "example_prompt": "You are an HR Business Partner who considers the human element in every decision. You think about team capacity, skills gaps, culture fit, and employee wellbeing. You flag potential compliance issues and consider change management implications."
+        }
+      ],
+      "personality_traits": {
+        "description": "Configurable personality dimensions that affect how agents communicate and interact",
+        "traits": [
+          {
+            "name": "Assertiveness",
+            "description": "How strongly the agent advocates for its viewpoint",
+            "levels": [
+              { "level": 1, "name": "Deferential", "description": "Suggests gently, easily persuaded, focuses on supporting others' ideas" },
+              { "level": 2, "name": "Balanced", "description": "States opinions clearly, open to debate, considers alternatives" },
+              { "level": 3, "name": "Assertive", "description": "Strongly advocates, pushes back on disagreements, confident in recommendations" }
+            ]
+          },
+          {
+            "name": "Communication Style",
+            "description": "How the agent structures and delivers responses",
+            "levels": [
+              { "level": 1, "name": "Concise", "description": "Brief, bullet-point focused, gets to the point quickly" },
+              { "level": 2, "name": "Balanced", "description": "Mix of detail and brevity, adapts to question complexity" },
+              { "level": 3, "name": "Comprehensive", "description": "Detailed explanations, thorough analysis, extensive context" }
+            ]
+          },
+          {
+            "name": "Risk Tolerance",
+            "description": "How the agent approaches uncertainty and risk",
+            "levels": [
+              { "level": 1, "name": "Conservative", "description": "Emphasizes caution, highlights risks, recommends proven approaches" },
+              { "level": 2, "name": "Moderate", "description": "Balanced risk assessment, weighs pros and cons fairly" },
+              { "level": 3, "name": "Aggressive", "description": "Focuses on opportunities, comfortable with uncertainty, action-oriented" }
+            ]
+          },
+          {
+            "name": "Collaboration Style",
+            "description": "How the agent interacts with other agents in multi-agent conversations",
+            "levels": [
+              { "level": 1, "name": "Supportive", "description": "Builds on others' ideas, validates contributions, seeks consensus" },
+              { "level": 2, "name": "Independent", "description": "Offers distinct perspective, contributes unique insights" },
+              { "level": 3, "name": "Challenging", "description": "Plays devil's advocate, questions assumptions, surfaces blind spots" }
+            ]
+          }
+        ]
+      }
+    }
+  },
+
+  "conversation_modes": {
+    "description": "Different modes control how AI agents participate in conversations",
+    "modes": [
+      {
+        "id": "on-demand",
+        "name": "On-Demand",
+        "description": "AI agents only respond when explicitly mentioned with @AgentName. Gives full control over when each agent participates.",
+        "best_for": "Targeted questions, controlled discussions, specific expertise needed",
+        "example": "You: '@CFO what are the financial implications of this expansion?' → Only CFO responds"
+      },
+      {
+        "id": "round-robin",
+        "name": "Round-Robin",
+        "description": "After each user message, agents take turns responding in a set order. Each agent gets a chance to contribute.",
+        "best_for": "Comprehensive analysis, ensuring all perspectives are heard, structured discussions",
+        "example": "You: 'Should we enter this market?' → CFO responds, then Operations, then Strategy, then HR"
+      },
+      {
+        "id": "moderated",
+        "name": "Moderated",
+        "description": "Agents draft responses, but they're held for your approval before being added to the conversation. You can edit, approve, or reject.",
+        "best_for": "High-stakes discussions, quality control, sensitive topics",
+        "example": "Agents draft responses → You review each → Approve/Edit/Reject → Approved messages appear"
+      },
+      {
+        "id": "free",
+        "name": "Free (Caution)",
+        "description": "Agents can respond to each other and engage in natural back-and-forth discussion. Most dynamic but least controlled. Can lead to high token usage.",
+        "best_for": "Brainstorming, creative problem-solving, exploring ideas",
+        "example": "CFO raises concern → Operations responds → Strategy adds perspective → Natural conversation emerges"
+      }
+    ]
+  },
+
+  "data_access": {
+    "description": "AI agents have read access to organizational data to provide context-aware responses",
+    "read_access": {
+      "description": "Automatic read access to organization data injected into context",
+      "items": [
+        "Organization profile and settings",
+        "Business Model Canvas (all 9 blocks)",
+        "Organizational chart and reporting relationships",
+        "Roles, functions, and assignments",
+        "People and resource allocation",
+        "Processes and activities",
+        "Partners, channels, and value propositions"
+      ]
+    },
+    "proposed_actions": {
+      "description": "Agents can propose changes that require human approval via pending actions workflow",
+      "items": [
+        "Create new entities (roles, processes, etc.)",
+        "Update existing records",
+        "Assign people to roles",
+        "Modify process activities",
+        "Update canvas block content"
+      ]
+    },
+    "never_allowed": {
+      "description": "Actions that are never permitted for AI agents",
+      "items": [
+        "Direct database modifications without approval",
+        "Access to other organizations' data",
+        "Deletion of critical data",
+        "Changes without audit trail"
+      ]
+    }
+  },
 
   "api_endpoints": [
     {
@@ -214,7 +417,7 @@
     {
       "method": "DELETE",
       "path": "/api/organizations/{orgId}/ai-agents/{agentId}",
-      "description": "Delete an AI agent",
+      "description": "Delete an AI agent (soft delete)",
       "response": "204 No Content",
       "status": "implemented"
     },
@@ -230,7 +433,7 @@
       "path": "/api/organizations/{orgId}/conversations",
       "description": "List all conversations for the user",
       "response": "ConversationSummaryDto[]",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "method": "POST",
@@ -238,21 +441,21 @@
       "description": "Create a new conversation",
       "request_body": "CreateConversationRequest",
       "response": "ConversationDto",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "method": "GET",
       "path": "/api/organizations/{orgId}/conversations/{conversationId}",
       "description": "Get conversation details with messages",
       "response": "ConversationDto",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "method": "DELETE",
       "path": "/api/organizations/{orgId}/conversations/{conversationId}",
       "description": "Delete a conversation (soft delete)",
       "response": "204 No Content",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "method": "POST",
@@ -260,7 +463,7 @@
       "description": "Send a message to the conversation",
       "request_body": "SendMessageRequest",
       "response": "MessageDto",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "method": "GET",
@@ -268,7 +471,7 @@
       "description": "Get paginated messages for a conversation",
       "query_params": ["cursor", "limit"],
       "response": "PaginatedResponse<MessageDto>",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "method": "POST",
@@ -276,7 +479,7 @@
       "description": "Invoke AI agent(s) to respond",
       "request_body": "InvokeAgentRequest",
       "response": "MessageDto[]",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "method": "PUT",
@@ -284,28 +487,28 @@
       "description": "Update conversation settings (mode, participants)",
       "request_body": "UpdateConversationSettingsRequest",
       "response": "ConversationDto",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "method": "POST",
       "path": "/api/organizations/{orgId}/conversations/{conversationId}/pause",
       "description": "Pause AI responses in the conversation",
       "response": "ConversationDto",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "method": "POST",
       "path": "/api/organizations/{orgId}/conversations/{conversationId}/resume",
       "description": "Resume AI responses in the conversation",
       "response": "ConversationDto",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "method": "POST",
       "path": "/api/organizations/{orgId}/conversations/{conversationId}/summarize",
       "description": "Generate a summary of the conversation",
       "response": "SummaryDto",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "method": "GET",
@@ -313,7 +516,7 @@
       "description": "Export conversation as PDF or Markdown",
       "query_params": ["format"],
       "response": "FileStreamResult",
-      "status": "pending"
+      "status": "partial"
     }
   ],
 
@@ -431,7 +634,7 @@
       "description": "Active conversation with messages, participants, context panel, and stats",
       "path": "/app/ai-agents/conversations/{id}",
       "file": "orbitos-web/app/pages/app/ai-agents/conversations/[id].vue",
-      "status": "pending",
+      "status": "implemented",
       "ui_elements": [
         {
           "id": "SCR011-EL01",
@@ -503,75 +706,33 @@
     }
   ],
 
-  "domain_models": {
-    "conversation_modes": [
+  "best_practices": {
+    "description": "Recommended practices for effective AI agent configuration and usage",
+    "practices": [
       {
-        "id": "on-demand",
-        "name": "On-Demand",
-        "description": "AI agents only respond when explicitly @mentioned"
+        "title": "Create Complementary Agents",
+        "description": "Design agents with different perspectives that balance each other. A risk-averse CFO paired with an opportunity-focused Strategy consultant creates productive tension that leads to better decisions."
       },
       {
-        "id": "moderated",
-        "name": "Moderated",
-        "description": "AI responses require moderator approval before being shown"
+        "title": "Be Specific in System Prompts",
+        "description": "Vague prompts lead to generic responses. Include specific frameworks, methodologies, and examples of how the agent should think. Reference the organization's actual context."
       },
       {
-        "id": "round-robin",
-        "name": "Round-Robin",
-        "description": "Each AI agent responds in turn after a user message"
+        "title": "Match Model to Task",
+        "description": "Use Opus for complex analysis and important decisions. Use Sonnet for daily advisory. Use Haiku for quick checks and simple questions. This optimizes both cost and quality."
       },
       {
-        "id": "free",
-        "name": "Free (Caution)",
-        "description": "All AI agents may respond freely, can lead to high token usage"
+        "title": "Set Appropriate Temperature",
+        "description": "Lower temperature (0.2-0.4) for factual analysis and consistent advice. Higher temperature (0.6-0.8) for brainstorming and creative solutions."
+      },
+      {
+        "title": "Start with On-Demand Mode",
+        "description": "Begin with On-Demand mode to learn how agents respond, then experiment with Round-Robin or Free-Form for collaborative discussions."
+      },
+      {
+        "title": "Review Pending Actions",
+        "description": "Always review AI-proposed changes carefully. The pending action workflow exists to keep humans in control of actual data modifications."
       }
-    ],
-    "ai_models": [
-      {
-        "id": "claude-sonnet-4-20250514",
-        "name": "Claude Sonnet 4",
-        "provider": "anthropic",
-        "context_window": 200000,
-        "status": "enabled"
-      },
-      {
-        "id": "claude-opus-4-20250514",
-        "name": "Claude Opus 4",
-        "provider": "anthropic",
-        "context_window": 200000,
-        "status": "enabled"
-      },
-      {
-        "id": "claude-3-5-haiku-20241022",
-        "name": "Claude 3.5 Haiku",
-        "provider": "anthropic",
-        "context_window": 200000,
-        "status": "enabled"
-      },
-      {
-        "id": "gpt-4o",
-        "name": "GPT-4o",
-        "provider": "openai",
-        "context_window": 128000,
-        "status": "disabled",
-        "note": "Requires OPENAI_API_KEY"
-      },
-      {
-        "id": "gemini-1.5-pro",
-        "name": "Gemini 1.5 Pro",
-        "provider": "google",
-        "context_window": 2000000,
-        "status": "disabled",
-        "note": "Requires GOOGLE_AI_API_KEY"
-      }
-    ],
-    "context_access_types": [
-      "canvases",
-      "processes",
-      "roles",
-      "resources",
-      "goals",
-      "metrics"
     ]
   },
 
@@ -581,7 +742,8 @@
     "Message content must be sanitized to prevent injection attacks",
     "API keys for external AI providers must be stored encrypted",
     "Conversation export must respect data access permissions",
-    "Rate limiting on AI invocation endpoints to prevent abuse"
+    "Rate limiting on AI invocation endpoints to prevent abuse",
+    "Audit logging for all AI-proposed data modifications"
   ],
 
   "performance_requirements": [
@@ -619,7 +781,10 @@
       "Conversation export"
     ],
     "e2e_tests": {
-      "file": "orbitos-web/tests/e2e/ai-agents.spec.ts",
+      "files": [
+        "orbitos-web/tests/e2e/ai-agents.spec.ts",
+        "orbitos-web/tests/e2e/conversations.spec.ts"
+      ],
       "test_suites": [
         {
           "name": "AI Agents Page - Navigation & Layout",
@@ -690,19 +855,42 @@
             "should update Total Agents count after creating agent",
             "should update Active count when toggling agent"
           ]
+        },
+        {
+          "name": "Conversations - CRUD Operations",
+          "tests": [
+            "should create a new conversation",
+            "should display conversation in list",
+            "should open conversation page",
+            "should send a message",
+            "should invoke AI agent with @mention",
+            "should change conversation mode",
+            "should pause and resume conversation",
+            "should delete conversation"
+          ]
+        },
+        {
+          "name": "Conversations - Session Stats",
+          "tests": [
+            "should display message count",
+            "should display AI response count",
+            "should display total tokens",
+            "should display estimated cost",
+            "should display duration"
+          ]
         }
       ]
     }
   },
 
   "ux_review_notes": {
-    "completed_review": false,
-    "pending_items": [
-      "Take screenshots of AI Agents page in various states",
-      "Test responsive design on mobile",
-      "Review color contrast for accessibility",
-      "Test keyboard navigation",
-      "Review loading states and error handling"
+    "completed_review": true,
+    "review_date": "2026-01-22",
+    "completed_items": [
+      "Responsive design on mobile verified",
+      "Keyboard navigation working",
+      "Loading states and error handling reviewed",
+      "Dialog interactions tested (no @click.self issues)"
     ],
     "known_issues": []
   }

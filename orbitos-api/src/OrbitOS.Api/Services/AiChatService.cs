@@ -575,6 +575,206 @@ public class AiChatService : IAiChatService
                     },
                     Required = new[] { "roles" }
                 }
+            },
+            // ===== AI Agent Management Tools =====
+            new ClaudeTool
+            {
+                Name = "create_ai_agent",
+                Description = "Create a new AI agent with full configuration including personality, model settings, and behavior",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["name"] = new ClaudeToolProperty { Type = "string", Description = "The agent's display name (e.g., 'Chief Financial Officer')" },
+                        ["roleTitle"] = new ClaudeToolProperty { Type = "string", Description = "The agent's role/title in the organization (e.g., 'CFO', 'Head of Operations')" },
+                        ["systemPrompt"] = new ClaudeToolProperty { Type = "string", Description = "The system prompt that defines the agent's personality, expertise, and behavior" },
+                        ["provider"] = new ClaudeToolProperty { Type = "string", Description = "AI provider: Anthropic, OpenAI, or Google (default: Anthropic)" },
+                        ["modelId"] = new ClaudeToolProperty { Type = "string", Description = "Model ID (e.g., 'claude-sonnet-4-20250514', 'gpt-4o'). Default: claude-sonnet-4-20250514" },
+                        ["modelDisplayName"] = new ClaudeToolProperty { Type = "string", Description = "Display name for the model (e.g., 'Claude Sonnet'). Default: Claude Sonnet" },
+                        ["avatarColor"] = new ClaudeToolProperty { Type = "string", Description = "Hex color for avatar (e.g., '#4F46E5')" },
+                        ["maxTokensPerResponse"] = new ClaudeToolProperty { Type = "integer", Description = "Max tokens per response (default: 4096)" },
+                        ["temperature"] = new ClaudeToolProperty { Type = "number", Description = "Temperature setting 0.0-2.0 (default: 0.7)" },
+                        ["assertiveness"] = new ClaudeToolProperty { Type = "integer", Description = "How likely to speak up 0-100 (default: 50). High: speaks first. Low: waits to be asked" },
+                        ["communicationStyle"] = new ClaudeToolProperty { Type = "string", Description = "Style: Formal, Casual, Direct, Diplomatic, Analytical (default: Formal)" },
+                        ["reactionTendency"] = new ClaudeToolProperty { Type = "string", Description = "Reaction: Supportive, Critical, Balanced, DevilsAdvocate, ConsensusBuilder (default: Balanced)" },
+                        ["expertiseAreas"] = new ClaudeToolProperty { Type = "string", Description = "Comma-separated expertise keywords (e.g., 'finance,budget,revenue,costs')" },
+                        ["seniorityLevel"] = new ClaudeToolProperty { Type = "integer", Description = "Seniority 1-5 where 5 is most senior (default: 3)" },
+                        ["asksQuestions"] = new ClaudeToolProperty { Type = "boolean", Description = "Whether agent asks clarifying questions (default: false)" },
+                        ["givesBriefAcknowledgments"] = new ClaudeToolProperty { Type = "boolean", Description = "Whether agent gives brief acknowledgments (default: true)" },
+                        ["isActive"] = new ClaudeToolProperty { Type = "boolean", Description = "Whether agent is active (default: true)" }
+                    },
+                    Required = new[] { "name", "roleTitle", "systemPrompt" }
+                }
+            },
+            new ClaudeTool
+            {
+                Name = "update_ai_agent",
+                Description = "Update an existing AI agent's configuration",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["agentId"] = new ClaudeToolProperty { Type = "string", Description = "The ID of the AI agent to update" },
+                        ["name"] = new ClaudeToolProperty { Type = "string", Description = "The agent's display name" },
+                        ["roleTitle"] = new ClaudeToolProperty { Type = "string", Description = "The agent's role/title" },
+                        ["systemPrompt"] = new ClaudeToolProperty { Type = "string", Description = "The system prompt" },
+                        ["provider"] = new ClaudeToolProperty { Type = "string", Description = "AI provider: Anthropic, OpenAI, or Google" },
+                        ["modelId"] = new ClaudeToolProperty { Type = "string", Description = "Model ID" },
+                        ["modelDisplayName"] = new ClaudeToolProperty { Type = "string", Description = "Display name for the model" },
+                        ["avatarColor"] = new ClaudeToolProperty { Type = "string", Description = "Hex color for avatar" },
+                        ["maxTokensPerResponse"] = new ClaudeToolProperty { Type = "integer", Description = "Max tokens per response" },
+                        ["temperature"] = new ClaudeToolProperty { Type = "number", Description = "Temperature setting 0.0-2.0" },
+                        ["assertiveness"] = new ClaudeToolProperty { Type = "integer", Description = "How likely to speak up 0-100" },
+                        ["communicationStyle"] = new ClaudeToolProperty { Type = "string", Description = "Style: Formal, Casual, Direct, Diplomatic, Analytical" },
+                        ["reactionTendency"] = new ClaudeToolProperty { Type = "string", Description = "Reaction: Supportive, Critical, Balanced, DevilsAdvocate, ConsensusBuilder" },
+                        ["expertiseAreas"] = new ClaudeToolProperty { Type = "string", Description = "Comma-separated expertise keywords" },
+                        ["seniorityLevel"] = new ClaudeToolProperty { Type = "integer", Description = "Seniority 1-5" },
+                        ["asksQuestions"] = new ClaudeToolProperty { Type = "boolean", Description = "Whether agent asks clarifying questions" },
+                        ["givesBriefAcknowledgments"] = new ClaudeToolProperty { Type = "boolean", Description = "Whether agent gives brief acknowledgments" },
+                        ["isActive"] = new ClaudeToolProperty { Type = "boolean", Description = "Whether agent is active" }
+                    },
+                    Required = new[] { "agentId" }
+                }
+            },
+            new ClaudeTool
+            {
+                Name = "delete_ai_agent",
+                Description = "Delete (soft-delete) an AI agent",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["agentId"] = new ClaudeToolProperty { Type = "string", Description = "The ID of the AI agent to delete" }
+                    },
+                    Required = new[] { "agentId" }
+                }
+            },
+            new ClaudeTool
+            {
+                Name = "list_ai_agents",
+                Description = "List all AI agents in the organization",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["activeOnly"] = new ClaudeToolProperty { Type = "boolean", Description = "Only return active agents (default: false)" }
+                    },
+                    Required = Array.Empty<string>()
+                }
+            },
+            new ClaudeTool
+            {
+                Name = "bulk_create_ai_agents",
+                Description = "Create multiple AI agents at once - useful for setting up a complete team",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["agents"] = new ClaudeToolProperty { Type = "array", Description = "Array of agent objects with name, roleTitle, systemPrompt, and optional personality settings" }
+                    },
+                    Required = new[] { "agents" }
+                }
+            },
+            // ===== Conversation/Group Chat Management Tools =====
+            new ClaudeTool
+            {
+                Name = "create_conversation",
+                Description = "Create a new group chat/conversation with specified AI agents",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["title"] = new ClaudeToolProperty { Type = "string", Description = "Title of the conversation (e.g., 'Q4 Strategy Review')" },
+                        ["mode"] = new ClaudeToolProperty { Type = "string", Description = "Conversation mode: OnDemand (agents respond when @mentioned), Moderated, RoundRobin, Free, Emergent (default: OnDemand)" },
+                        ["agentIds"] = new ClaudeToolProperty { Type = "array", Description = "Array of AI agent IDs to add as participants" },
+                        ["maxTurns"] = new ClaudeToolProperty { Type = "integer", Description = "Optional limit on conversation turns" },
+                        ["maxTokens"] = new ClaudeToolProperty { Type = "integer", Description = "Optional limit on total tokens" }
+                    },
+                    Required = new[] { "title" }
+                }
+            },
+            new ClaudeTool
+            {
+                Name = "update_conversation",
+                Description = "Update a conversation's settings",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["conversationId"] = new ClaudeToolProperty { Type = "string", Description = "The ID of the conversation to update" },
+                        ["title"] = new ClaudeToolProperty { Type = "string", Description = "New title" },
+                        ["mode"] = new ClaudeToolProperty { Type = "string", Description = "New mode: OnDemand, Moderated, RoundRobin, Free, Emergent" },
+                        ["status"] = new ClaudeToolProperty { Type = "string", Description = "Status: Active, Paused, Archived" },
+                        ["maxTurns"] = new ClaudeToolProperty { Type = "integer", Description = "Max turns limit" },
+                        ["maxTokens"] = new ClaudeToolProperty { Type = "integer", Description = "Max tokens limit" }
+                    },
+                    Required = new[] { "conversationId" }
+                }
+            },
+            new ClaudeTool
+            {
+                Name = "add_agents_to_conversation",
+                Description = "Add AI agents as participants to an existing conversation",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["conversationId"] = new ClaudeToolProperty { Type = "string", Description = "The ID of the conversation" },
+                        ["agentIds"] = new ClaudeToolProperty { Type = "array", Description = "Array of AI agent IDs to add" }
+                    },
+                    Required = new[] { "conversationId", "agentIds" }
+                }
+            },
+            new ClaudeTool
+            {
+                Name = "remove_agents_from_conversation",
+                Description = "Remove AI agents from a conversation",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["conversationId"] = new ClaudeToolProperty { Type = "string", Description = "The ID of the conversation" },
+                        ["agentIds"] = new ClaudeToolProperty { Type = "array", Description = "Array of AI agent IDs to remove" }
+                    },
+                    Required = new[] { "conversationId", "agentIds" }
+                }
+            },
+            new ClaudeTool
+            {
+                Name = "list_conversations",
+                Description = "List all conversations in the organization",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["status"] = new ClaudeToolProperty { Type = "string", Description = "Filter by status: Active, Paused, Archived (default: all)" }
+                    },
+                    Required = Array.Empty<string>()
+                }
+            },
+            new ClaudeTool
+            {
+                Name = "delete_conversation",
+                Description = "Delete (soft-delete) a conversation",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["conversationId"] = new ClaudeToolProperty { Type = "string", Description = "The ID of the conversation to delete" }
+                    },
+                    Required = new[] { "conversationId" }
+                }
             }
         };
     }
@@ -705,6 +905,19 @@ public class AiChatService : IAiChatService
                 // Role management tools
                 "create_role" => await CreateRoleAsync(organizationId, input, cancellationToken),
                 "bulk_create_roles" => await BulkCreateRolesAsync(organizationId, input, cancellationToken),
+                // AI Agent management tools
+                "create_ai_agent" => await CreateAiAgentAsync(organizationId, input, cancellationToken),
+                "update_ai_agent" => await UpdateAiAgentAsync(organizationId, input, cancellationToken),
+                "delete_ai_agent" => await DeleteAiAgentAsync(organizationId, input, cancellationToken),
+                "list_ai_agents" => await ListAiAgentsAsync(organizationId, input, cancellationToken),
+                "bulk_create_ai_agents" => await BulkCreateAiAgentsAsync(organizationId, input, cancellationToken),
+                // Conversation management tools
+                "create_conversation" => await CreateConversationAsync(organizationId, input, cancellationToken),
+                "update_conversation" => await UpdateConversationAsync(organizationId, input, cancellationToken),
+                "add_agents_to_conversation" => await AddAgentsToConversationAsync(organizationId, input, cancellationToken),
+                "remove_agents_from_conversation" => await RemoveAgentsFromConversationAsync(organizationId, input, cancellationToken),
+                "list_conversations" => await ListConversationsAsync(organizationId, input, cancellationToken),
+                "delete_conversation" => await DeleteConversationAsync(organizationId, input, cancellationToken),
                 _ => new ToolResult { Action = "unknown", Message = $"Unknown tool: {toolName}" }
             };
         }
@@ -1926,6 +2139,649 @@ public class AiChatService : IAiChatService
         await _dbContext.SaveChangesAsync(cancellationToken);
         return new ToolResult { Action = "bulk_created", Message = $"Successfully created {created.Count} roles: {string.Join(", ", created)}" };
     }
+
+    #region AI Agent Management Tools
+
+    private async Task<ToolResult> CreateAiAgentAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        if (input == null) return new ToolResult { Action = "error", Message = "No input provided" };
+
+        var name = input.Value.GetProperty("name").GetString()!;
+        var roleTitle = input.Value.GetProperty("roleTitle").GetString()!;
+        var systemPrompt = input.Value.GetProperty("systemPrompt").GetString()!;
+
+        // Check for duplicate name
+        var existingAgent = await _dbContext.AiAgents
+            .FirstOrDefaultAsync(a => a.Name == name && a.OrganizationId == organizationId && a.DeletedAt == null, cancellationToken);
+
+        if (existingAgent != null)
+            return new ToolResult { Action = "error", Message = $"An AI agent named '{name}' already exists." };
+
+        // Parse provider
+        var providerStr = input.Value.TryGetProperty("provider", out var provProp) ? provProp.GetString() : "Anthropic";
+        var provider = providerStr?.ToLower() switch
+        {
+            "openai" => AiProvider.OpenAI,
+            "google" => AiProvider.Google,
+            _ => AiProvider.Anthropic
+        };
+
+        // Parse communication style
+        var commStyleStr = input.Value.TryGetProperty("communicationStyle", out var commProp) ? commProp.GetString() : "Formal";
+        var communicationStyle = commStyleStr?.ToLower() switch
+        {
+            "casual" => CommunicationStyle.Casual,
+            "direct" => CommunicationStyle.Direct,
+            "diplomatic" => CommunicationStyle.Diplomatic,
+            "analytical" => CommunicationStyle.Analytical,
+            _ => CommunicationStyle.Formal
+        };
+
+        // Parse reaction tendency
+        var reactionStr = input.Value.TryGetProperty("reactionTendency", out var reactProp) ? reactProp.GetString() : "Balanced";
+        var reactionTendency = reactionStr?.ToLower() switch
+        {
+            "supportive" => ReactionTendency.Supportive,
+            "critical" => ReactionTendency.Critical,
+            "devilsadvocate" => ReactionTendency.DevilsAdvocate,
+            "consensusbuilder" => ReactionTendency.ConsensusBuilder,
+            _ => ReactionTendency.Balanced
+        };
+
+        var agent = new AiAgent
+        {
+            Name = name,
+            RoleTitle = roleTitle,
+            SystemPrompt = systemPrompt,
+            Provider = provider,
+            ModelId = input.Value.TryGetProperty("modelId", out var modelProp) ? modelProp.GetString() ?? "claude-sonnet-4-20250514" : "claude-sonnet-4-20250514",
+            ModelDisplayName = input.Value.TryGetProperty("modelDisplayName", out var dispProp) ? dispProp.GetString() ?? "Claude Sonnet" : "Claude Sonnet",
+            AvatarColor = input.Value.TryGetProperty("avatarColor", out var colorProp) ? colorProp.GetString() : "#4F46E5",
+            MaxTokensPerResponse = input.Value.TryGetProperty("maxTokensPerResponse", out var tokensProp) ? tokensProp.GetInt32() : 4096,
+            Temperature = input.Value.TryGetProperty("temperature", out var tempProp) ? tempProp.GetDecimal() : 0.7m,
+            Assertiveness = input.Value.TryGetProperty("assertiveness", out var assertProp) ? assertProp.GetInt32() : 50,
+            CommunicationStyle = communicationStyle,
+            ReactionTendency = reactionTendency,
+            ExpertiseAreas = input.Value.TryGetProperty("expertiseAreas", out var expertProp) ? expertProp.GetString() : null,
+            SeniorityLevel = input.Value.TryGetProperty("seniorityLevel", out var seniorProp) ? seniorProp.GetInt32() : 3,
+            AsksQuestions = input.Value.TryGetProperty("asksQuestions", out var asksProp) && asksProp.GetBoolean(),
+            GivesBriefAcknowledgments = !input.Value.TryGetProperty("givesBriefAcknowledgments", out var ackProp) || ackProp.GetBoolean(),
+            IsActive = !input.Value.TryGetProperty("isActive", out var activeProp) || activeProp.GetBoolean(),
+            OrganizationId = organizationId
+        };
+
+        _dbContext.AiAgents.Add(agent);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new ToolResult
+        {
+            Action = "created",
+            Message = $"Successfully created AI agent **{name}** ({roleTitle}) with {communicationStyle} communication style and {reactionTendency} reaction tendency.",
+            Data = JsonSerializer.SerializeToElement(new { id = agent.Id, name = agent.Name, roleTitle = agent.RoleTitle })
+        };
+    }
+
+    private async Task<ToolResult> UpdateAiAgentAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        if (input == null) return new ToolResult { Action = "error", Message = "No input provided" };
+
+        var agentId = Guid.Parse(input.Value.GetProperty("agentId").GetString()!);
+
+        var agent = await _dbContext.AiAgents
+            .FirstOrDefaultAsync(a => a.Id == agentId && a.OrganizationId == organizationId && a.DeletedAt == null, cancellationToken);
+
+        if (agent == null)
+            return new ToolResult { Action = "error", Message = "AI agent not found." };
+
+        // Update fields if provided
+        if (input.Value.TryGetProperty("name", out var nameProp))
+            agent.Name = nameProp.GetString()!;
+        if (input.Value.TryGetProperty("roleTitle", out var roleProp))
+            agent.RoleTitle = roleProp.GetString()!;
+        if (input.Value.TryGetProperty("systemPrompt", out var promptProp))
+            agent.SystemPrompt = promptProp.GetString()!;
+        if (input.Value.TryGetProperty("avatarColor", out var colorProp))
+            agent.AvatarColor = colorProp.GetString();
+        if (input.Value.TryGetProperty("maxTokensPerResponse", out var tokensProp))
+            agent.MaxTokensPerResponse = tokensProp.GetInt32();
+        if (input.Value.TryGetProperty("temperature", out var tempProp))
+            agent.Temperature = tempProp.GetDecimal();
+        if (input.Value.TryGetProperty("assertiveness", out var assertProp))
+            agent.Assertiveness = assertProp.GetInt32();
+        if (input.Value.TryGetProperty("expertiseAreas", out var expertProp))
+            agent.ExpertiseAreas = expertProp.GetString();
+        if (input.Value.TryGetProperty("seniorityLevel", out var seniorProp))
+            agent.SeniorityLevel = seniorProp.GetInt32();
+        if (input.Value.TryGetProperty("asksQuestions", out var asksProp))
+            agent.AsksQuestions = asksProp.GetBoolean();
+        if (input.Value.TryGetProperty("givesBriefAcknowledgments", out var ackProp))
+            agent.GivesBriefAcknowledgments = ackProp.GetBoolean();
+        if (input.Value.TryGetProperty("isActive", out var activeProp))
+            agent.IsActive = activeProp.GetBoolean();
+
+        if (input.Value.TryGetProperty("provider", out var provProp))
+        {
+            agent.Provider = provProp.GetString()?.ToLower() switch
+            {
+                "openai" => AiProvider.OpenAI,
+                "google" => AiProvider.Google,
+                _ => AiProvider.Anthropic
+            };
+        }
+        if (input.Value.TryGetProperty("modelId", out var modelProp))
+            agent.ModelId = modelProp.GetString()!;
+        if (input.Value.TryGetProperty("modelDisplayName", out var dispProp))
+            agent.ModelDisplayName = dispProp.GetString()!;
+        if (input.Value.TryGetProperty("communicationStyle", out var commProp))
+        {
+            agent.CommunicationStyle = commProp.GetString()?.ToLower() switch
+            {
+                "casual" => CommunicationStyle.Casual,
+                "direct" => CommunicationStyle.Direct,
+                "diplomatic" => CommunicationStyle.Diplomatic,
+                "analytical" => CommunicationStyle.Analytical,
+                _ => CommunicationStyle.Formal
+            };
+        }
+        if (input.Value.TryGetProperty("reactionTendency", out var reactProp))
+        {
+            agent.ReactionTendency = reactProp.GetString()?.ToLower() switch
+            {
+                "supportive" => ReactionTendency.Supportive,
+                "critical" => ReactionTendency.Critical,
+                "devilsadvocate" => ReactionTendency.DevilsAdvocate,
+                "consensusbuilder" => ReactionTendency.ConsensusBuilder,
+                _ => ReactionTendency.Balanced
+            };
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new ToolResult
+        {
+            Action = "updated",
+            Message = $"Successfully updated AI agent **{agent.Name}**.",
+            Data = JsonSerializer.SerializeToElement(new { id = agent.Id, name = agent.Name })
+        };
+    }
+
+    private async Task<ToolResult> DeleteAiAgentAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        if (input == null) return new ToolResult { Action = "error", Message = "No input provided" };
+
+        var agentId = Guid.Parse(input.Value.GetProperty("agentId").GetString()!);
+
+        var agent = await _dbContext.AiAgents
+            .FirstOrDefaultAsync(a => a.Id == agentId && a.OrganizationId == organizationId && a.DeletedAt == null, cancellationToken);
+
+        if (agent == null)
+            return new ToolResult { Action = "error", Message = "AI agent not found." };
+
+        var agentName = agent.Name;
+        agent.SoftDelete();
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new ToolResult
+        {
+            Action = "deleted",
+            Message = $"Successfully deleted AI agent **{agentName}**."
+        };
+    }
+
+    private async Task<ToolResult> ListAiAgentsAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        var activeOnly = input?.TryGetProperty("activeOnly", out var activeProp) == true && activeProp.GetBoolean();
+
+        var query = _dbContext.AiAgents
+            .Where(a => a.OrganizationId == organizationId && a.DeletedAt == null);
+
+        if (activeOnly)
+            query = query.Where(a => a.IsActive);
+
+        var agents = await query
+            .OrderBy(a => a.SortOrder)
+            .ThenBy(a => a.Name)
+            .Select(a => new
+            {
+                a.Id,
+                a.Name,
+                a.RoleTitle,
+                a.Provider,
+                a.ModelDisplayName,
+                a.IsActive,
+                a.Assertiveness,
+                CommunicationStyle = a.CommunicationStyle.ToString(),
+                ReactionTendency = a.ReactionTendency.ToString(),
+                a.ExpertiseAreas
+            })
+            .ToListAsync(cancellationToken);
+
+        var agentList = string.Join("\n", agents.Select(a =>
+            $"- **{a.Name}** ({a.RoleTitle}) - {a.ModelDisplayName}, {a.CommunicationStyle}, {(a.IsActive ? "Active" : "Inactive")}"));
+
+        return new ToolResult
+        {
+            Action = "listed",
+            Message = agents.Count == 0
+                ? "No AI agents found in the organization."
+                : $"Found {agents.Count} AI agents:\n{agentList}",
+            Data = JsonSerializer.SerializeToElement(agents)
+        };
+    }
+
+    private async Task<ToolResult> BulkCreateAiAgentsAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        if (input == null) return new ToolResult { Action = "error", Message = "No input provided" };
+
+        var agentsArray = input.Value.GetProperty("agents");
+        var created = new List<string>();
+        var errors = new List<string>();
+
+        foreach (var agentData in agentsArray.EnumerateArray())
+        {
+            var name = agentData.GetProperty("name").GetString()!;
+            var roleTitle = agentData.GetProperty("roleTitle").GetString()!;
+            var systemPrompt = agentData.GetProperty("systemPrompt").GetString()!;
+
+            // Check for duplicate
+            var exists = await _dbContext.AiAgents
+                .AnyAsync(a => a.Name == name && a.OrganizationId == organizationId && a.DeletedAt == null, cancellationToken);
+
+            if (exists)
+            {
+                errors.Add($"{name} (already exists)");
+                continue;
+            }
+
+            var providerStr = agentData.TryGetProperty("provider", out var provProp) ? provProp.GetString() : "Anthropic";
+            var provider = providerStr?.ToLower() switch
+            {
+                "openai" => AiProvider.OpenAI,
+                "google" => AiProvider.Google,
+                _ => AiProvider.Anthropic
+            };
+
+            var commStyleStr = agentData.TryGetProperty("communicationStyle", out var commProp) ? commProp.GetString() : "Formal";
+            var communicationStyle = commStyleStr?.ToLower() switch
+            {
+                "casual" => CommunicationStyle.Casual,
+                "direct" => CommunicationStyle.Direct,
+                "diplomatic" => CommunicationStyle.Diplomatic,
+                "analytical" => CommunicationStyle.Analytical,
+                _ => CommunicationStyle.Formal
+            };
+
+            var reactionStr = agentData.TryGetProperty("reactionTendency", out var reactProp) ? reactProp.GetString() : "Balanced";
+            var reactionTendency = reactionStr?.ToLower() switch
+            {
+                "supportive" => ReactionTendency.Supportive,
+                "critical" => ReactionTendency.Critical,
+                "devilsadvocate" => ReactionTendency.DevilsAdvocate,
+                "consensusbuilder" => ReactionTendency.ConsensusBuilder,
+                _ => ReactionTendency.Balanced
+            };
+
+            var agent = new AiAgent
+            {
+                Name = name,
+                RoleTitle = roleTitle,
+                SystemPrompt = systemPrompt,
+                Provider = provider,
+                ModelId = agentData.TryGetProperty("modelId", out var modelProp) ? modelProp.GetString() ?? "claude-sonnet-4-20250514" : "claude-sonnet-4-20250514",
+                ModelDisplayName = agentData.TryGetProperty("modelDisplayName", out var dispProp) ? dispProp.GetString() ?? "Claude Sonnet" : "Claude Sonnet",
+                AvatarColor = agentData.TryGetProperty("avatarColor", out var colorProp) ? colorProp.GetString() : "#4F46E5",
+                MaxTokensPerResponse = agentData.TryGetProperty("maxTokensPerResponse", out var tokensProp) ? tokensProp.GetInt32() : 4096,
+                Temperature = agentData.TryGetProperty("temperature", out var tempProp) ? tempProp.GetDecimal() : 0.7m,
+                Assertiveness = agentData.TryGetProperty("assertiveness", out var assertProp) ? assertProp.GetInt32() : 50,
+                CommunicationStyle = communicationStyle,
+                ReactionTendency = reactionTendency,
+                ExpertiseAreas = agentData.TryGetProperty("expertiseAreas", out var expertProp) ? expertProp.GetString() : null,
+                SeniorityLevel = agentData.TryGetProperty("seniorityLevel", out var seniorProp) ? seniorProp.GetInt32() : 3,
+                AsksQuestions = agentData.TryGetProperty("asksQuestions", out var asksProp) && asksProp.GetBoolean(),
+                GivesBriefAcknowledgments = !agentData.TryGetProperty("givesBriefAcknowledgments", out var ackProp) || ackProp.GetBoolean(),
+                IsActive = !agentData.TryGetProperty("isActive", out var activeProp) || activeProp.GetBoolean(),
+                OrganizationId = organizationId
+            };
+
+            _dbContext.AiAgents.Add(agent);
+            created.Add(name);
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var message = $"Successfully created {created.Count} AI agents: {string.Join(", ", created)}";
+        if (errors.Any())
+            message += $"\nSkipped: {string.Join(", ", errors)}";
+
+        return new ToolResult { Action = "bulk_created", Message = message };
+    }
+
+    #endregion
+
+    #region Conversation Management Tools
+
+    private async Task<ToolResult> CreateConversationAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        if (input == null) return new ToolResult { Action = "error", Message = "No input provided" };
+
+        var title = input.Value.GetProperty("title").GetString()!;
+
+        // Parse mode
+        var modeStr = input.Value.TryGetProperty("mode", out var modeProp) ? modeProp.GetString() : "OnDemand";
+        var mode = modeStr?.ToLower() switch
+        {
+            "moderated" => ConversationMode.Moderated,
+            "roundrobin" => ConversationMode.RoundRobin,
+            "free" => ConversationMode.Free,
+            "emergent" => ConversationMode.Emergent,
+            _ => ConversationMode.OnDemand
+        };
+
+        // Get a default user for created by (we need to handle this better in the future)
+        var defaultUser = await _dbContext.Users.FirstOrDefaultAsync(cancellationToken);
+        if (defaultUser == null)
+            return new ToolResult { Action = "error", Message = "No users found in the system." };
+
+        var conversation = new Conversation
+        {
+            Title = title,
+            Mode = mode,
+            Status = ConversationStatus.Active,
+            StartedAt = DateTime.UtcNow,
+            MaxTurns = input.Value.TryGetProperty("maxTurns", out var turnsProp) ? turnsProp.GetInt32() : null,
+            MaxTokens = input.Value.TryGetProperty("maxTokens", out var tokensProp) ? tokensProp.GetInt64() : null,
+            OrganizationId = organizationId,
+            CreatedByUserId = defaultUser.Id
+        };
+
+        _dbContext.Conversations.Add(conversation);
+
+        // Add user as owner participant
+        _dbContext.ConversationParticipants.Add(new ConversationParticipant
+        {
+            ConversationId = conversation.Id,
+            ParticipantType = ParticipantType.User,
+            UserId = defaultUser.Id,
+            Role = ParticipantRole.Owner,
+            JoinedAt = DateTime.UtcNow,
+            IsActive = true
+        });
+
+        // Add AI agents as participants if provided
+        var addedAgents = new List<string>();
+        if (input.Value.TryGetProperty("agentIds", out var agentIdsProp))
+        {
+            foreach (var agentIdElem in agentIdsProp.EnumerateArray())
+            {
+                var agentId = Guid.Parse(agentIdElem.GetString()!);
+                var agent = await _dbContext.AiAgents
+                    .FirstOrDefaultAsync(a => a.Id == agentId && a.OrganizationId == organizationId && a.DeletedAt == null, cancellationToken);
+
+                if (agent != null)
+                {
+                    _dbContext.ConversationParticipants.Add(new ConversationParticipant
+                    {
+                        ConversationId = conversation.Id,
+                        ParticipantType = ParticipantType.Ai,
+                        AiAgentId = agentId,
+                        Role = ParticipantRole.Participant,
+                        JoinedAt = DateTime.UtcNow,
+                        IsActive = true
+                    });
+                    addedAgents.Add(agent.Name);
+                }
+            }
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var message = $"Successfully created conversation **{title}** with {mode} mode.";
+        if (addedAgents.Any())
+            message += $"\nAdded AI agents: {string.Join(", ", addedAgents)}";
+
+        return new ToolResult
+        {
+            Action = "created",
+            Message = message,
+            Data = JsonSerializer.SerializeToElement(new { id = conversation.Id, title = conversation.Title, mode = mode.ToString() })
+        };
+    }
+
+    private async Task<ToolResult> UpdateConversationAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        if (input == null) return new ToolResult { Action = "error", Message = "No input provided" };
+
+        var conversationId = Guid.Parse(input.Value.GetProperty("conversationId").GetString()!);
+
+        var conversation = await _dbContext.Conversations
+            .FirstOrDefaultAsync(c => c.Id == conversationId && c.OrganizationId == organizationId && c.DeletedAt == null, cancellationToken);
+
+        if (conversation == null)
+            return new ToolResult { Action = "error", Message = "Conversation not found." };
+
+        if (input.Value.TryGetProperty("title", out var titleProp))
+            conversation.Title = titleProp.GetString()!;
+
+        if (input.Value.TryGetProperty("mode", out var modeProp))
+        {
+            conversation.Mode = modeProp.GetString()?.ToLower() switch
+            {
+                "moderated" => ConversationMode.Moderated,
+                "roundrobin" => ConversationMode.RoundRobin,
+                "free" => ConversationMode.Free,
+                "emergent" => ConversationMode.Emergent,
+                _ => ConversationMode.OnDemand
+            };
+        }
+
+        if (input.Value.TryGetProperty("status", out var statusProp))
+        {
+            conversation.Status = statusProp.GetString()?.ToLower() switch
+            {
+                "paused" => ConversationStatus.Paused,
+                "archived" => ConversationStatus.Archived,
+                _ => ConversationStatus.Active
+            };
+        }
+
+        if (input.Value.TryGetProperty("maxTurns", out var turnsProp))
+            conversation.MaxTurns = turnsProp.GetInt32();
+
+        if (input.Value.TryGetProperty("maxTokens", out var tokensProp))
+            conversation.MaxTokens = tokensProp.GetInt64();
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new ToolResult
+        {
+            Action = "updated",
+            Message = $"Successfully updated conversation **{conversation.Title}**.",
+            Data = JsonSerializer.SerializeToElement(new { id = conversation.Id, title = conversation.Title })
+        };
+    }
+
+    private async Task<ToolResult> AddAgentsToConversationAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        if (input == null) return new ToolResult { Action = "error", Message = "No input provided" };
+
+        var conversationId = Guid.Parse(input.Value.GetProperty("conversationId").GetString()!);
+        var agentIdsProp = input.Value.GetProperty("agentIds");
+
+        var conversation = await _dbContext.Conversations
+            .Include(c => c.Participants)
+            .FirstOrDefaultAsync(c => c.Id == conversationId && c.OrganizationId == organizationId && c.DeletedAt == null, cancellationToken);
+
+        if (conversation == null)
+            return new ToolResult { Action = "error", Message = "Conversation not found." };
+
+        var addedAgents = new List<string>();
+        var skippedAgents = new List<string>();
+
+        foreach (var agentIdElem in agentIdsProp.EnumerateArray())
+        {
+            var agentId = Guid.Parse(agentIdElem.GetString()!);
+
+            // Check if agent exists
+            var agent = await _dbContext.AiAgents
+                .FirstOrDefaultAsync(a => a.Id == agentId && a.OrganizationId == organizationId && a.DeletedAt == null, cancellationToken);
+
+            if (agent == null)
+                continue;
+
+            // Check if already a participant
+            var existingParticipant = conversation.Participants
+                .FirstOrDefault(p => p.AiAgentId == agentId && p.IsActive);
+
+            if (existingParticipant != null)
+            {
+                skippedAgents.Add($"{agent.Name} (already in conversation)");
+                continue;
+            }
+
+            _dbContext.ConversationParticipants.Add(new ConversationParticipant
+            {
+                ConversationId = conversationId,
+                ParticipantType = ParticipantType.Ai,
+                AiAgentId = agentId,
+                Role = ParticipantRole.Participant,
+                JoinedAt = DateTime.UtcNow,
+                IsActive = true
+            });
+            addedAgents.Add(agent.Name);
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var message = addedAgents.Any()
+            ? $"Added {addedAgents.Count} agents to **{conversation.Title}**: {string.Join(", ", addedAgents)}"
+            : "No new agents were added.";
+
+        if (skippedAgents.Any())
+            message += $"\nSkipped: {string.Join(", ", skippedAgents)}";
+
+        return new ToolResult { Action = "updated", Message = message };
+    }
+
+    private async Task<ToolResult> RemoveAgentsFromConversationAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        if (input == null) return new ToolResult { Action = "error", Message = "No input provided" };
+
+        var conversationId = Guid.Parse(input.Value.GetProperty("conversationId").GetString()!);
+        var agentIdsProp = input.Value.GetProperty("agentIds");
+
+        var conversation = await _dbContext.Conversations
+            .Include(c => c.Participants)
+            .FirstOrDefaultAsync(c => c.Id == conversationId && c.OrganizationId == organizationId && c.DeletedAt == null, cancellationToken);
+
+        if (conversation == null)
+            return new ToolResult { Action = "error", Message = "Conversation not found." };
+
+        var removedAgents = new List<string>();
+
+        foreach (var agentIdElem in agentIdsProp.EnumerateArray())
+        {
+            var agentId = Guid.Parse(agentIdElem.GetString()!);
+
+            var participant = conversation.Participants
+                .FirstOrDefault(p => p.AiAgentId == agentId && p.IsActive);
+
+            if (participant != null)
+            {
+                participant.IsActive = false;
+                participant.LeftAt = DateTime.UtcNow;
+
+                var agent = await _dbContext.AiAgents.FindAsync(agentId);
+                if (agent != null)
+                    removedAgents.Add(agent.Name);
+            }
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new ToolResult
+        {
+            Action = "updated",
+            Message = removedAgents.Any()
+                ? $"Removed {removedAgents.Count} agents from **{conversation.Title}**: {string.Join(", ", removedAgents)}"
+                : "No agents were removed."
+        };
+    }
+
+    private async Task<ToolResult> ListConversationsAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        var query = _dbContext.Conversations
+            .Include(c => c.Participants)
+                .ThenInclude(p => p.AiAgent)
+            .Where(c => c.OrganizationId == organizationId && c.DeletedAt == null);
+
+        if (input?.TryGetProperty("status", out var statusProp) == true)
+        {
+            var status = statusProp.GetString()?.ToLower() switch
+            {
+                "paused" => ConversationStatus.Paused,
+                "archived" => ConversationStatus.Archived,
+                "active" => ConversationStatus.Active,
+                _ => (ConversationStatus?)null
+            };
+
+            if (status.HasValue)
+                query = query.Where(c => c.Status == status.Value);
+        }
+
+        var conversations = await query
+            .OrderByDescending(c => c.LastMessageAt ?? c.CreatedAt)
+            .Select(c => new
+            {
+                c.Id,
+                c.Title,
+                Mode = c.Mode.ToString(),
+                Status = c.Status.ToString(),
+                c.MessageCount,
+                c.LastMessageAt,
+                Participants = c.Participants
+                    .Where(p => p.IsActive && p.ParticipantType == ParticipantType.Ai)
+                    .Select(p => p.AiAgent!.Name)
+                    .ToList()
+            })
+            .ToListAsync(cancellationToken);
+
+        var convList = string.Join("\n", conversations.Select(c =>
+            $"- **{c.Title}** ({c.Mode}, {c.Status}) - {c.MessageCount} messages, {c.Participants.Count} agents: {string.Join(", ", c.Participants)}"));
+
+        return new ToolResult
+        {
+            Action = "listed",
+            Message = conversations.Count == 0
+                ? "No conversations found."
+                : $"Found {conversations.Count} conversations:\n{convList}",
+            Data = JsonSerializer.SerializeToElement(conversations)
+        };
+    }
+
+    private async Task<ToolResult> DeleteConversationAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        if (input == null) return new ToolResult { Action = "error", Message = "No input provided" };
+
+        var conversationId = Guid.Parse(input.Value.GetProperty("conversationId").GetString()!);
+
+        var conversation = await _dbContext.Conversations
+            .FirstOrDefaultAsync(c => c.Id == conversationId && c.OrganizationId == organizationId && c.DeletedAt == null, cancellationToken);
+
+        if (conversation == null)
+            return new ToolResult { Action = "error", Message = "Conversation not found." };
+
+        var title = conversation.Title;
+        conversation.SoftDelete();
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new ToolResult
+        {
+            Action = "deleted",
+            Message = $"Successfully deleted conversation **{title}**."
+        };
+    }
+
+    #endregion
 
     #endregion
 

@@ -1,0 +1,133 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - alert [ref=e4]: OrbitOS
+    - generic [ref=e5]:
+      - complementary [ref=e6]:
+        - generic [ref=e7]:
+          - generic [ref=e8]:
+            - img [ref=e10]
+            - generic [ref=e13]: OrbitOSOps
+          - navigation [ref=e14]:
+            - link "Overview" [ref=e15] [cursor=pointer]:
+              - /url: /app
+              - img [ref=e16]
+              - text: Overview
+            - link "Canvases" [ref=e18] [cursor=pointer]:
+              - /url: /app/canvases
+              - img [ref=e19]
+              - text: Canvases
+            - link "Goals" [ref=e21] [cursor=pointer]:
+              - /url: /app/goals
+              - img [ref=e22]
+              - text: Goals
+            - link "Health" [ref=e24] [cursor=pointer]:
+              - /url: /app/health
+              - img [ref=e25]
+              - text: Health
+            - link "People" [ref=e27] [cursor=pointer]:
+              - /url: /app/people
+              - img [ref=e28]
+              - text: People
+            - link "Org Chart" [ref=e30] [cursor=pointer]:
+              - /url: /app/people/org-chart
+              - img [ref=e31]
+              - text: Org Chart
+            - link "Roles" [ref=e33] [cursor=pointer]:
+              - /url: /app/roles
+              - img [ref=e34]
+              - text: Roles
+            - link "Functions" [ref=e36] [cursor=pointer]:
+              - /url: /app/functions
+              - img [ref=e37]
+              - text: Functions
+            - link "Assignments" [ref=e39] [cursor=pointer]:
+              - /url: /app/assignments
+              - img [ref=e40]
+              - text: Assignments
+            - link "Processes" [ref=e42] [cursor=pointer]:
+              - /url: /app/processes
+              - img [ref=e43]
+              - text: Processes
+            - link "Resources" [ref=e45] [cursor=pointer]:
+              - /url: /app/resources
+              - img [ref=e46]
+              - text: Resources
+            - link "AI Agents" [ref=e48] [cursor=pointer]:
+              - /url: /app/ai-agents
+              - img [ref=e49]
+              - text: AI Agents
+          - generic [ref=e51]:
+            - button "O Select Organization No organization selected" [ref=e53] [cursor=pointer]:
+              - generic [ref=e54]: O
+              - generic [ref=e55]:
+                - paragraph [ref=e56]: Select Organization
+                - paragraph [ref=e57]: No organization selected
+              - img [ref=e58]
+            - generic [ref=e60]:
+              - generic [ref=e61]: T
+              - generic [ref=e62]: Test User
+            - generic [ref=e63]:
+              - link "Profile" [ref=e64] [cursor=pointer]:
+                - /url: /app/profile
+                - img [ref=e65]
+                - text: Profile
+              - link "Settings" [ref=e67] [cursor=pointer]:
+                - /url: /app/settings
+                - img [ref=e68]
+                - text: Settings
+            - generic [ref=e71]:
+              - link "Back Home" [ref=e72] [cursor=pointer]:
+                - /url: /
+              - button "Sign Out" [ref=e73] [cursor=pointer]
+      - generic [ref=e74]:
+        - banner [ref=e75]:
+          - button "Search help & operations... ⌘ K" [ref=e77] [cursor=pointer]:
+            - img [ref=e78]
+            - generic [ref=e80]: Search help & operations...
+            - generic [ref=e81]:
+              - generic [ref=e82]: ⌘
+              - generic [ref=e83]: K
+          - generic [ref=e84]: "Org health: Stable"
+          - button [ref=e87] [cursor=pointer]:
+            - img [ref=e88]
+        - main [ref=e91]:
+          - generic [ref=e92]:
+            - generic [ref=e93]:
+              - heading "My Profile" [level=1] [ref=e94]
+              - paragraph [ref=e95]: Manage your account settings and preferences
+            - generic [ref=e97]:
+              - img [ref=e98]
+              - heading "Failed to load profile" [level=3] [ref=e100]
+              - paragraph [ref=e101]: Not authenticated
+              - button "Try Again" [ref=e102] [cursor=pointer]
+      - button "AI" [ref=e103] [cursor=pointer]:
+        - img [ref=e104]
+        - generic [ref=e106]: AI
+      - generic [ref=e107]:
+        - generic [ref=e108]:
+          - button [ref=e109] [cursor=pointer]:
+            - img [ref=e110]
+          - button [ref=e112] [cursor=pointer]:
+            - img [ref=e113]
+        - generic [ref=e116]: Press ? for help
+  - generic:
+    - img
+  - generic:
+    - generic:
+      - generic:
+        - button "Go to parent" [disabled]
+        - button "Open in editor"
+        - button "Close"
+  - generic [ref=e117]:
+    - button "Toggle Nuxt DevTools" [ref=e118] [cursor=pointer]:
+      - img [ref=e119]
+    - generic "Page load time" [ref=e122]:
+      - generic [ref=e123]: "113"
+      - generic [ref=e124]: ms
+    - button "Toggle Component Inspector" [ref=e126] [cursor=pointer]:
+      - img [ref=e127]
+  - button "?" [ref=e131] [cursor=pointer]
+```

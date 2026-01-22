@@ -53,6 +53,45 @@ public class AiAgent : BaseEntity
     /// </summary>
     public int SortOrder { get; set; } = 0;
 
+    // ===== Personality & Meeting Behavior (for Emergent mode) =====
+
+    /// <summary>
+    /// How likely the agent is to speak up (0-100).
+    /// High: speaks first, volunteers opinions. Low: waits, speaks when asked.
+    /// </summary>
+    public int Assertiveness { get; set; } = 50;
+
+    /// <summary>
+    /// Communication style: Formal, Casual, Direct, Diplomatic, Analytical
+    /// </summary>
+    public CommunicationStyle CommunicationStyle { get; set; } = CommunicationStyle.Formal;
+
+    /// <summary>
+    /// How the agent typically reacts: Supportive, Critical, Balanced, DevilsAdvocate, ConsensusBuilder
+    /// </summary>
+    public ReactionTendency ReactionTendency { get; set; } = ReactionTendency.Balanced;
+
+    /// <summary>
+    /// Areas of expertise for stake detection (comma-separated keywords).
+    /// E.g., "finance,budget,revenue,costs" or "hr,hiring,culture,people"
+    /// </summary>
+    public string? ExpertiseAreas { get; set; }
+
+    /// <summary>
+    /// Seniority level affects deference patterns (1-5, where 5 is most senior)
+    /// </summary>
+    public int SeniorityLevel { get; set; } = 3;
+
+    /// <summary>
+    /// Whether this agent tends to ask clarifying questions
+    /// </summary>
+    public bool AsksQuestions { get; set; } = false;
+
+    /// <summary>
+    /// Whether this agent gives brief acknowledgments ("Good point", "I agree")
+    /// </summary>
+    public bool GivesBriefAcknowledgments { get; set; } = true;
+
     // Multi-tenancy
     public Guid OrganizationId { get; set; }
 
@@ -65,4 +104,38 @@ public enum AiProvider
     Anthropic,
     OpenAI,
     Google
+}
+
+/// <summary>
+/// Communication style affects tone and formality of responses
+/// </summary>
+public enum CommunicationStyle
+{
+    /// <summary>Professional, structured responses</summary>
+    Formal,
+    /// <summary>Friendly, conversational tone</summary>
+    Casual,
+    /// <summary>Straight to the point, no fluff</summary>
+    Direct,
+    /// <summary>Tactful, considers feelings and politics</summary>
+    Diplomatic,
+    /// <summary>Data-driven, methodical approach</summary>
+    Analytical
+}
+
+/// <summary>
+/// How the agent typically reacts to others' points
+/// </summary>
+public enum ReactionTendency
+{
+    /// <summary>Tends to agree and build on ideas</summary>
+    Supportive,
+    /// <summary>Looks for flaws and risks</summary>
+    Critical,
+    /// <summary>Weighs pros and cons objectively</summary>
+    Balanced,
+    /// <summary>Intentionally challenges assumptions</summary>
+    DevilsAdvocate,
+    /// <summary>Seeks common ground and alignment</summary>
+    ConsensusBuilder
 }

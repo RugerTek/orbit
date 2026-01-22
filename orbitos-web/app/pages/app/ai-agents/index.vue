@@ -1,7 +1,24 @@
 <script setup lang="ts">
-import type { AiAgent, CreateAiAgentRequest, UpdateAiAgentRequest } from '~/composables/useAiAgents'
+import type { AiAgent, CreateAiAgentRequest, UpdateAiAgentRequest, CommunicationStyle, ReactionTendency } from '~/composables/useAiAgents'
 import type { CreateConversationRequest } from '~/composables/useConversations'
 import { useConversations } from '~/composables/useConversations'
+
+// Personality options for dropdown selects
+const communicationStyles: { value: CommunicationStyle; label: string; description: string }[] = [
+  { value: 'Formal', label: 'Formal', description: 'Professional, structured responses' },
+  { value: 'Casual', label: 'Casual', description: 'Friendly, conversational tone' },
+  { value: 'Direct', label: 'Direct', description: 'Straight to the point, no fluff' },
+  { value: 'Diplomatic', label: 'Diplomatic', description: 'Tactful, considers feelings and politics' },
+  { value: 'Analytical', label: 'Analytical', description: 'Data-driven, methodical approach' }
+]
+
+const reactionTendencies: { value: ReactionTendency; label: string; description: string }[] = [
+  { value: 'Supportive', label: 'Supportive', description: 'Tends to agree and build on ideas' },
+  { value: 'Critical', label: 'Critical', description: 'Looks for flaws and risks' },
+  { value: 'Balanced', label: 'Balanced', description: 'Weighs pros and cons objectively' },
+  { value: 'DevilsAdvocate', label: "Devil's Advocate", description: 'Intentionally challenges assumptions' },
+  { value: 'ConsensusBuilder', label: 'Consensus Builder', description: 'Seeks common ground and alignment' }
+]
 
 definePageMeta({
   layout: 'app'
@@ -94,8 +111,20 @@ const newAgent = ref<CreateAiAgentRequest>({
   avatarColor: '#8B5CF6',
   maxTokensPerResponse: 4096,
   temperature: 0.7,
-  isActive: true
+  isActive: true,
+  // Personality defaults
+  assertiveness: 50,
+  communicationStyle: 'Formal',
+  reactionTendency: 'Balanced',
+  expertiseAreas: '',
+  seniorityLevel: 3,
+  asksQuestions: false,
+  givesBriefAcknowledgments: true
 })
+
+// Toggle for showing personality section
+const showPersonalitySection = ref(false)
+const showEditPersonalitySection = ref(false)
 
 // Editing agent
 const editingAgent = ref<AiAgent | null>(null)
@@ -159,9 +188,18 @@ const resetNewAgentForm = () => {
     avatarColor: '#8B5CF6',
     maxTokensPerResponse: 4096,
     temperature: 0.7,
-    isActive: true
+    isActive: true,
+    // Personality defaults
+    assertiveness: 50,
+    communicationStyle: 'Formal',
+    reactionTendency: 'Balanced',
+    expertiseAreas: '',
+    seniorityLevel: 3,
+    asksQuestions: false,
+    givesBriefAcknowledgments: true
   }
   selectedTemplate.value = 'custom'
+  showPersonalitySection.value = false
 }
 
 // Open edit dialog
@@ -679,6 +717,104 @@ const formatRelativeTime = (dateStr: string | undefined) => {
               />
             </div>
           </div>
+
+          <!-- Personality & Meeting Behavior Section -->
+          <div class="border-t border-white/10 pt-4">
+            <button
+              type="button"
+              @click="showPersonalitySection = !showPersonalitySection"
+              class="flex items-center gap-2 text-sm text-purple-300 hover:text-purple-200 transition-colors"
+            >
+              <svg
+                class="w-4 h-4 transition-transform"
+                :class="{ 'rotate-90': showPersonalitySection }"
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
+              Personality & Meeting Behavior (for Emergent mode)
+            </button>
+
+            <div v-if="showPersonalitySection" class="mt-4 space-y-4 pl-4 border-l-2 border-purple-500/30">
+              <!-- Assertiveness Slider -->
+              <div>
+                <label class="orbitos-label">Assertiveness: {{ newAgent.assertiveness }}%</label>
+                <p class="text-xs text-white/40 mb-2">How likely the agent is to speak up (0=waits, 100=speaks first)</p>
+                <input
+                  v-model.number="newAgent.assertiveness"
+                  type="range"
+                  min="0"
+                  max="100"
+                  class="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                />
+              </div>
+
+              <!-- Communication Style -->
+              <div>
+                <label class="orbitos-label">Communication Style</label>
+                <select v-model="newAgent.communicationStyle" class="orbitos-input">
+                  <option v-for="style in communicationStyles" :key="style.value" :value="style.value">
+                    {{ style.label }} - {{ style.description }}
+                  </option>
+                </select>
+              </div>
+
+              <!-- Reaction Tendency -->
+              <div>
+                <label class="orbitos-label">Reaction Tendency</label>
+                <select v-model="newAgent.reactionTendency" class="orbitos-input">
+                  <option v-for="tendency in reactionTendencies" :key="tendency.value" :value="tendency.value">
+                    {{ tendency.label }} - {{ tendency.description }}
+                  </option>
+                </select>
+              </div>
+
+              <!-- Expertise Areas -->
+              <div>
+                <label class="orbitos-label">Expertise Areas</label>
+                <p class="text-xs text-white/40 mb-2">Comma-separated keywords for stake detection (e.g., "finance,budget,revenue,costs")</p>
+                <input
+                  v-model="newAgent.expertiseAreas"
+                  type="text"
+                  class="orbitos-input"
+                  placeholder="e.g., finance, budget, revenue, costs"
+                />
+              </div>
+
+              <!-- Seniority Level -->
+              <div>
+                <label class="orbitos-label">Seniority Level: {{ newAgent.seniorityLevel }}</label>
+                <p class="text-xs text-white/40 mb-2">Affects deference patterns (1=junior, 5=senior executive)</p>
+                <input
+                  v-model.number="newAgent.seniorityLevel"
+                  type="range"
+                  min="1"
+                  max="5"
+                  class="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                />
+              </div>
+
+              <!-- Boolean Behaviors -->
+              <div class="grid grid-cols-2 gap-4">
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input
+                    v-model="newAgent.asksQuestions"
+                    type="checkbox"
+                    class="w-4 h-4 rounded bg-white/10 border-white/20 accent-purple-500"
+                  />
+                  <span class="text-sm text-white/70">Asks clarifying questions</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input
+                    v-model="newAgent.givesBriefAcknowledgments"
+                    type="checkbox"
+                    class="w-4 h-4 rounded bg-white/10 border-white/20 accent-purple-500"
+                  />
+                  <span class="text-sm text-white/70">Gives brief acknowledgments</span>
+                </label>
+              </div>
+            </div>
+          </div>
         </div>
 
       <template #footer="{ close }">
@@ -819,6 +955,104 @@ const formatRelativeTime = (dateStr: string | undefined) => {
             />
             <label for="isActive" class="orbitos-label mb-0">Agent is active</label>
           </div>
+
+          <!-- Personality & Meeting Behavior Section -->
+          <div class="border-t border-white/10 pt-4">
+            <button
+              type="button"
+              @click="showEditPersonalitySection = !showEditPersonalitySection"
+              class="flex items-center gap-2 text-sm text-purple-300 hover:text-purple-200 transition-colors"
+            >
+              <svg
+                class="w-4 h-4 transition-transform"
+                :class="{ 'rotate-90': showEditPersonalitySection }"
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
+              Personality & Meeting Behavior (for Emergent mode)
+            </button>
+
+            <div v-if="showEditPersonalitySection" class="mt-4 space-y-4 pl-4 border-l-2 border-purple-500/30">
+              <!-- Assertiveness Slider -->
+              <div>
+                <label class="orbitos-label">Assertiveness: {{ editingAgent.assertiveness }}%</label>
+                <p class="text-xs text-white/40 mb-2">How likely the agent is to speak up (0=waits, 100=speaks first)</p>
+                <input
+                  v-model.number="editingAgent.assertiveness"
+                  type="range"
+                  min="0"
+                  max="100"
+                  class="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                />
+              </div>
+
+              <!-- Communication Style -->
+              <div>
+                <label class="orbitos-label">Communication Style</label>
+                <select v-model="editingAgent.communicationStyle" class="orbitos-input">
+                  <option v-for="style in communicationStyles" :key="style.value" :value="style.value">
+                    {{ style.label }} - {{ style.description }}
+                  </option>
+                </select>
+              </div>
+
+              <!-- Reaction Tendency -->
+              <div>
+                <label class="orbitos-label">Reaction Tendency</label>
+                <select v-model="editingAgent.reactionTendency" class="orbitos-input">
+                  <option v-for="tendency in reactionTendencies" :key="tendency.value" :value="tendency.value">
+                    {{ tendency.label }} - {{ tendency.description }}
+                  </option>
+                </select>
+              </div>
+
+              <!-- Expertise Areas -->
+              <div>
+                <label class="orbitos-label">Expertise Areas</label>
+                <p class="text-xs text-white/40 mb-2">Comma-separated keywords for stake detection (e.g., "finance,budget,revenue,costs")</p>
+                <input
+                  v-model="editingAgent.expertiseAreas"
+                  type="text"
+                  class="orbitos-input"
+                  placeholder="e.g., finance, budget, revenue, costs"
+                />
+              </div>
+
+              <!-- Seniority Level -->
+              <div>
+                <label class="orbitos-label">Seniority Level: {{ editingAgent.seniorityLevel }}</label>
+                <p class="text-xs text-white/40 mb-2">Affects deference patterns (1=junior, 5=senior executive)</p>
+                <input
+                  v-model.number="editingAgent.seniorityLevel"
+                  type="range"
+                  min="1"
+                  max="5"
+                  class="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                />
+              </div>
+
+              <!-- Boolean Behaviors -->
+              <div class="grid grid-cols-2 gap-4">
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input
+                    v-model="editingAgent.asksQuestions"
+                    type="checkbox"
+                    class="w-4 h-4 rounded bg-white/10 border-white/20 accent-purple-500"
+                  />
+                  <span class="text-sm text-white/70">Asks clarifying questions</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input
+                    v-model="editingAgent.givesBriefAcknowledgments"
+                    type="checkbox"
+                    class="w-4 h-4 rounded bg-white/10 border-white/20 accent-purple-500"
+                  />
+                  <span class="text-sm text-white/70">Gives brief acknowledgments</span>
+                </label>
+              </div>
+            </div>
+          </div>
         </div>
       </template>
 
@@ -873,10 +1107,14 @@ const formatRelativeTime = (dateStr: string | undefined) => {
           <label class="orbitos-label">Conversation Mode</label>
           <select v-model="newConversation.mode" class="orbitos-input">
             <option value="OnDemand">On-Demand (AI responds only when @mentioned)</option>
+            <option value="Emergent">Emergent (Agents self-moderate based on relevance)</option>
             <option value="Moderated">Moderated (AI responses require approval)</option>
             <option value="RoundRobin">Round-Robin (Each AI responds in turn)</option>
             <option value="Free">Free (All AIs may respond - use with caution)</option>
           </select>
+          <p v-if="newConversation.mode === 'Emergent'" class="mt-2 text-xs text-purple-300">
+            Agents will use personality traits and expertise matching to decide when to speak.
+          </p>
         </div>
 
         <!-- Agent Selection -->

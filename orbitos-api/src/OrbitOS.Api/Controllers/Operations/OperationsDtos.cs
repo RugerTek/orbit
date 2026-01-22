@@ -355,6 +355,10 @@ public class CanvasBlockDto
     public string? Content { get; set; }
     public int DisplayOrder { get; set; }
     public Guid CanvasId { get; set; }
+    /// <summary>
+    /// Linked entity references for this block (Roles, Processes, etc.)
+    /// </summary>
+    public List<BlockReferenceDto> References { get; set; } = new();
 }
 
 public class UpdateCanvasBlockRequest
@@ -1043,6 +1047,61 @@ public class UpdateBlockReferenceRequest
     public bool IsHighlighted { get; set; }
     public string? MetricsJson { get; set; }
     public string? TagsJson { get; set; }
+}
+
+/// <summary>
+/// Enriched block reference with full entity details for AI consumption and UI expansion
+/// </summary>
+public class EnrichedBlockReferenceDto : BlockReferenceDto
+{
+    /// <summary>
+    /// For Role references: assigned people with their allocation
+    /// </summary>
+    public List<RoleAssignmentSummaryDto>? AssignedPeople { get; set; }
+
+    /// <summary>
+    /// For Role references: coverage status (Covered, AtRisk, Uncovered)
+    /// </summary>
+    public string? CoverageStatus { get; set; }
+
+    /// <summary>
+    /// For Role references: functions this role is responsible for
+    /// </summary>
+    public List<FunctionSummaryDto>? Functions { get; set; }
+
+    /// <summary>
+    /// For Process references: activities within the process
+    /// </summary>
+    public List<ActivitySummaryDto>? Activities { get; set; }
+
+    /// <summary>
+    /// For Process references: process status
+    /// </summary>
+    public ProcessStatus? ProcessStatus { get; set; }
+}
+
+public class RoleAssignmentSummaryDto
+{
+    public Guid ResourceId { get; set; }
+    public string ResourceName { get; set; } = "";
+    public decimal? AllocationPercentage { get; set; }
+    public bool IsPrimary { get; set; }
+    public ResourceStatus Status { get; set; }
+}
+
+public class FunctionSummaryDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = "";
+    public string? Category { get; set; }
+}
+
+public class ActivitySummaryDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = "";
+    public ActivityType ActivityType { get; set; }
+    public int Order { get; set; }
 }
 
 #endregion

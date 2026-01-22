@@ -46,7 +46,15 @@ public class AiAgentsController : ControllerBase
                 IsActive = a.IsActive,
                 SortOrder = a.SortOrder,
                 CreatedAt = a.CreatedAt,
-                UpdatedAt = a.UpdatedAt
+                UpdatedAt = a.UpdatedAt,
+                // Personality fields
+                Assertiveness = a.Assertiveness,
+                CommunicationStyle = a.CommunicationStyle.ToString(),
+                ReactionTendency = a.ReactionTendency.ToString(),
+                ExpertiseAreas = a.ExpertiseAreas,
+                SeniorityLevel = a.SeniorityLevel,
+                AsksQuestions = a.AsksQuestions,
+                GivesBriefAcknowledgments = a.GivesBriefAcknowledgments
             })
             .ToListAsync(cancellationToken);
 
@@ -77,7 +85,15 @@ public class AiAgentsController : ControllerBase
                 IsActive = a.IsActive,
                 SortOrder = a.SortOrder,
                 CreatedAt = a.CreatedAt,
-                UpdatedAt = a.UpdatedAt
+                UpdatedAt = a.UpdatedAt,
+                // Personality fields
+                Assertiveness = a.Assertiveness,
+                CommunicationStyle = a.CommunicationStyle.ToString(),
+                ReactionTendency = a.ReactionTendency.ToString(),
+                ExpertiseAreas = a.ExpertiseAreas,
+                SeniorityLevel = a.SeniorityLevel,
+                AsksQuestions = a.AsksQuestions,
+                GivesBriefAcknowledgments = a.GivesBriefAcknowledgments
             })
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -111,6 +127,20 @@ public class AiAgentsController : ControllerBase
         if (!Enum.TryParse<AiProvider>(request.Provider, true, out var provider))
             return BadRequest("Invalid provider. Must be one of: anthropic, openai, google");
 
+        // Parse communication style
+        var communicationStyle = CommunicationStyle.Formal;
+        if (!string.IsNullOrEmpty(request.CommunicationStyle))
+        {
+            Enum.TryParse<CommunicationStyle>(request.CommunicationStyle, true, out communicationStyle);
+        }
+
+        // Parse reaction tendency
+        var reactionTendency = ReactionTendency.Balanced;
+        if (!string.IsNullOrEmpty(request.ReactionTendency))
+        {
+            Enum.TryParse<ReactionTendency>(request.ReactionTendency, true, out reactionTendency);
+        }
+
         var agent = new AiAgent
         {
             Name = request.Name,
@@ -125,7 +155,15 @@ public class AiAgentsController : ControllerBase
             Temperature = request.Temperature ?? 0.7m,
             IsActive = request.IsActive ?? true,
             SortOrder = request.SortOrder ?? 0,
-            OrganizationId = organizationId
+            OrganizationId = organizationId,
+            // Personality fields
+            Assertiveness = request.Assertiveness ?? 50,
+            CommunicationStyle = communicationStyle,
+            ReactionTendency = reactionTendency,
+            ExpertiseAreas = request.ExpertiseAreas,
+            SeniorityLevel = request.SeniorityLevel ?? 3,
+            AsksQuestions = request.AsksQuestions ?? false,
+            GivesBriefAcknowledgments = request.GivesBriefAcknowledgments ?? true
         };
 
         _dbContext.AiAgents.Add(agent);
@@ -150,7 +188,15 @@ public class AiAgentsController : ControllerBase
             IsActive = agent.IsActive,
             SortOrder = agent.SortOrder,
             CreatedAt = agent.CreatedAt,
-            UpdatedAt = agent.UpdatedAt
+            UpdatedAt = agent.UpdatedAt,
+            // Personality fields
+            Assertiveness = agent.Assertiveness,
+            CommunicationStyle = agent.CommunicationStyle.ToString(),
+            ReactionTendency = agent.ReactionTendency.ToString(),
+            ExpertiseAreas = agent.ExpertiseAreas,
+            SeniorityLevel = agent.SeniorityLevel,
+            AsksQuestions = agent.AsksQuestions,
+            GivesBriefAcknowledgments = agent.GivesBriefAcknowledgments
         });
     }
 
@@ -200,6 +246,17 @@ public class AiAgentsController : ControllerBase
         if (request.IsActive != null) agent.IsActive = request.IsActive.Value;
         if (request.SortOrder != null) agent.SortOrder = request.SortOrder.Value;
 
+        // Personality fields
+        if (request.Assertiveness != null) agent.Assertiveness = Math.Clamp(request.Assertiveness.Value, 0, 100);
+        if (request.CommunicationStyle != null && Enum.TryParse<CommunicationStyle>(request.CommunicationStyle, true, out var commStyle))
+            agent.CommunicationStyle = commStyle;
+        if (request.ReactionTendency != null && Enum.TryParse<ReactionTendency>(request.ReactionTendency, true, out var reactTendency))
+            agent.ReactionTendency = reactTendency;
+        if (request.ExpertiseAreas != null) agent.ExpertiseAreas = request.ExpertiseAreas;
+        if (request.SeniorityLevel != null) agent.SeniorityLevel = Math.Clamp(request.SeniorityLevel.Value, 1, 5);
+        if (request.AsksQuestions != null) agent.AsksQuestions = request.AsksQuestions.Value;
+        if (request.GivesBriefAcknowledgments != null) agent.GivesBriefAcknowledgments = request.GivesBriefAcknowledgments.Value;
+
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Updated AI agent {AgentId} for organization {OrgId}", agentId, organizationId);
@@ -220,7 +277,15 @@ public class AiAgentsController : ControllerBase
             IsActive = agent.IsActive,
             SortOrder = agent.SortOrder,
             CreatedAt = agent.CreatedAt,
-            UpdatedAt = agent.UpdatedAt
+            UpdatedAt = agent.UpdatedAt,
+            // Personality fields
+            Assertiveness = agent.Assertiveness,
+            CommunicationStyle = agent.CommunicationStyle.ToString(),
+            ReactionTendency = agent.ReactionTendency.ToString(),
+            ExpertiseAreas = agent.ExpertiseAreas,
+            SeniorityLevel = agent.SeniorityLevel,
+            AsksQuestions = agent.AsksQuestions,
+            GivesBriefAcknowledgments = agent.GivesBriefAcknowledgments
         });
     }
 
@@ -259,16 +324,16 @@ public class AiAgentsController : ControllerBase
             new() { Provider = "anthropic", ModelId = "claude-opus-4-20250514", DisplayName = "Claude Opus 4", Description = "Most capable model for complex tasks", ContextWindow = 200000 },
             new() { Provider = "anthropic", ModelId = "claude-3-5-haiku-20241022", DisplayName = "Claude 3.5 Haiku", Description = "Fastest model for simple tasks", ContextWindow = 200000 },
 
-            // TODO: Uncomment when API keys are configured
             // OpenAI models
-            // new() { Provider = "openai", ModelId = "gpt-4o", DisplayName = "GPT-4o", Description = "Most capable GPT-4 model", ContextWindow = 128000 },
-            // new() { Provider = "openai", ModelId = "gpt-4o-mini", DisplayName = "GPT-4o Mini", Description = "Fast and affordable", ContextWindow = 128000 },
-            // new() { Provider = "openai", ModelId = "gpt-4-turbo", DisplayName = "GPT-4 Turbo", Description = "GPT-4 with vision capabilities", ContextWindow = 128000 },
+            new() { Provider = "openai", ModelId = "gpt-4o", DisplayName = "GPT-4o", Description = "Most capable GPT-4 model", ContextWindow = 128000 },
+            new() { Provider = "openai", ModelId = "gpt-4o-mini", DisplayName = "GPT-4o Mini", Description = "Fast and affordable", ContextWindow = 128000 },
+            new() { Provider = "openai", ModelId = "gpt-4-turbo", DisplayName = "GPT-4 Turbo", Description = "GPT-4 with vision capabilities", ContextWindow = 128000 },
 
             // Google models
-            // new() { Provider = "google", ModelId = "gemini-2.0-flash", DisplayName = "Gemini 2.0 Flash", Description = "Fast multimodal model", ContextWindow = 1000000 },
-            // new() { Provider = "google", ModelId = "gemini-1.5-pro", DisplayName = "Gemini 1.5 Pro", Description = "Most capable Gemini model", ContextWindow = 2000000 },
-            // new() { Provider = "google", ModelId = "gemini-1.5-flash", DisplayName = "Gemini 1.5 Flash", Description = "Fast and efficient", ContextWindow = 1000000 }
+            new() { Provider = "google", ModelId = "gemini-2.5-flash", DisplayName = "Gemini 2.5 Flash", Description = "Latest fast multimodal model", ContextWindow = 1000000 },
+            new() { Provider = "google", ModelId = "gemini-2.0-flash", DisplayName = "Gemini 2.0 Flash", Description = "Fast multimodal model", ContextWindow = 1000000 },
+            new() { Provider = "google", ModelId = "gemini-1.5-pro", DisplayName = "Gemini 1.5 Pro", Description = "Most capable Gemini model", ContextWindow = 2000000 },
+            new() { Provider = "google", ModelId = "gemini-1.5-flash", DisplayName = "Gemini 1.5 Flash", Description = "Fast and efficient", ContextWindow = 1000000 }
         };
 
         return Ok(models);
@@ -293,6 +358,15 @@ public class AiAgentDto
     public int SortOrder { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+
+    // Personality & Meeting Behavior (for Emergent mode)
+    public int Assertiveness { get; set; } = 50;
+    public string CommunicationStyle { get; set; } = "Formal";
+    public string ReactionTendency { get; set; } = "Balanced";
+    public string? ExpertiseAreas { get; set; }
+    public int SeniorityLevel { get; set; } = 3;
+    public bool AsksQuestions { get; set; } = false;
+    public bool GivesBriefAcknowledgments { get; set; } = true;
 }
 
 public class CreateAiAgentRequest
@@ -309,6 +383,15 @@ public class CreateAiAgentRequest
     public decimal? Temperature { get; set; }
     public bool? IsActive { get; set; }
     public int? SortOrder { get; set; }
+
+    // Personality & Meeting Behavior
+    public int? Assertiveness { get; set; }
+    public string? CommunicationStyle { get; set; }
+    public string? ReactionTendency { get; set; }
+    public string? ExpertiseAreas { get; set; }
+    public int? SeniorityLevel { get; set; }
+    public bool? AsksQuestions { get; set; }
+    public bool? GivesBriefAcknowledgments { get; set; }
 }
 
 public class UpdateAiAgentRequest
@@ -325,6 +408,15 @@ public class UpdateAiAgentRequest
     public decimal? Temperature { get; set; }
     public bool? IsActive { get; set; }
     public int? SortOrder { get; set; }
+
+    // Personality & Meeting Behavior
+    public int? Assertiveness { get; set; }
+    public string? CommunicationStyle { get; set; }
+    public string? ReactionTendency { get; set; }
+    public string? ExpertiseAreas { get; set; }
+    public int? SeniorityLevel { get; set; }
+    public bool? AsksQuestions { get; set; }
+    public bool? GivesBriefAcknowledgments { get; set; }
 }
 
 public class AvailableModelDto

@@ -159,81 +159,78 @@ const stats = computed(() => {
       </button>
     </div>
 
-    <!-- Process Cards -->
-    <div v-else class="space-y-4">
-      <NuxtLink
-        v-for="process in processes"
-        :key="process.id"
-        :to="`/app/processes/${process.id}`"
-        class="block orbitos-glass-subtle p-6 transition hover:border-purple-500/40"
-      >
-        <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div class="flex-1">
-            <div class="flex items-center gap-3">
-              <h2 class="text-lg font-semibold text-white">{{ process.name }}</h2>
-              <span :class="['rounded-full px-3 py-1 text-xs font-medium', getStatusColor(process.status)]">
-                {{ getStatusLabel(process.status) }}
-              </span>
-              <span v-if="process.stateType === 'target'" class="rounded-full bg-blue-500/20 px-3 py-1 text-xs font-medium text-blue-300">
-                Target State
-              </span>
-            </div>
-            <p v-if="process.purpose" class="mt-1 text-sm text-white/60">{{ process.purpose }}</p>
-          </div>
-          <div class="flex items-center gap-2 text-white/40">
-            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-            </svg>
-          </div>
-        </div>
-
-        <!-- Process Flow Preview -->
-        <div class="mt-5 flex items-center gap-2 overflow-x-auto pb-2">
-          <div v-if="process.trigger" class="flex items-center gap-1 rounded-lg bg-emerald-500/20 px-3 py-1.5 text-xs text-emerald-300">
-            <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="10" />
-            </svg>
-            <span>{{ process.trigger }}</span>
-          </div>
-          <svg v-if="process.trigger" class="h-4 w-4 flex-shrink-0 text-white/20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-          </svg>
-          <div class="flex items-center gap-1 rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white/60">
-            <span>{{ process.activityCount || 0 }} activities</span>
-          </div>
-          <svg v-if="process.output" class="h-4 w-4 flex-shrink-0 text-white/20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-          </svg>
-          <div v-if="process.output" class="flex items-center gap-1 rounded-lg bg-purple-500/20 px-3 py-1.5 text-xs text-purple-300">
-            <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
-              <rect x="4" y="4" width="16" height="16" rx="2" />
-            </svg>
-            <span>{{ process.output }}</span>
-          </div>
-        </div>
-
-        <!-- Meta Info -->
-        <div class="mt-4 flex flex-wrap items-center gap-4 border-t border-white/10 pt-4 text-xs text-white/40">
-          <div v-if="process.owner" class="flex items-center gap-1.5">
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-            <span>{{ process.owner.name }}</span>
-          </div>
-          <div class="flex items-center gap-1.5">
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
-            </svg>
-            <span>{{ process.functionCount || 0 }} functions</span>
-          </div>
-          <div v-if="getFrequencyLabel(process.frequency)" class="flex items-center gap-1.5">
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>{{ getFrequencyLabel(process.frequency) }}</span>
-          </div>
-        </div>
-      </NuxtLink>
+    <!-- Processes Table -->
+    <div v-else class="orbitos-glass-subtle overflow-hidden">
+      <div class="flex items-center justify-between border-b border-white/10 px-6 py-4">
+        <div class="text-sm text-white/70">{{ processes.length }} processes</div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-black/20 text-xs uppercase text-white/40">
+            <tr>
+              <th class="px-6 py-3">Process</th>
+              <th class="px-6 py-3">Trigger</th>
+              <th class="px-6 py-3">Output</th>
+              <th class="px-6 py-3">Activities</th>
+              <th class="px-6 py-3">Status</th>
+              <th class="px-6 py-3">Owner</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-white/10">
+            <tr
+              v-for="process in processes"
+              :key="process.id"
+              class="hover:bg-white/5 transition-colors cursor-pointer"
+              @click="navigateTo(`/app/processes/${process.id}`)"
+            >
+              <td class="px-6 py-4">
+                <NuxtLink :to="`/app/processes/${process.id}`" class="block hover:text-purple-300 transition-colors" @click.stop>
+                  <div class="font-semibold text-white">{{ process.name }}</div>
+                  <div v-if="process.purpose" class="text-xs text-white/40 mt-0.5 line-clamp-1">{{ process.purpose }}</div>
+                </NuxtLink>
+              </td>
+              <td class="px-6 py-4">
+                <span v-if="process.trigger" class="inline-flex items-center gap-1 rounded bg-emerald-500/20 px-2 py-1 text-xs text-emerald-300">
+                  <svg class="h-2 w-2" fill="currentColor" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" />
+                  </svg>
+                  {{ process.trigger }}
+                </span>
+                <span v-else class="text-white/30 text-xs">—</span>
+              </td>
+              <td class="px-6 py-4">
+                <span v-if="process.output" class="inline-flex items-center gap-1 rounded bg-purple-500/20 px-2 py-1 text-xs text-purple-300">
+                  <svg class="h-2 w-2" fill="currentColor" viewBox="0 0 24 24">
+                    <rect x="4" y="4" width="16" height="16" rx="2" />
+                  </svg>
+                  {{ process.output }}
+                </span>
+                <span v-else class="text-white/30 text-xs">—</span>
+              </td>
+              <td class="px-6 py-4">
+                <div class="flex items-center gap-2">
+                  <span class="text-white">{{ process.activityCount || 0 }}</span>
+                  <span class="text-white/40 text-xs">activities</span>
+                </div>
+              </td>
+              <td class="px-6 py-4">
+                <div class="flex items-center gap-2">
+                  <span :class="['rounded-full px-2.5 py-1 text-xs font-medium', getStatusColor(process.status)]">
+                    {{ getStatusLabel(process.status) }}
+                  </span>
+                  <span v-if="process.stateType === 'target'" class="rounded-full bg-blue-500/20 px-2 py-0.5 text-xs text-blue-300">
+                    Target
+                  </span>
+                </div>
+              </td>
+              <td class="px-6 py-4">
+                <span v-if="process.owner" class="text-white/70 text-xs">{{ process.owner.name }}</span>
+                <span v-else class="text-white/30 text-xs">—</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <!-- Add Process Dialog -->

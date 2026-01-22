@@ -23,12 +23,30 @@ const isEditing = ref(false)
 const isSaving = ref(false)
 const editingResource = ref<OpsResource | null>(null)
 
+// Resource types for selection
+const resourceTypes = [
+  { value: 'person', label: 'Person', description: 'Team members and employees' },
+  { value: 'team', label: 'Team', description: 'Groups of people' },
+  { value: 'tool', label: 'Tool', description: 'Software and applications' },
+  { value: 'automation', label: 'Automation', description: 'Automated processes and bots' },
+  { value: 'partner', label: 'Partner', description: 'External partners and vendors' },
+  { value: 'asset', label: 'Asset', description: 'Physical or digital assets' },
+] as const
+
+type ResourceTypeValue = typeof resourceTypes[number]['value']
+
 // Form state
 const form = ref({
   name: '',
   description: '',
   status: 'active' as OpsResource['status'],
+  resourceType: 'tool' as ResourceTypeValue, // Default to tool since person has its own page
   resourceSubtypeId: '',
+})
+
+// Filter subtypes by selected resource type
+const filteredSubtypes = computed(() => {
+  return resourceSubtypes.value.filter(s => s.resourceType === form.value.resourceType)
 })
 
 // Fetch resources and subtypes on mount
@@ -67,7 +85,8 @@ const openAddDialog = () => {
     name: '',
     description: '',
     status: 'active',
-    resourceSubtypeId: resourceSubtypes.value[0]?.id || '',
+    resourceType: 'tool', // Default to tool since person has its own page
+    resourceSubtypeId: '',
   }
   showDialog.value = true
 }
@@ -80,6 +99,7 @@ const openEditDialog = (resource: OpsResource) => {
     name: resource.name,
     description: resource.description || '',
     status: resource.status,
+    resourceType: resource.resourceType as ResourceTypeValue,
     resourceSubtypeId: '', // We don't have this from the transformed resource
   }
   showDialog.value = true
@@ -98,21 +118,27 @@ const saveResource = async () => {
         status: form.value.status,
       })
     } else {
-      // For new resources, we need a subtype
+      // For new resources, we need a subtype matching the selected resource type
       let subtypeId = form.value.resourceSubtypeId
 
-      // If no subtypes exist, create a default one
-      if (!subtypeId && resourceSubtypes.value.length === 0) {
-        const newSubtype = await createResourceSubtype({
-          name: 'General',
-          description: 'General resource type',
-          resourceType: 'person',
-        })
-        subtypeId = newSubtype.id
-      } else if (!subtypeId && resourceSubtypes.value.length > 0) {
-        const firstSubtype = resourceSubtypes.value[0]
-        if (firstSubtype) {
-          subtypeId = firstSubtype.id
+      // Find or create a subtype for the selected resource type
+      if (!subtypeId) {
+        // Look for an existing subtype of this resource type
+        const existingSubtype = resourceSubtypes.value.find(
+          s => s.resourceType === form.value.resourceType
+        )
+
+        if (existingSubtype) {
+          subtypeId = existingSubtype.id
+        } else {
+          // Create a default subtype for this resource type
+          const typeLabel = resourceTypes.find(t => t.value === form.value.resourceType)?.label || form.value.resourceType
+          const newSubtype = await createResourceSubtype({
+            name: `General ${typeLabel}`,
+            description: `Default ${typeLabel.toLowerCase()} resource type`,
+            resourceType: form.value.resourceType,
+          })
+          subtypeId = newSubtype.id
         }
       }
 
@@ -287,14 +313,31 @@ const closeDialog = () => {
         </div>
 
         <!-- Resource Type (only for new resources) -->
-        <div v-if="!isEditing && resourceSubtypes.length > 0">
-          <label class="block text-sm font-medium text-white/70 mb-1">Type</label>
+        <div v-if="!isEditing">
+          <label class="block text-sm font-medium text-white/70 mb-1">Resource Type</label>
+          <select
+            v-model="form.resourceType"
+            class="w-full rounded-lg bg-white/5 border border-white/10 px-4 py-2 text-white focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+          >
+            <option v-for="type in resourceTypes" :key="type.value" :value="type.value">
+              {{ type.label }} - {{ type.description }}
+            </option>
+          </select>
+          <p v-if="form.resourceType === 'person'" class="mt-1 text-xs text-amber-400">
+            Tip: Use the People page for adding team members
+          </p>
+        </div>
+
+        <!-- Resource Subtype (optional, only if subtypes exist for the selected type) -->
+        <div v-if="!isEditing && filteredSubtypes.length > 0">
+          <label class="block text-sm font-medium text-white/70 mb-1">Subtype (optional)</label>
           <select
             v-model="form.resourceSubtypeId"
             class="w-full rounded-lg bg-white/5 border border-white/10 px-4 py-2 text-white focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
           >
-            <option v-for="subtype in resourceSubtypes" :key="subtype.id" :value="subtype.id">
-              {{ subtype.name }} ({{ resourceTypeLabel(subtype.resourceType) }})
+            <option value="">Default</option>
+            <option v-for="subtype in filteredSubtypes" :key="subtype.id" :value="subtype.id">
+              {{ subtype.name }}
             </option>
           </select>
         </div>

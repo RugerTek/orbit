@@ -15,9 +15,20 @@ export interface AiAgent {
   temperature: number
   isActive: boolean
   sortOrder: number
+  // Personality traits for Emergent mode
+  assertiveness: number
+  communicationStyle: CommunicationStyle
+  reactionTendency: ReactionTendency
+  expertiseAreas?: string
+  seniorityLevel: number
+  asksQuestions: boolean
+  givesBriefAcknowledgments: boolean
   createdAt: string
   updatedAt: string
 }
+
+export type CommunicationStyle = 'Formal' | 'Casual' | 'Direct' | 'Diplomatic' | 'Analytical'
+export type ReactionTendency = 'Supportive' | 'Critical' | 'Balanced' | 'DevilsAdvocate' | 'ConsensusBuilder'
 
 export interface AvailableModel {
   provider: string
@@ -40,6 +51,14 @@ export interface CreateAiAgentRequest {
   temperature?: number
   isActive?: boolean
   sortOrder?: number
+  // Personality traits for Emergent mode
+  assertiveness?: number
+  communicationStyle?: CommunicationStyle
+  reactionTendency?: ReactionTendency
+  expertiseAreas?: string
+  seniorityLevel?: number
+  asksQuestions?: boolean
+  givesBriefAcknowledgments?: boolean
 }
 
 export interface UpdateAiAgentRequest {
@@ -55,6 +74,14 @@ export interface UpdateAiAgentRequest {
   temperature?: number
   isActive?: boolean
   sortOrder?: number
+  // Personality traits for Emergent mode
+  assertiveness?: number
+  communicationStyle?: CommunicationStyle
+  reactionTendency?: ReactionTendency
+  expertiseAreas?: string
+  seniorityLevel?: number
+  asksQuestions?: boolean
+  givesBriefAcknowledgments?: boolean
 }
 
 // Global state for AI agents
@@ -139,6 +166,11 @@ export const useAiAgents = () => {
     await updateAgent(agentId, { isActive: !agent.isActive })
   }
 
+  // Clear all agent state (used when switching organizations)
+  const clearAllAgentState = () => {
+    agents.value = []
+  }
+
   // Get models grouped by provider
   const modelsByProvider = computed(() => {
     const grouped: Record<string, AvailableModel[]> = {}
@@ -170,6 +202,7 @@ export const useAiAgents = () => {
     createAgent,
     updateAgent,
     deleteAgent,
-    toggleAgentActive
+    toggleAgentActive,
+    clearAllAgentState
   }
 }

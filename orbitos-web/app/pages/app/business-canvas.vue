@@ -5,6 +5,11 @@ import type {
   ValueProposition,
   CustomerRelationship,
   RevenueStream,
+  Canvas,
+  BlockReference,
+  EnrichedBlockReference,
+  ReferenceEntityType,
+  CanvasBlockType,
 } from '~/types/operations'
 
 definePageMeta({
@@ -18,29 +23,27 @@ const {
   valuePropositions,
   customerRelationships,
   revenueStreams,
-  resources,
+  roles,
+  processes,
   fetchPartners,
   fetchChannels,
   fetchValuePropositions,
   fetchCustomerRelationships,
   fetchRevenueStreams,
-  fetchResources,
-  createPartner,
-  updatePartner,
-  deletePartner,
-  createChannel,
-  updateChannel,
-  deleteChannel,
-  createValueProposition,
-  updateValueProposition,
-  deleteValueProposition,
-  createCustomerRelationship,
-  updateCustomerRelationship,
-  deleteCustomerRelationship,
-  createRevenueStream,
-  updateRevenueStream,
-  deleteRevenueStream,
+  fetchRoles,
+  fetchProcesses,
+  // Canvas methods
+  fetchBmcCanvases,
+  createBmcCanvas,
+  // Block reference methods
+  addBlockReference,
+  removeBlockReference,
+  getCanvasEnriched,
 } = useOperations()
+
+// Current canvas state
+const currentCanvas = ref<Canvas | null>(null)
+const canvasLoading = ref(true)
 
 // View mode state
 type ViewMode = 'canvas' | 'kanban' | 'list'
@@ -50,35 +53,108 @@ const viewMode = ref<ViewMode>('canvas')
 type BlockType = 'partners' | 'activities' | 'resources' | 'propositions' | 'relationships' | 'channels' | 'segments' | 'costs' | 'revenue'
 const activeBlock = ref<BlockType | null>(null)
 
+// Block references state - cached per block type
+const blockReferences = ref<Record<string, BlockReference[]>>({})
+
 // Entity modal state
 const showEntityModal = ref(false)
 const editingEntity = ref<Partner | Channel | ValueProposition | CustomerRelationship | RevenueStream | null>(null)
 const entityType = ref<'partner' | 'channel' | 'valueProposition' | 'customerRelationship' | 'revenueStream'>('partner')
 
-// Block definitions with color schemes
-const blockDefinitions: Record<BlockType, { title: string; color: string; bgColor: string; borderColor: string; entityType: string }> = {
-  partners: { title: 'Key Partners', color: 'blue', bgColor: 'bg-blue-500/10', borderColor: 'border-blue-500/30', entityType: 'partner' },
-  activities: { title: 'Key Activities', color: 'purple', bgColor: 'bg-purple-500/10', borderColor: 'border-purple-500/30', entityType: 'process' },
-  resources: { title: 'Key Resources', color: 'emerald', bgColor: 'bg-emerald-500/10', borderColor: 'border-emerald-500/30', entityType: 'resource' },
-  propositions: { title: 'Value Propositions', color: 'amber', bgColor: 'bg-amber-500/10', borderColor: 'border-amber-500/30', entityType: 'valueProposition' },
-  relationships: { title: 'Customer Relationships', color: 'cyan', bgColor: 'bg-cyan-500/10', borderColor: 'border-cyan-500/30', entityType: 'customerRelationship' },
-  channels: { title: 'Channels', color: 'pink', bgColor: 'bg-pink-500/10', borderColor: 'border-pink-500/30', entityType: 'channel' },
-  segments: { title: 'Customer Segments', color: 'orange', bgColor: 'bg-orange-500/10', borderColor: 'border-orange-500/30', entityType: 'segment' },
-  costs: { title: 'Cost Structure', color: 'red', bgColor: 'bg-red-500/10', borderColor: 'border-red-500/30', entityType: 'cost' },
-  revenue: { title: 'Revenue Streams', color: 'teal', bgColor: 'bg-teal-500/10', borderColor: 'border-teal-500/30', entityType: 'revenueStream' },
+// Link entity dialog state
+const showLinkDialog = ref(false)
+const linkDialogBlockType = ref<BlockType | null>(null)
+
+// Expanded role state (for showing people under roles)
+const expandedRoleId = ref<string | null>(null)
+
+// Block definitions with color schemes and entity type mapping
+const blockDefinitions: Record<BlockType, {
+  title: string
+  color: string
+  bgColor: string
+  borderColor: string
+  entityType: string
+  apiBlockType: CanvasBlockType
+  referenceEntityType?: ReferenceEntityType
+}> = {
+  partners: { title: 'Key Partners', color: 'blue', bgColor: 'bg-blue-500/10', borderColor: 'border-blue-500/30', entityType: 'partner', apiBlockType: 'KeyPartners', referenceEntityType: 'Partner' },
+  activities: { title: 'Key Activities', color: 'purple', bgColor: 'bg-purple-500/10', borderColor: 'border-purple-500/30', entityType: 'process', apiBlockType: 'KeyActivities', referenceEntityType: 'Process' },
+  resources: { title: 'Key Resources', color: 'emerald', bgColor: 'bg-emerald-500/10', borderColor: 'border-emerald-500/30', entityType: 'role', apiBlockType: 'KeyResources', referenceEntityType: 'Role' },
+  propositions: { title: 'Value Propositions', color: 'amber', bgColor: 'bg-amber-500/10', borderColor: 'border-amber-500/30', entityType: 'valueProposition', apiBlockType: 'ValuePropositions', referenceEntityType: 'ValueProposition' },
+  relationships: { title: 'Customer Relationships', color: 'cyan', bgColor: 'bg-cyan-500/10', borderColor: 'border-cyan-500/30', entityType: 'customerRelationship', apiBlockType: 'CustomerRelationships', referenceEntityType: 'CustomerRelationship' },
+  channels: { title: 'Channels', color: 'pink', bgColor: 'bg-pink-500/10', borderColor: 'border-pink-500/30', entityType: 'channel', apiBlockType: 'Channels', referenceEntityType: 'Channel' },
+  segments: { title: 'Customer Segments', color: 'orange', bgColor: 'bg-orange-500/10', borderColor: 'border-orange-500/30', entityType: 'segment', apiBlockType: 'CustomerSegments' },
+  costs: { title: 'Cost Structure', color: 'red', bgColor: 'bg-red-500/10', borderColor: 'border-red-500/30', entityType: 'cost', apiBlockType: 'CostStructure' },
+  revenue: { title: 'Revenue Streams', color: 'teal', bgColor: 'bg-teal-500/10', borderColor: 'border-teal-500/30', entityType: 'revenueStream', apiBlockType: 'RevenueStreams', referenceEntityType: 'RevenueStream' },
 }
 
-// Load all data on mount
+// Load or create default canvas, then load all data
 onMounted(async () => {
+  canvasLoading.value = true
+
+  try {
+    // First fetch the BMC canvases for this organization
+    const canvases = await fetchBmcCanvases()
+
+    if (canvases && canvases.length > 0) {
+      // Use the first BMC canvas (could add canvas selection later)
+      const firstCanvas = canvases[0]!
+      const enrichedCanvas = await getCanvasEnriched(firstCanvas.id)
+      currentCanvas.value = enrichedCanvas || firstCanvas
+
+      // Extract block references from the canvas blocks
+      if (currentCanvas.value?.blocks) {
+        for (const block of currentCanvas.value.blocks) {
+          const blockKey = getBlockKeyFromApiType(block.blockType)
+          if (blockKey && block.references) {
+            blockReferences.value[blockKey] = block.references
+          }
+        }
+      }
+    } else {
+      // Create a default BMC canvas for this organization
+      const newCanvas = await createBmcCanvas({
+        name: 'Organization Business Model',
+        description: 'Default Business Model Canvas for the organization',
+        scopeType: 'Organization',
+        status: 'Active',
+      })
+      currentCanvas.value = newCanvas
+    }
+  } catch (e) {
+    console.error('Failed to load canvas:', e)
+  }
+
+  // Load all supporting data in parallel
   await Promise.all([
     fetchPartners(),
     fetchChannels(),
     fetchValuePropositions(),
     fetchCustomerRelationships(),
     fetchRevenueStreams(),
-    fetchResources(),
+    fetchRoles(),
+    fetchProcesses(),
   ])
+
+  canvasLoading.value = false
 })
+
+// Helper to convert API block type to our BlockType key
+const getBlockKeyFromApiType = (apiType: string): BlockType | null => {
+  const mapping: Record<string, BlockType> = {
+    KeyPartners: 'partners',
+    KeyActivities: 'activities',
+    KeyResources: 'resources',
+    ValuePropositions: 'propositions',
+    CustomerRelationships: 'relationships',
+    Channels: 'channels',
+    CustomerSegments: 'segments',
+    CostStructure: 'costs',
+    RevenueStreams: 'revenue',
+  }
+  return mapping[apiType] || null
+}
 
 // Block item type for consistent typing
 interface BlockItem {
@@ -87,20 +163,103 @@ interface BlockItem {
   description?: string
   status?: string
   type?: string
+  // For enriched references
+  assignedPeople?: Array<{ resourceId: string; resourceName: string; allocationPercentage?: number; isPrimary: boolean }>
+  coverageStatus?: string
+  activities?: Array<{ id: string; name: string; activityType: string }>
+  processStatus?: string
+  referenceId?: string // The BlockReference ID for unlinking
 }
 
-// Block items - mapped from API data
+// Get items for a block - combines direct entities with linked references
+const getBlockItems = (blockType: BlockType): BlockItem[] => {
+  const refs = blockReferences.value[blockType] || []
+
+  // For blocks that use references (Key Activities, Key Resources)
+  if (blockType === 'activities') {
+    return refs.map(ref => {
+      const enriched = ref as EnrichedBlockReference
+      return {
+        id: ref.entityId,
+        name: ref.entityName || 'Unknown Process',
+        description: ref.contextNote,
+        status: enriched.processStatus,
+        activities: enriched.activities,
+        referenceId: ref.id,
+      }
+    })
+  }
+
+  if (blockType === 'resources') {
+    return refs.map(ref => {
+      const enriched = ref as EnrichedBlockReference
+      return {
+        id: ref.entityId,
+        name: ref.entityName || 'Unknown Role',
+        description: ref.contextNote,
+        status: enriched.coverageStatus,
+        assignedPeople: enriched.assignedPeople,
+        coverageStatus: enriched.coverageStatus,
+        referenceId: ref.id,
+      }
+    })
+  }
+
+  // For other blocks, use direct entity data
+  if (blockType === 'partners') {
+    return partners.value.map(p => ({ id: p.id, name: p.name, description: p.description, status: p.status, type: p.type }))
+  }
+  if (blockType === 'propositions') {
+    return valuePropositions.value.map(v => ({ id: v.id, name: v.name, description: v.headline, status: v.status }))
+  }
+  if (blockType === 'relationships') {
+    return customerRelationships.value.map(c => ({ id: c.id, name: c.name, description: c.description, status: c.status, type: c.type }))
+  }
+  if (blockType === 'channels') {
+    return channels.value.map(c => ({ id: c.id, name: c.name, description: c.description, status: c.status, type: c.type }))
+  }
+  if (blockType === 'revenue') {
+    return revenueStreams.value.map(r => ({ id: r.id, name: r.name, description: r.description, status: r.status, type: r.type }))
+  }
+
+  return []
+}
+
+// Block items - computed from API data and references
 const blockItems = computed<Record<BlockType, BlockItem[]>>(() => ({
-  partners: partners.value.map(p => ({ id: p.id, name: p.name, description: p.description, status: p.status, type: p.type })),
-  activities: [] as BlockItem[], // Would come from processes
-  resources: resources.value.filter(r => r.resourceType === 'tool' || r.resourceType === 'asset').map(r => ({ id: r.id, name: r.name, description: r.description, status: r.status })),
-  propositions: valuePropositions.value.map(v => ({ id: v.id, name: v.name, description: v.headline, status: v.status })),
-  relationships: customerRelationships.value.map(c => ({ id: c.id, name: c.name, description: c.description, status: c.status, type: c.type })),
-  channels: channels.value.map(c => ({ id: c.id, name: c.name, description: c.description, status: c.status, type: c.type })),
-  segments: [] as BlockItem[], // Would come from customer segments
-  costs: [] as BlockItem[], // Would come from cost structure entries
-  revenue: revenueStreams.value.map(r => ({ id: r.id, name: r.name, description: r.description, status: r.status, type: r.type })),
+  partners: getBlockItems('partners'),
+  activities: getBlockItems('activities'),
+  resources: getBlockItems('resources'),
+  propositions: getBlockItems('propositions'),
+  relationships: getBlockItems('relationships'),
+  channels: getBlockItems('channels'),
+  segments: [] as BlockItem[], // Coming soon
+  costs: [] as BlockItem[], // Coming soon
+  revenue: getBlockItems('revenue'),
 }))
+
+// Available items to link (not already linked)
+const availableToLink = computed(() => {
+  if (!linkDialogBlockType.value) return []
+
+  const blockType = linkDialogBlockType.value
+  const existingRefs = blockReferences.value[blockType] || []
+  const existingIds = new Set(existingRefs.map(r => r.entityId))
+
+  if (blockType === 'activities') {
+    return processes.value
+      .filter(p => !existingIds.has(p.id))
+      .map(p => ({ id: p.id, name: p.name, description: p.purpose || p.description }))
+  }
+
+  if (blockType === 'resources') {
+    return roles.value
+      .filter(r => !existingIds.has(r.id))
+      .map(r => ({ id: r.id, name: r.name, description: r.purpose || r.description }))
+  }
+
+  return []
+})
 
 // Color classes helper
 const colorClasses: Record<string, { bg: string; border: string; text: string; badge: string }> = {
@@ -130,9 +289,21 @@ const handleBlockClick = (block: BlockType) => {
   }
 }
 
-// Handle item click to open edit modal
-const handleItemClick = (block: BlockType, item: { id: string }) => {
+// Handle item click to open edit modal or navigate
+const handleItemClick = (block: BlockType, item: BlockItem) => {
   const def = blockDefinitions[block]
+
+  // For linked entities (activities, resources), navigate to their detail pages
+  if (def.entityType === 'process') {
+    navigateTo(`/app/processes/${item.id}`)
+    return
+  }
+  if (def.entityType === 'role') {
+    navigateTo(`/app/roles/${item.id}`)
+    return
+  }
+
+  // For direct entities, open edit modal
   if (def.entityType === 'partner') {
     editingEntity.value = partners.value.find(p => p.id === item.id) || null
     entityType.value = 'partner'
@@ -148,41 +319,86 @@ const handleItemClick = (block: BlockType, item: { id: string }) => {
   } else if (def.entityType === 'revenueStream') {
     editingEntity.value = revenueStreams.value.find(r => r.id === item.id) || null
     entityType.value = 'revenueStream'
-  } else if (def.entityType === 'process') {
-    // Navigate to process detail page
-    navigateTo(`/app/processes/${item.id}`)
-    return
-  } else if (def.entityType === 'resource') {
-    // Navigate to resources page (no detail page yet)
-    navigateTo('/app/resources')
-    return
   }
+
   if (editingEntity.value) {
     showEntityModal.value = true
   }
 }
 
-// Handle add new item
+// Handle add new item - either open link dialog or create dialog
 const handleAddItem = (block: BlockType) => {
   const def = blockDefinitions[block]
+
+  // For blocks that use linking (activities, resources), open link dialog
+  if (def.entityType === 'process' || def.entityType === 'role') {
+    linkDialogBlockType.value = block
+    showLinkDialog.value = true
+    return
+  }
+
+  // For other blocks, open create modal
   editingEntity.value = null
   if (def.entityType === 'partner') entityType.value = 'partner'
   else if (def.entityType === 'channel') entityType.value = 'channel'
   else if (def.entityType === 'valueProposition') entityType.value = 'valueProposition'
   else if (def.entityType === 'customerRelationship') entityType.value = 'customerRelationship'
   else if (def.entityType === 'revenueStream') entityType.value = 'revenueStream'
-  else if (def.entityType === 'process') {
-    // Navigate to processes page to add a new process
-    navigateTo('/app/processes')
-    return
-  }
-  else if (def.entityType === 'resource') {
-    // Navigate to resources page to add a new resource
-    navigateTo('/app/resources')
-    return
-  }
   else return // Not a supported entity type for add
   showEntityModal.value = true
+}
+
+// Link an entity to a block
+const handleLinkEntity = async (entityId: string) => {
+  if (!currentCanvas.value || !linkDialogBlockType.value) return
+
+  const def = blockDefinitions[linkDialogBlockType.value]
+  if (!def.referenceEntityType) return
+
+  try {
+    const blockKey = linkDialogBlockType.value
+    const newRef = await addBlockReference(
+      currentCanvas.value.id,
+      def.apiBlockType as CanvasBlockType,
+      {
+        entityType: def.referenceEntityType,
+        entityId,
+        role: 'Primary',
+      }
+    )
+
+    // Add to local state
+    if (!blockReferences.value[blockKey]) {
+      blockReferences.value[blockKey] = []
+    }
+    blockReferences.value[blockKey]!.push(newRef)
+
+    showLinkDialog.value = false
+    linkDialogBlockType.value = null
+  } catch (e) {
+    console.error('Failed to link entity:', e)
+  }
+}
+
+// Unlink an entity from a block
+const handleUnlinkEntity = async (block: BlockType, item: BlockItem) => {
+  if (!currentCanvas.value || !item.referenceId) return
+
+  const def = blockDefinitions[block]
+
+  try {
+    await removeBlockReference(currentCanvas.value.id, def.apiBlockType as CanvasBlockType, item.referenceId)
+
+    // Remove from local state
+    blockReferences.value[block] = (blockReferences.value[block] || []).filter(r => r.id !== item.referenceId)
+  } catch (e) {
+    console.error('Failed to unlink entity:', e)
+  }
+}
+
+// Toggle role expansion to show assigned people
+const toggleRoleExpansion = (roleId: string) => {
+  expandedRoleId.value = expandedRoleId.value === roleId ? null : roleId
 }
 
 // Stats computed
@@ -192,6 +408,8 @@ const stats = computed(() => ({
   propositions: valuePropositions.value.length,
   relationships: customerRelationships.value.length,
   revenue: revenueStreams.value.length,
+  activities: blockItems.value.activities.length,
+  resources: blockItems.value.resources.length,
   total: partners.value.length + channels.value.length + valuePropositions.value.length + customerRelationships.value.length + revenueStreams.value.length,
 }))
 
@@ -211,9 +429,9 @@ const kanbanItems = computed(() => {
   const mapStatus = (status: string | undefined): KanbanStatus => {
     if (!status) return 'Planned'
     const s = status.toLowerCase()
-    if (s === 'active' || s === 'validated') return 'Active'
-    if (s === 'planned' || s === 'draft' || s === 'prospective' || s === 'testing') return 'Planned'
-    if (s === 'optimizing' || s === 'growing' || s === 'mature') return 'Optimizing'
+    if (s === 'active' || s === 'validated' || s === 'covered') return 'Active'
+    if (s === 'planned' || s === 'draft' || s === 'prospective' || s === 'testing' || s === 'uncovered') return 'Planned'
+    if (s === 'optimizing' || s === 'growing' || s === 'mature' || s === 'atrisk') return 'Optimizing'
     if (s === 'sunset' || s === 'declining' || s === 'retired' || s === 'terminated' || s === 'inactive') return 'Sunset'
     return 'Active'
   }
@@ -223,6 +441,9 @@ const kanbanItems = computed(() => {
   valuePropositions.value.forEach(v => items[mapStatus(v.status)].push({ id: v.id, name: v.name, type: 'Value Prop', block: 'propositions', status: v.status }))
   customerRelationships.value.forEach(c => items[mapStatus(c.status)].push({ id: c.id, name: c.name, type: 'Relationship', block: 'relationships', status: c.status }))
   revenueStreams.value.forEach(r => items[mapStatus(r.status)].push({ id: r.id, name: r.name, type: 'Revenue', block: 'revenue', status: r.status }))
+  // Add linked activities and resources
+  blockItems.value.activities.forEach(a => items[mapStatus(a.status)].push({ id: a.id, name: a.name, type: 'Process', block: 'activities', status: a.status || 'Active' }))
+  blockItems.value.resources.forEach(r => items[mapStatus(r.coverageStatus)].push({ id: r.id, name: r.name, type: 'Role', block: 'resources', status: r.coverageStatus || 'Active' }))
 
   return items
 })
@@ -236,6 +457,9 @@ const listItems = computed(() => {
   valuePropositions.value.forEach(v => items.push({ id: v.id, name: v.name, type: 'Value Proposition', block: 'propositions', status: v.status, description: v.headline }))
   customerRelationships.value.forEach(c => items.push({ id: c.id, name: c.name, type: 'Customer Relationship', block: 'relationships', status: c.status, description: c.description }))
   revenueStreams.value.forEach(r => items.push({ id: r.id, name: r.name, type: 'Revenue Stream', block: 'revenue', status: r.status, description: r.description }))
+  // Add linked items
+  blockItems.value.activities.forEach(a => items.push({ id: a.id, name: a.name, type: 'Process', block: 'activities', status: a.status || 'Active', description: a.description }))
+  blockItems.value.resources.forEach(r => items.push({ id: r.id, name: r.name, type: 'Role', block: 'resources', status: r.coverageStatus || 'Active', description: r.description }))
 
   return items
 })
@@ -278,10 +502,20 @@ const filteredListItems = computed(() => {
 const getStatusColor = (status: string | undefined) => {
   if (!status) return 'bg-slate-500/20 text-slate-300'
   const s = status.toLowerCase()
-  if (s === 'active' || s === 'validated') return 'bg-emerald-500/20 text-emerald-300'
-  if (s === 'planned' || s === 'draft' || s === 'prospective' || s === 'testing') return 'bg-blue-500/20 text-blue-300'
-  if (s === 'optimizing' || s === 'growing' || s === 'mature') return 'bg-purple-500/20 text-purple-300'
+  if (s === 'active' || s === 'validated' || s === 'covered') return 'bg-emerald-500/20 text-emerald-300'
+  if (s === 'planned' || s === 'draft' || s === 'prospective' || s === 'testing' || s === 'uncovered') return 'bg-blue-500/20 text-blue-300'
+  if (s === 'optimizing' || s === 'growing' || s === 'mature' || s === 'atrisk') return 'bg-purple-500/20 text-purple-300'
   if (s === 'sunset' || s === 'declining' || s === 'retired' || s === 'terminated' || s === 'inactive') return 'bg-amber-500/20 text-amber-300'
+  return 'bg-slate-500/20 text-slate-300'
+}
+
+// Coverage status color helper
+const getCoverageColor = (status: string | undefined) => {
+  if (!status) return 'bg-slate-500/20 text-slate-300'
+  const s = status.toLowerCase()
+  if (s === 'covered') return 'bg-emerald-500/20 text-emerald-300'
+  if (s === 'atrisk') return 'bg-amber-500/20 text-amber-300'
+  if (s === 'uncovered') return 'bg-red-500/20 text-red-300'
   return 'bg-slate-500/20 text-slate-300'
 }
 </script>
@@ -292,7 +526,9 @@ const getStatusColor = (status: string | undefined) => {
     <div class="mb-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
       <div>
         <h1 class="orbitos-heading-lg">Business Model Canvas</h1>
-        <p class="orbitos-text">Map your business model with the 9 building blocks</p>
+        <p class="orbitos-text">
+          {{ currentCanvas?.name || 'Map your business model with the 9 building blocks' }}
+        </p>
       </div>
       <div class="flex items-center gap-3">
         <!-- View Mode Toggle -->
@@ -332,6 +568,14 @@ const getStatusColor = (status: string | undefined) => {
         <span class="text-sm font-semibold text-blue-300">{{ stats.partners }}</span>
       </div>
       <div class="flex items-center gap-2 rounded-lg bg-white/5 border border-white/10 px-3 py-2">
+        <span class="text-xs text-white/40">Activities</span>
+        <span class="text-sm font-semibold text-purple-300">{{ stats.activities }}</span>
+      </div>
+      <div class="flex items-center gap-2 rounded-lg bg-white/5 border border-white/10 px-3 py-2">
+        <span class="text-xs text-white/40">Resources</span>
+        <span class="text-sm font-semibold text-emerald-300">{{ stats.resources }}</span>
+      </div>
+      <div class="flex items-center gap-2 rounded-lg bg-white/5 border border-white/10 px-3 py-2">
         <span class="text-xs text-white/40">Channels</span>
         <span class="text-sm font-semibold text-pink-300">{{ stats.channels }}</span>
       </div>
@@ -340,17 +584,13 @@ const getStatusColor = (status: string | undefined) => {
         <span class="text-sm font-semibold text-amber-300">{{ stats.propositions }}</span>
       </div>
       <div class="flex items-center gap-2 rounded-lg bg-white/5 border border-white/10 px-3 py-2">
-        <span class="text-xs text-white/40">Relationships</span>
-        <span class="text-sm font-semibold text-cyan-300">{{ stats.relationships }}</span>
-      </div>
-      <div class="flex items-center gap-2 rounded-lg bg-white/5 border border-white/10 px-3 py-2">
         <span class="text-xs text-white/40">Revenue Streams</span>
         <span class="text-sm font-semibold text-teal-300">{{ stats.revenue }}</span>
       </div>
     </div>
 
     <!-- Loading State -->
-    <div v-if="isLoading" class="flex flex-1 items-center justify-center">
+    <div v-if="isLoading || canvasLoading" class="flex flex-1 items-center justify-center">
       <div class="orbitos-spinner orbitos-spinner-lg"></div>
     </div>
 
@@ -395,7 +635,7 @@ const getStatusColor = (status: string | undefined) => {
             </div>
           </div>
 
-          <!-- Key Activities -->
+          <!-- Key Activities (Processes) -->
           <div
             class="rounded-xl border bg-slate-900/40 p-3 cursor-pointer transition-all duration-200 hover:bg-slate-900/60"
             :class="[blockDefinitions.activities.borderColor, activeBlock === 'activities' ? 'ring-2 ring-purple-500/50' : '']"
@@ -409,13 +649,23 @@ const getStatusColor = (status: string | undefined) => {
               <div
                 v-for="item in blockItems.activities.slice(0, 3)"
                 :key="item.id"
-                :class="['rounded-lg border p-2 text-xs', getColorClasses('purple').bg, getColorClasses('purple').border, getColorClasses('purple').text]"
+                :class="['rounded-lg border p-2 text-xs cursor-pointer transition-all hover:scale-[1.02]', getColorClasses('purple').bg, getColorClasses('purple').border, getColorClasses('purple').text]"
+                @click.stop="handleItemClick('activities', item)"
               >
-                {{ item.name }}
+                <div class="flex items-center justify-between">
+                  <span>{{ item.name }}</span>
+                  <span v-if="item.activities" class="text-[10px] opacity-60">{{ item.activities.length }} steps</span>
+                </div>
               </div>
-              <div class="text-xs text-white/30 text-center italic">
-                Link from Processes
+              <div v-if="blockItems.activities.length === 0" class="text-xs text-white/30 text-center italic py-2">
+                Link processes here
               </div>
+              <button
+                class="w-full rounded-lg border border-dashed border-white/20 p-2 text-xs text-white/40 hover:border-white/40 hover:text-white/60 transition-colors"
+                @click.stop="handleAddItem('activities')"
+              >
+                + Link Process
+              </button>
             </div>
           </div>
 
@@ -493,7 +743,7 @@ const getStatusColor = (status: string | undefined) => {
             </div>
           </div>
 
-          <!-- Key Resources -->
+          <!-- Key Resources (Roles) -->
           <div
             class="rounded-xl border bg-slate-900/40 p-3 cursor-pointer transition-all duration-200 hover:bg-slate-900/60"
             :class="[blockDefinitions.resources.borderColor, activeBlock === 'resources' ? 'ring-2 ring-emerald-500/50' : '']"
@@ -507,13 +757,28 @@ const getStatusColor = (status: string | undefined) => {
               <div
                 v-for="item in blockItems.resources.slice(0, 3)"
                 :key="item.id"
-                :class="['rounded-lg border p-2 text-xs', getColorClasses('emerald').bg, getColorClasses('emerald').border, getColorClasses('emerald').text]"
+                :class="['rounded-lg border p-2 text-xs cursor-pointer transition-all hover:scale-[1.02]', getColorClasses('emerald').bg, getColorClasses('emerald').border, getColorClasses('emerald').text]"
+                @click.stop="handleItemClick('resources', item)"
               >
-                {{ item.name }}
+                <div class="flex items-center justify-between">
+                  <span>{{ item.name }}</span>
+                  <span v-if="item.coverageStatus" :class="['rounded px-1 py-0.5 text-[10px]', getCoverageColor(item.coverageStatus)]">
+                    {{ item.coverageStatus }}
+                  </span>
+                </div>
+                <div v-if="item.assignedPeople && item.assignedPeople.length > 0" class="text-[10px] opacity-60 mt-1">
+                  {{ item.assignedPeople.length }} people assigned
+                </div>
               </div>
-              <div class="text-xs text-white/30 text-center italic">
-                Link from Resources
+              <div v-if="blockItems.resources.length === 0" class="text-xs text-white/30 text-center italic py-2">
+                Link roles here
               </div>
+              <button
+                class="w-full rounded-lg border border-dashed border-white/20 p-2 text-xs text-white/40 hover:border-white/40 hover:text-white/60 transition-colors"
+                @click.stop="handleAddItem('resources')"
+              >
+                + Link Role
+              </button>
             </div>
           </div>
 
@@ -626,17 +891,90 @@ const getStatusColor = (status: string | undefined) => {
               v-for="item in blockItems[activeBlock]"
               :key="item.id"
               :class="['rounded-xl border p-4 cursor-pointer transition-all hover:scale-[1.01]', blockDefinitions[activeBlock].bgColor, blockDefinitions[activeBlock].borderColor]"
-              @click="handleItemClick(activeBlock, item)"
             >
-              <div class="flex items-start justify-between">
+              <div class="flex items-start justify-between" @click="handleItemClick(activeBlock, item)">
                 <div class="flex-1">
                   <h4 class="font-medium text-white">{{ item.name }}</h4>
                   <p v-if="item.description" class="text-sm text-white/60 mt-1 line-clamp-2">{{ item.description }}</p>
                 </div>
-                <span v-if="item.status" :class="['rounded-full px-2 py-0.5 text-xs', getStatusColor(item.status)]">
-                  {{ item.status }}
-                </span>
+                <div class="flex items-center gap-2">
+                  <span v-if="item.coverageStatus" :class="['rounded-full px-2 py-0.5 text-xs', getCoverageColor(item.coverageStatus)]">
+                    {{ item.coverageStatus }}
+                  </span>
+                  <span v-else-if="item.status" :class="['rounded-full px-2 py-0.5 text-xs', getStatusColor(item.status)]">
+                    {{ item.status }}
+                  </span>
+                </div>
               </div>
+
+              <!-- Expandable people list for roles -->
+              <div v-if="item.assignedPeople && item.assignedPeople.length > 0" class="mt-3">
+                <button
+                  class="flex items-center gap-2 text-xs text-white/50 hover:text-white/80 transition-colors"
+                  @click.stop="toggleRoleExpansion(item.id)"
+                >
+                  <svg
+                    class="h-3 w-3 transition-transform"
+                    :class="{ 'rotate-90': expandedRoleId === item.id }"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                  {{ item.assignedPeople.length }} people assigned
+                </button>
+
+                <Transition
+                  enter-active-class="transition-all duration-200 ease-out"
+                  enter-from-class="opacity-0 max-h-0"
+                  enter-to-class="opacity-100 max-h-40"
+                  leave-active-class="transition-all duration-150 ease-in"
+                  leave-from-class="opacity-100 max-h-40"
+                  leave-to-class="opacity-0 max-h-0"
+                >
+                  <div v-if="expandedRoleId === item.id" class="mt-2 ml-5 space-y-1 overflow-hidden">
+                    <div
+                      v-for="person in item.assignedPeople"
+                      :key="person.resourceId"
+                      class="flex items-center justify-between text-xs text-white/70 py-1"
+                    >
+                      <span>{{ person.resourceName }}</span>
+                      <span v-if="person.allocationPercentage" class="text-white/40">
+                        {{ person.allocationPercentage }}%
+                      </span>
+                    </div>
+                  </div>
+                </Transition>
+              </div>
+
+              <!-- Activities list for processes -->
+              <div v-if="item.activities && item.activities.length > 0" class="mt-3">
+                <div class="text-xs text-white/50 mb-2">{{ item.activities.length }} activities</div>
+                <div class="flex flex-wrap gap-1">
+                  <span
+                    v-for="activity in item.activities.slice(0, 4)"
+                    :key="activity.id"
+                    class="rounded bg-white/10 px-2 py-0.5 text-[10px] text-white/60"
+                  >
+                    {{ activity.name }}
+                  </span>
+                  <span v-if="item.activities.length > 4" class="text-[10px] text-white/40">
+                    +{{ item.activities.length - 4 }} more
+                  </span>
+                </div>
+              </div>
+
+              <!-- Unlink button for referenced items -->
+              <div v-if="item.referenceId" class="mt-3 pt-3 border-t border-white/10">
+                <button
+                  class="text-xs text-red-400/70 hover:text-red-400 transition-colors"
+                  @click.stop="handleUnlinkEntity(activeBlock, item)"
+                >
+                  Unlink from canvas
+                </button>
+              </div>
+
               <div v-if="item.type" class="mt-2 flex items-center gap-2">
                 <span class="rounded bg-white/10 px-2 py-0.5 text-xs text-white/50">{{ item.type }}</span>
               </div>
@@ -648,7 +986,7 @@ const getStatusColor = (status: string | undefined) => {
                 class="orbitos-btn-secondary px-4 py-2 text-sm"
                 @click="handleAddItem(activeBlock)"
               >
-                Add First Item
+                {{ blockDefinitions[activeBlock].entityType === 'process' || blockDefinitions[activeBlock].entityType === 'role' ? 'Link First Item' : 'Add First Item' }}
               </button>
             </div>
           </div>
@@ -661,7 +999,7 @@ const getStatusColor = (status: string | undefined) => {
               <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
               </svg>
-              Add {{ blockDefinitions[activeBlock].title.replace('Key ', '').replace('Customer ', '') }}
+              {{ blockDefinitions[activeBlock].entityType === 'process' || blockDefinitions[activeBlock].entityType === 'role' ? 'Link' : 'Add' }} {{ blockDefinitions[activeBlock].title.replace('Key ', '').replace('Customer ', '') }}
             </button>
           </div>
         </div>
@@ -819,6 +1157,40 @@ const getStatusColor = (status: string | undefined) => {
         @save="showEntityModal = false"
       />
     </Teleport>
+
+    <!-- Link Entity Dialog -->
+    <BaseDialog
+      v-model="showLinkDialog"
+      size="md"
+      :title="`Link ${linkDialogBlockType === 'activities' ? 'Process' : 'Role'} to Canvas`"
+      subtitle="Select an existing item to link to this canvas block"
+    >
+      <div class="space-y-2 max-h-80 overflow-y-auto">
+        <div
+          v-for="item in availableToLink"
+          :key="item.id"
+          class="rounded-lg border border-white/10 bg-white/5 p-3 cursor-pointer transition-all hover:bg-white/10 hover:border-white/20"
+          @click="handleLinkEntity(item.id)"
+        >
+          <h4 class="font-medium text-white">{{ item.name }}</h4>
+          <p v-if="item.description" class="text-sm text-white/60 mt-1">{{ item.description }}</p>
+        </div>
+
+        <div v-if="availableToLink.length === 0" class="text-center py-8 text-white/40">
+          <p class="mb-4">No items available to link</p>
+          <NuxtLink
+            :to="linkDialogBlockType === 'activities' ? '/app/processes' : '/app/roles'"
+            class="text-purple-400 hover:text-purple-300"
+          >
+            Create a new {{ linkDialogBlockType === 'activities' ? 'process' : 'role' }} first
+          </NuxtLink>
+        </div>
+      </div>
+
+      <template #footer="{ close }">
+        <button class="orbitos-btn-secondary" @click="close">Cancel</button>
+      </template>
+    </BaseDialog>
   </div>
 </template>
 

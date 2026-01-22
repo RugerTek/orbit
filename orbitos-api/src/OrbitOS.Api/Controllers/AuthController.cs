@@ -500,6 +500,241 @@ public class AuthController : ControllerBase
             ""
         );
     }
+
+    #region User Profile Endpoints
+
+    [HttpGet("profile")]
+    [Authorize]
+    public async Task<IActionResult> GetProfile()
+    {
+        if (!_currentUserService.IsAuthenticated)
+        {
+            return Unauthorized();
+        }
+
+        var user = await _dbContext.Users
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == _currentUserService.Email.ToLower());
+
+        if (user == null)
+        {
+            return NotFound(new { Message = "User not found" });
+        }
+
+        return Ok(new UserProfileDto
+        {
+            Id = user.Id,
+            Email = user.Email,
+            DisplayName = user.DisplayName,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            AvatarUrl = user.AvatarUrl,
+            HasPassword = !string.IsNullOrEmpty(user.PasswordHash),
+            HasGoogleId = !string.IsNullOrEmpty(user.GoogleId),
+            HasAzureAdId = !string.IsNullOrEmpty(user.AzureAdObjectId),
+            LastLoginAt = user.LastLoginAt,
+            CreatedAt = user.CreatedAt,
+            UpdatedAt = user.UpdatedAt
+        });
+    }
+
+    [HttpPut("profile")]
+    [Authorize]
+    public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
+    {
+        if (!_currentUserService.IsAuthenticated)
+        {
+            return Unauthorized();
+        }
+
+        // Validate display name
+        if (string.IsNullOrWhiteSpace(request.DisplayName))
+        {
+            return BadRequest(new { Message = "Display name is required" });
+        }
+
+        if (request.DisplayName.Length < 2 || request.DisplayName.Length > 100)
+        {
+            return BadRequest(new { Message = "Display name must be between 2 and 100 characters" });
+        }
+
+        // Validate optional fields
+        if (request.FirstName != null && request.FirstName.Length > 50)
+        {
+            return BadRequest(new { Message = "First name must be 50 characters or less" });
+        }
+
+        if (request.LastName != null && request.LastName.Length > 50)
+        {
+            return BadRequest(new { Message = "Last name must be 50 characters or less" });
+        }
+
+        var user = await _dbContext.Users
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == _currentUserService.Email.ToLower());
+
+        if (user == null)
+        {
+            return NotFound(new { Message = "User not found" });
+        }
+
+        user.DisplayName = request.DisplayName.Trim();
+        user.FirstName = request.FirstName?.Trim();
+        user.LastName = request.LastName?.Trim();
+        user.UpdatedAt = DateTime.UtcNow;
+
+        await _dbContext.SaveChangesAsync();
+
+        _logger.LogInformation("User {UserId} updated their profile", user.Id);
+
+        return Ok(new UserProfileDto
+        {
+            Id = user.Id,
+            Email = user.Email,
+            DisplayName = user.DisplayName,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            AvatarUrl = user.AvatarUrl,
+            HasPassword = !string.IsNullOrEmpty(user.PasswordHash),
+            HasGoogleId = !string.IsNullOrEmpty(user.GoogleId),
+            HasAzureAdId = !string.IsNullOrEmpty(user.AzureAdObjectId),
+            LastLoginAt = user.LastLoginAt,
+            CreatedAt = user.CreatedAt,
+            UpdatedAt = user.UpdatedAt
+        });
+    }
+
+    [HttpPut("change-password")]
+    [Authorize]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+    {
+        if (!_currentUserService.IsAuthenticated)
+        {
+            return Unauthorized();
+        }
+
+        // Validate passwords match
+        if (request.NewPassword != request.ConfirmPassword)
+        {
+            return BadRequest(new { Message = "New password and confirmation do not match" });
+        }
+
+        // Validate password length
+        if (request.NewPassword.Length < 8)
+        {
+            return BadRequest(new { Message = "Password must be at least 8 characters" });
+        }
+
+        var user = await _dbContext.Users
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == _currentUserService.Email.ToLower());
+
+        if (user == null)
+        {
+            return NotFound(new { Message = "User not found" });
+        }
+
+        // User must have a password set to change it
+        if (string.IsNullOrEmpty(user.PasswordHash))
+        {
+            return BadRequest(new { Message = "Cannot change password for accounts without password authentication" });
+        }
+
+        // Verify current password
+        if (!VerifyPassword(request.CurrentPassword, user.PasswordHash))
+        {
+            return BadRequest(new { Message = "Current password is incorrect" });
+        }
+
+        // Hash and save new password
+        user.PasswordHash = HashPassword(request.NewPassword);
+        user.UpdatedAt = DateTime.UtcNow;
+
+        await _dbContext.SaveChangesAsync();
+
+        _logger.LogInformation("User {UserId} changed their password", user.Id);
+
+        return Ok(new { Message = "Password changed successfully" });
+    }
+
+    [HttpPost("link-google")]
+    [Authorize]
+    public async Task<IActionResult> LinkGoogleAccount([FromBody] LinkGoogleRequest request)
+    {
+        if (!_currentUserService.IsAuthenticated)
+        {
+            return Unauthorized();
+        }
+
+        var user = await _dbContext.Users
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == _currentUserService.Email.ToLower());
+
+        if (user == null)
+        {
+            return NotFound(new { Message = "User not found" });
+        }
+
+        if (!string.IsNullOrEmpty(user.GoogleId))
+        {
+            return BadRequest(new { Message = "Google account is already linked" });
+        }
+
+        // Verify the Google token
+        var googleUser = await VerifyGoogleToken(request.Credential);
+        if (googleUser == null)
+        {
+            return BadRequest(new { Message = "Invalid Google token" });
+        }
+
+        // Check if Google account is already linked to another user
+        var existingUser = await _dbContext.Users
+            .FirstOrDefaultAsync(u => u.GoogleId == googleUser.Sub && u.Id != user.Id);
+
+        if (existingUser != null)
+        {
+            return BadRequest(new { Message = "This Google account is already linked to another user" });
+        }
+
+        // Link Google account
+        user.GoogleId = googleUser.Sub;
+        if (string.IsNullOrEmpty(user.AvatarUrl))
+        {
+            user.AvatarUrl = googleUser.Picture;
+        }
+        user.UpdatedAt = DateTime.UtcNow;
+
+        await _dbContext.SaveChangesAsync();
+
+        _logger.LogInformation("User {UserId} linked their Google account", user.Id);
+
+        return Ok(new UserProfileDto
+        {
+            Id = user.Id,
+            Email = user.Email,
+            DisplayName = user.DisplayName,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            AvatarUrl = user.AvatarUrl,
+            HasPassword = !string.IsNullOrEmpty(user.PasswordHash),
+            HasGoogleId = !string.IsNullOrEmpty(user.GoogleId),
+            HasAzureAdId = !string.IsNullOrEmpty(user.AzureAdObjectId),
+            LastLoginAt = user.LastLoginAt,
+            CreatedAt = user.CreatedAt,
+            UpdatedAt = user.UpdatedAt
+        });
+    }
+
+    private static string HashPassword(string password)
+    {
+        var salt = RandomNumberGenerator.GetBytes(16);
+        using var pbkdf2 = new Rfc2898DeriveBytes(password, salt, 100000, HashAlgorithmName.SHA256);
+        var hash = pbkdf2.GetBytes(32);
+
+        var hashBytes = new byte[48];
+        Array.Copy(salt, 0, hashBytes, 0, 16);
+        Array.Copy(hash, 0, hashBytes, 16, 32);
+
+        return Convert.ToBase64String(hashBytes);
+    }
+
+    #endregion
 }
 
 public class UserOrganizationDto
@@ -519,3 +754,42 @@ public class UserCreateOrganizationRequest
     public string? Description { get; set; }
     public string? LogoUrl { get; set; }
 }
+
+#region User Profile DTOs
+
+public class UserProfileDto
+{
+    public Guid Id { get; set; }
+    public required string Email { get; set; }
+    public required string DisplayName { get; set; }
+    public string? FirstName { get; set; }
+    public string? LastName { get; set; }
+    public string? AvatarUrl { get; set; }
+    public bool HasPassword { get; set; }
+    public bool HasGoogleId { get; set; }
+    public bool HasAzureAdId { get; set; }
+    public DateTime? LastLoginAt { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}
+
+public class UpdateProfileRequest
+{
+    public required string DisplayName { get; set; }
+    public string? FirstName { get; set; }
+    public string? LastName { get; set; }
+}
+
+public class ChangePasswordRequest
+{
+    public required string CurrentPassword { get; set; }
+    public required string NewPassword { get; set; }
+    public required string ConfirmPassword { get; set; }
+}
+
+public class LinkGoogleRequest
+{
+    public required string Credential { get; set; }
+}
+
+#endregion

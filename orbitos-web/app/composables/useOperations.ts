@@ -927,6 +927,21 @@ export function useOperations() {
     return transformGoal(data)
   }
 
+  const deleteGoal = async (id: string) => {
+    await del(`/api/organizations/${organizationId.value}/operations/goals/${id}`)
+    // Remove from goals array (handles both root goals and nested KRs)
+    const removeGoal = (goalsList: GoalWithProgress[]): GoalWithProgress[] => {
+      return goalsList.filter(g => {
+        if (g.id === id) return false
+        if (g.keyResults) {
+          g.keyResults = removeGoal(g.keyResults)
+        }
+        return true
+      })
+    }
+    goals.value = removeGoal(goals.value)
+  }
+
   // Canvases
   const fetchCanvases = async () => {
     isLoading.value = true
@@ -1582,6 +1597,144 @@ export function useOperations() {
     return data
   }
 
+  // ===========================================
+  // Block Reference Functions (Canvas entity linking)
+  // ===========================================
+
+  /**
+   * Map numeric CanvasBlockType to API string
+   */
+  const blockTypeToApiString = (blockType: CanvasBlockType | number): string => {
+    const mapping: Record<string, string> = {
+      KeyPartners: 'KeyPartners',
+      KeyActivities: 'KeyActivities',
+      KeyResources: 'KeyResources',
+      ValuePropositions: 'ValuePropositions',
+      CustomerRelationships: 'CustomerRelationships',
+      Channels: 'Channels',
+      CustomerSegments: 'CustomerSegments',
+      CostStructure: 'CostStructure',
+      RevenueStreams: 'RevenueStreams',
+    }
+    // If it's a number, convert to string name
+    if (typeof blockType === 'number') {
+      const numMapping: Record<number, string> = {
+        0: 'KeyPartners',
+        1: 'KeyActivities',
+        2: 'KeyResources',
+        3: 'ValuePropositions',
+        4: 'CustomerRelationships',
+        5: 'Channels',
+        6: 'CustomerSegments',
+        7: 'CostStructure',
+        8: 'RevenueStreams',
+      }
+      return numMapping[blockType] || String(blockType)
+    }
+    return mapping[blockType] || String(blockType)
+  }
+
+  /**
+   * Fetch all block references for a canvas block
+   */
+  const fetchBlockReferences = async (canvasId: string, blockType: CanvasBlockType | number): Promise<BlockReference[]> => {
+    const blockTypeStr = blockTypeToApiString(blockType)
+    const data = await get<BlockReference[]>(
+      `/api/organizations/${organizationId.value}/operations/canvases/${canvasId}/blocks/${blockTypeStr}/references`
+    )
+    return data
+  }
+
+  /**
+   * Add a reference to a canvas block (link an entity)
+   */
+  const addBlockReference = async (
+    canvasId: string,
+    blockType: CanvasBlockType | number,
+    reference: {
+      entityType: ReferenceEntityType
+      entityId: string
+      role?: ReferenceRole
+      linkType?: ReferenceLinkType
+      contextNote?: string
+      sortOrder?: number
+      isHighlighted?: boolean
+    }
+  ): Promise<BlockReference> => {
+    const blockTypeStr = blockTypeToApiString(blockType)
+    const data = await post<BlockReference>(
+      `/api/organizations/${organizationId.value}/operations/canvases/${canvasId}/blocks/${blockTypeStr}/references`,
+      {
+        entityType: reference.entityType,
+        entityId: reference.entityId,
+        role: reference.role || 'Primary',
+        linkType: reference.linkType || 'Linked',
+        contextNote: reference.contextNote,
+        sortOrder: reference.sortOrder || 0,
+        isHighlighted: reference.isHighlighted || false,
+      }
+    )
+    return data
+  }
+
+  /**
+   * Update a block reference
+   */
+  const updateBlockReference = async (
+    canvasId: string,
+    blockType: CanvasBlockType | number,
+    referenceId: string,
+    updates: Partial<BlockReference>
+  ): Promise<BlockReference> => {
+    const blockTypeStr = blockTypeToApiString(blockType)
+    const data = await put<BlockReference>(
+      `/api/organizations/${organizationId.value}/operations/canvases/${canvasId}/blocks/${blockTypeStr}/references/${referenceId}`,
+      updates
+    )
+    return data
+  }
+
+  /**
+   * Remove a block reference (unlink an entity)
+   */
+  const removeBlockReference = async (
+    canvasId: string,
+    blockType: CanvasBlockType | number,
+    referenceId: string
+  ): Promise<void> => {
+    const blockTypeStr = blockTypeToApiString(blockType)
+    await del(
+      `/api/organizations/${organizationId.value}/operations/canvases/${canvasId}/blocks/${blockTypeStr}/references/${referenceId}`
+    )
+  }
+
+  /**
+   * Reorder block references within a block
+   */
+  const reorderBlockReferences = async (
+    canvasId: string,
+    blockType: CanvasBlockType | number,
+    referenceIds: string[]
+  ): Promise<void> => {
+    const blockTypeStr = blockTypeToApiString(blockType)
+    await put(
+      `/api/organizations/${organizationId.value}/operations/canvases/${canvasId}/blocks/${blockTypeStr}/references/reorder`,
+      referenceIds
+    )
+  }
+
+  /**
+   * Get canvas with enriched block references (includes people under roles, activities in processes)
+   * This is the endpoint for AI consumption and detailed UI views.
+   */
+  const getCanvasEnriched = async (canvasId: string): Promise<Canvas | null> => {
+    try {
+      return await get<Canvas>(`/api/organizations/${organizationId.value}/operations/canvases/${canvasId}/enriched`)
+    } catch {
+      return null
+    }
+  }
+
   // Stats
   const stats = computed(() => ({
     processCount: processes.value.length,
@@ -1671,6 +1824,7 @@ export function useOperations() {
     fetchGoals,
     createGoal,
     updateGoal,
+    deleteGoal,
     // Canvas Actions
     fetchCanvases,
     fetchCanvasById,
@@ -1759,6 +1913,13 @@ export function useOperations() {
     createBmcCanvas,
     updateBmcCanvas,
     deleteBmcCanvas,
+    // Block Reference Actions (Canvas entity linking)
+    fetchBlockReferences,
+    addBlockReference,
+    updateBlockReference,
+    removeBlockReference,
+    reorderBlockReferences,
+    getCanvasEnriched,
     // Org Chart - State
     orgChart,
     orgChartMetrics,

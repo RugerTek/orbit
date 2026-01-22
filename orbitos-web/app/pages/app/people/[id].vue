@@ -23,6 +23,29 @@ const {
 } = useOperations()
 
 const { get } = useApi()
+const { currentOrganizationId } = useOrganizations()
+
+// Get organization ID dynamically
+const getOrgId = (): string => {
+  if (currentOrganizationId.value) {
+    return currentOrganizationId.value
+  }
+  // Fallback to localStorage
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('currentOrganizationId') || '11111111-1111-1111-1111-111111111111'
+  }
+  return '11111111-1111-1111-1111-111111111111'
+}
+
+// Helper to parse metadata JSON safely
+const parseMetadata = (metadata?: string): { email?: string } => {
+  if (!metadata) return {}
+  try {
+    return JSON.parse(metadata)
+  } catch {
+    return {}
+  }
+}
 
 // Local state
 const isLoadingPerson = ref(true)
@@ -95,6 +118,7 @@ const filteredFunctions = computed(() => {
 // Load data
 onMounted(async () => {
   isLoadingPerson.value = true
+  console.log('[PersonDetail] Starting load for personId:', personId.value)
   try {
     await Promise.all([
       fetchPeople(),
@@ -102,20 +126,25 @@ onMounted(async () => {
       fetchRoleAssignments(),
       fetchFunctionCapabilities(),
     ])
+    console.log('[PersonDetail] Base data fetched, now fetching full resource data')
 
     // Fetch full person data with metadata
     const fullData = await get<{ id: string; name: string; description?: string; metadata?: string }>(
-      `/api/organizations/11111111-1111-1111-1111-111111111111/operations/resources/${personId.value}`
+      `/api/organizations/${getOrgId()}/operations/resources/${personId.value}`
     )
-    const meta = fullData.metadata ? JSON.parse(fullData.metadata) : {}
+    console.log('[PersonDetail] Full data received:', fullData)
+    console.log('[PersonDetail] Metadata raw value:', fullData.metadata, 'type:', typeof fullData.metadata)
+    const meta = parseMetadata(fullData.metadata)
+    console.log('[PersonDetail] Parsed metadata:', meta)
     personData.value = {
       id: fullData.id,
       name: fullData.name,
       description: fullData.description,
       email: meta.email,
     }
+    console.log('[PersonDetail] personData set to:', personData.value)
   } catch (e) {
-    console.error('Failed to load person data:', e)
+    console.error('[PersonDetail] Failed to load person data:', e)
   } finally {
     isLoadingPerson.value = false
   }

@@ -537,7 +537,7 @@ const statusLabel = (status: string) => {
       @click.self="showAddDialog = false"
       @keydown="handleDialogKeydown($event, () => showAddDialog = false)"
     >
-      <div class="w-full max-w-lg orbitos-glass p-6" @keydown="handleAddFormKeydown">
+      <div class="w-full max-w-2xl orbitos-glass p-6" @keydown="handleAddFormKeydown">
         <h2 class="orbitos-heading-sm">Add New Function</h2>
         <p class="text-sm orbitos-text mt-1">Define an atomic work unit that can be performed by people.</p>
 
@@ -561,12 +561,12 @@ const statusLabel = (status: string) => {
               Purpose
               <HelpFieldHelpTooltip entity-id="ENT004" field-name="purpose" />
             </label>
-            <input
+            <textarea
               v-model="newFunction.purpose"
-              type="text"
+              rows="4"
               class="orbitos-input"
               placeholder="Why does this function exist?"
-            />
+            ></textarea>
           </div>
 
           <div>

@@ -6,7 +6,7 @@
   "table": "AiAgents",
   "status": "implemented",
   "created_at": "2026-01-17",
-  "updated_at": "2026-01-17",
+  "updated_at": "2026-01-22",
 
   "fields": [
     {
@@ -202,6 +202,98 @@
         "name": "ToolsEnabled",
         "type": "string[]",
         "computation": "Deserialize ToolsEnabledJson"
+      }
+    ]
+  },
+
+  "personality_configuration": {
+    "description": "Agents can be configured with personality traits that influence their communication style",
+    "traits": [
+      {
+        "name": "assertiveness",
+        "description": "How directly and confidently the agent expresses opinions",
+        "levels": ["diplomatic", "balanced", "direct"]
+      },
+      {
+        "name": "communication_style",
+        "description": "The formality and structure of responses",
+        "levels": ["formal", "professional", "casual"]
+      },
+      {
+        "name": "risk_tolerance",
+        "description": "Approach to uncertainty and recommendations",
+        "levels": ["conservative", "moderate", "aggressive"]
+      },
+      {
+        "name": "collaboration_style",
+        "description": "How the agent interacts with other agents and users",
+        "levels": ["supportive", "neutral", "challenging"]
+      }
+    ],
+    "system_prompt_templates": [
+      {
+        "id": "cfo",
+        "name": "CFO / Finance",
+        "description": "Financial analysis, budgeting, cost optimization, ROI calculations",
+        "default_traits": {
+          "assertiveness": "direct",
+          "communication_style": "formal",
+          "risk_tolerance": "conservative"
+        }
+      },
+      {
+        "id": "operations",
+        "name": "Operations Manager",
+        "description": "Process efficiency, resource allocation, operational improvements",
+        "default_traits": {
+          "assertiveness": "balanced",
+          "communication_style": "professional",
+          "risk_tolerance": "moderate"
+        }
+      },
+      {
+        "id": "strategy",
+        "name": "Strategy Advisor",
+        "description": "Market analysis, competitive positioning, growth strategies",
+        "default_traits": {
+          "assertiveness": "direct",
+          "communication_style": "professional",
+          "risk_tolerance": "moderate"
+        }
+      },
+      {
+        "id": "hr",
+        "name": "HR Director",
+        "description": "Team dynamics, hiring, culture, employee development",
+        "default_traits": {
+          "assertiveness": "diplomatic",
+          "communication_style": "professional",
+          "risk_tolerance": "conservative"
+        }
+      }
+    ]
+  },
+
+  "model_options": {
+    "description": "Available AI models for agent configuration",
+    "anthropic": [
+      {
+        "id": "claude-opus-4-20250514",
+        "display_name": "Claude Opus",
+        "description": "Most capable model for complex reasoning",
+        "cost_tier": "high"
+      },
+      {
+        "id": "claude-sonnet-4-20250514",
+        "display_name": "Claude Sonnet",
+        "description": "Balanced performance and cost",
+        "cost_tier": "medium"
+      },
+      {
+        "id": "claude-3-5-haiku-20241022",
+        "display_name": "Claude Haiku",
+        "description": "Fast and cost-effective",
+        "cost_tier": "low"
       }
     ]
   },

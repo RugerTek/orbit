@@ -64,6 +64,7 @@ builder.Services.AddScoped<IAiChatService, AiChatService>();
 builder.Services.AddScoped<IDashboardInsightsService, DashboardInsightsService>();
 builder.Services.AddScoped<IMultiProviderAiService, MultiProviderAiService>();
 builder.Services.AddScoped<IOrganizationContextService, OrganizationContextService>();
+builder.Services.AddScoped<RelevanceScoringService>();
 
 // Add services to the container.
 builder.Services.AddControllers()

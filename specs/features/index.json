@@ -2,7 +2,7 @@
   "$schema": "./schema.json",
   "version": "1.0.0",
   "description": "Feature registry for OrbitOS",
-  "last_updated": "2026-01-20",
+  "last_updated": "2026-01-22",
   "features": [
     {
       "id": "F001",

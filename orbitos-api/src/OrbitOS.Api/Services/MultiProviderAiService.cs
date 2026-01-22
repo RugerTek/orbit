@@ -229,8 +229,10 @@ public class MultiProviderAiService : IMultiProviderAiService
         CancellationToken cancellationToken)
     {
         var apiKey = _configuration["GOOGLE_AI_API_KEY"]
+            ?? _configuration["GEMINI_API_KEY"]
             ?? Environment.GetEnvironmentVariable("GOOGLE_AI_API_KEY")
-            ?? throw new InvalidOperationException("GOOGLE_AI_API_KEY is not configured");
+            ?? Environment.GetEnvironmentVariable("GEMINI_API_KEY")
+            ?? throw new InvalidOperationException("GOOGLE_AI_API_KEY or GEMINI_API_KEY is not configured");
 
         var httpClient = _httpClientFactory.CreateClient("Google");
 

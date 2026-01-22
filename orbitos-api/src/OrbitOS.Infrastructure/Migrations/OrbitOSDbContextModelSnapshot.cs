@@ -166,6 +166,12 @@ namespace OrbitOS.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool>("AsksQuestions")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Assertiveness")
+                        .HasColumnType("int");
+
                     b.Property<string>("AvatarColor")
                         .HasMaxLength(7)
                         .HasColumnType("nvarchar(7)");
@@ -173,6 +179,9 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<string>("AvatarUrl")
                         .HasMaxLength(2048)
                         .HasColumnType("nvarchar(2048)");
+
+                    b.Property<int>("CommunicationStyle")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -182,6 +191,12 @@ namespace OrbitOS.Infrastructure.Migrations
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("ExpertiseAreas")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("GivesBriefAcknowledgments")
+                        .HasColumnType("bit");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
@@ -210,10 +225,16 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<int>("Provider")
                         .HasColumnType("int");
 
+                    b.Property<int>("ReactionTendency")
+                        .HasColumnType("int");
+
                     b.Property<string>("RoleTitle")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("SeniorityLevel")
+                        .HasColumnType("int");
 
                     b.Property<int>("SortOrder")
                         .HasColumnType("int");
@@ -585,6 +606,9 @@ namespace OrbitOS.Infrastructure.Migrations
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("EmergentSettingsJson")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("LastMessageAt")
                         .HasColumnType("datetime2");

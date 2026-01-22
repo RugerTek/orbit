@@ -20,6 +20,7 @@ public class ConversationsController : ControllerBase
     private readonly IMultiProviderAiService _aiService;
     private readonly IOrganizationContextService _contextService;
     private readonly IHubContext<ConversationHub> _hubContext;
+    private readonly RelevanceScoringService _relevanceService;
     private readonly ILogger<ConversationsController> _logger;
 
     public ConversationsController(
@@ -27,12 +28,14 @@ public class ConversationsController : ControllerBase
         IMultiProviderAiService aiService,
         IOrganizationContextService contextService,
         IHubContext<ConversationHub> hubContext,
+        RelevanceScoringService relevanceService,
         ILogger<ConversationsController> logger)
     {
         _dbContext = dbContext;
         _aiService = aiService;
         _contextService = contextService;
         _hubContext = hubContext;
+        _relevanceService = relevanceService;
         _logger = logger;
     }
 
@@ -465,12 +468,15 @@ public class ConversationsController : ControllerBase
         if (conversation.Status != ConversationStatus.Active)
             return BadRequest("Conversation is paused or archived");
 
-        // Get agents to invoke
+        // Get agents to invoke - filter by organization to prevent cross-tenant leakage
         List<AiAgent> agentsToInvoke;
         if (request.AgentIds?.Any() == true)
         {
             agentsToInvoke = conversation.Participants
-                .Where(p => p.ParticipantType == ParticipantType.Ai && p.AiAgent != null && request.AgentIds.Contains(p.AiAgent.Id))
+                .Where(p => p.ParticipantType == ParticipantType.Ai
+                    && p.AiAgent != null
+                    && p.AiAgent.OrganizationId == organizationId  // Ensure agent belongs to this org
+                    && request.AgentIds.Contains(p.AiAgent.Id))
                 .Select(p => p.AiAgent!)
                 .ToList();
         }
@@ -478,7 +484,10 @@ public class ConversationsController : ControllerBase
         {
             // Invoke all active AI agents
             agentsToInvoke = conversation.Participants
-                .Where(p => p.ParticipantType == ParticipantType.Ai && p.AiAgent != null && p.IsActive)
+                .Where(p => p.ParticipantType == ParticipantType.Ai
+                    && p.AiAgent != null
+                    && p.AiAgent.OrganizationId == organizationId  // Ensure agent belongs to this org
+                    && p.IsActive)
                 .Select(p => p.AiAgent!)
                 .ToList();
         }
@@ -504,26 +513,50 @@ public class ConversationsController : ControllerBase
         // Build organization context for all agents (shared)
         var orgContext = await _contextService.BuildContextAsync(organizationId, cancellationToken);
 
+        // Use Emergent mode logic if enabled
+        if (conversation.Mode == ConversationMode.Emergent)
+        {
+            return await InvokeAgentsEmergentModeAsync(
+                conversation, organizationId, conversationId, agentsToInvoke,
+                recentMessages, orgContext, cancellationToken);
+        }
+
+        // Standard mode: all agents respond in order
+        return await InvokeAgentsStandardModeAsync(
+            conversation, organizationId, conversationId, agentsToInvoke,
+            recentMessages, orgContext, cancellationToken);
+    }
+
+    /// <summary>
+    /// Standard invocation: each agent responds in sequence
+    /// </summary>
+    private async Task<ActionResult<List<MessageDto>>> InvokeAgentsStandardModeAsync(
+        Conversation conversation,
+        Guid organizationId,
+        Guid conversationId,
+        List<AiAgent> agentsToInvoke,
+        List<Message> recentMessages,
+        OrganizationContext orgContext,
+        CancellationToken cancellationToken)
+    {
         var responses = new List<MessageDto>();
         var maxSequence = recentMessages.Max(m => m.SequenceNumber);
 
+        // Build initial conversation history
+        var conversationHistory = recentMessages.Select(m => new ProviderMessage
+        {
+            Role = m.SenderType == SenderType.User ? "user" : "assistant",
+            Content = m.Content
+        }).ToList();
+
         foreach (var agent in agentsToInvoke)
         {
-            var startTime = DateTime.UtcNow;
-
             try
             {
-                // Build conversation history for the AI
-                var conversationHistory = recentMessages.Select(m => new ProviderMessage
-                {
-                    Role = m.SenderType == SenderType.User ? "user" : "assistant",
-                    Content = m.Content
-                }).ToList();
-
                 // Build system prompt with organization context + agent's custom prompt
                 var systemPrompt = _contextService.BuildSystemPrompt(orgContext, agent.SystemPrompt);
 
-                // Call the AI service with enhanced context
+                // Call the AI service
                 var response = await _aiService.SendMessageAsync(
                     agent,
                     systemPrompt,
@@ -554,7 +587,15 @@ public class ConversationsController : ControllerBase
                 conversation.LastMessageAt = DateTime.UtcNow;
 
                 aiMessage.SenderAiAgent = agent;
-                responses.Add(MapToMessageDto(aiMessage));
+                var messageDto = MapToMessageDto(aiMessage);
+                responses.Add(messageDto);
+
+                // Add this response to conversation history for next agent to see
+                conversationHistory.Add(new ProviderMessage
+                {
+                    Role = "assistant",
+                    Content = response.Content
+                });
 
                 _logger.LogInformation("AI agent {AgentName} responded to conversation {ConversationId} using {Tokens} tokens",
                     agent.Name, conversationId, response.TokensUsed);
@@ -563,7 +604,6 @@ public class ConversationsController : ControllerBase
             {
                 _logger.LogError(ex, "Failed to invoke AI agent {AgentId} for conversation {ConversationId}", agent.Id, conversationId);
 
-                // Create a failed message entry
                 var failedMessage = new Message
                 {
                     ConversationId = conversationId,
@@ -581,7 +621,291 @@ public class ConversationsController : ControllerBase
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+        await BroadcastResponses(conversation, organizationId, conversationId, responses, cancellationToken);
 
+        return Ok(responses);
+    }
+
+    /// <summary>
+    /// Emergent mode: agents self-moderate using relevance scoring with multiple rounds
+    /// </summary>
+    private async Task<ActionResult<List<MessageDto>>> InvokeAgentsEmergentModeAsync(
+        Conversation conversation,
+        Guid organizationId,
+        Guid conversationId,
+        List<AiAgent> agentsToInvoke,
+        List<Message> recentMessages,
+        OrganizationContext orgContext,
+        CancellationToken cancellationToken)
+    {
+        // Parse emergent settings
+        var settings = !string.IsNullOrEmpty(conversation.EmergentSettingsJson)
+            ? JsonSerializer.Deserialize<EmergentModeSettings>(conversation.EmergentSettingsJson)
+              ?? EmergentModeSettings.Default
+            : EmergentModeSettings.Default;
+
+        var allResponses = new List<MessageDto>();
+        var maxSequence = recentMessages.Max(m => m.SequenceNumber);
+
+        // Build initial conversation history
+        var conversationHistory = recentMessages.Select(m => new ProviderMessage
+        {
+            Role = m.SenderType == SenderType.User ? "user" : "assistant",
+            Content = m.Content
+        }).ToList();
+
+        var remainingAgents = new List<AiAgent>(agentsToInvoke);
+        string? previousRoundContext = null;
+
+        // Execute multiple rounds
+        for (int round = 0; round <= settings.MaxRoundsPerMessage && remainingAgents.Any(); round++)
+        {
+            _logger.LogInformation("Emergent mode round {Round} for conversation {ConversationId} with {AgentCount} agents",
+                round, conversationId, remainingAgents.Count);
+
+            // Get relevance scores for all remaining agents
+            var relevanceResults = await _relevanceService.EvaluateAgentRelevanceAsync(
+                remainingAgents,
+                conversationHistory,
+                settings,
+                previousRoundContext,
+                cancellationToken);
+
+            // Log all relevance scores for debugging
+            foreach (var r in relevanceResults)
+            {
+                _logger.LogInformation("Agent {AgentName} relevance: {Score}, ShouldRespond: {ShouldRespond}, Reasoning: {Reasoning}",
+                    r.AgentName, r.RelevanceScore, r.ShouldRespond, r.Reasoning);
+            }
+
+            // Filter to agents that should respond
+            var agentsToRespond = relevanceResults
+                .Where(r => r.ShouldRespond)
+                .OrderByDescending(r => r.RelevanceScore)
+                .Take(settings.MaxResponsesPerRound)
+                .ToList();
+
+            if (!agentsToRespond.Any())
+            {
+                _logger.LogInformation("No agents met relevance threshold ({Threshold}) in round {Round}, ending",
+                    settings.RelevanceThreshold, round);
+                break;
+            }
+
+            var roundResponses = new List<string>();
+
+            foreach (var relevanceResult in agentsToRespond)
+            {
+                var agent = remainingAgents.First(a => a.Id == relevanceResult.AgentId);
+
+                try
+                {
+                    // Build system prompt with organization context + agent's custom prompt
+                    var systemPrompt = _contextService.BuildSystemPrompt(orgContext, agent.SystemPrompt);
+
+                    // Add personality-aware meeting behavior instructions
+                    systemPrompt += BuildMeetingBehaviorPrompt(agent, relevanceResult, previousRoundContext);
+
+                    // Add instruction for unique insight if enabled
+                    if (settings.RequireUniqueInsight && !string.IsNullOrEmpty(previousRoundContext))
+                    {
+                        systemPrompt += "\n\nIMPORTANT: Other agents have already responded. " +
+                            "Only add your response if you have UNIQUE insights or perspectives not already covered. " +
+                            "Be concise and focus on what only you can contribute.";
+                    }
+
+                    // Call the AI service
+                    var response = await _aiService.SendMessageAsync(
+                        agent,
+                        systemPrompt,
+                        conversationHistory,
+                        cancellationToken);
+
+                    var aiMessage = new Message
+                    {
+                        ConversationId = conversationId,
+                        SenderType = SenderType.Ai,
+                        SenderAiAgentId = agent.Id,
+                        Content = response.Content,
+                        TokensUsed = response.TokensUsed,
+                        ResponseTimeMs = response.ResponseTimeMs,
+                        CostCents = CalculateCost(response.TokensUsed, agent.Provider),
+                        ModelUsed = agent.ModelId,
+                        Status = MessageStatus.Sent,
+                        SequenceNumber = ++maxSequence
+                    };
+
+                    _dbContext.Messages.Add(aiMessage);
+
+                    // Update conversation stats
+                    conversation.MessageCount++;
+                    conversation.AiResponseCount++;
+                    conversation.TotalTokens += response.TokensUsed;
+                    conversation.TotalCostCents += aiMessage.CostCents ?? 0;
+                    conversation.LastMessageAt = DateTime.UtcNow;
+
+                    aiMessage.SenderAiAgent = agent;
+                    var messageDto = MapToMessageDto(aiMessage);
+
+                    // Add relevance info if showing scores
+                    if (settings.ShowRelevanceScores)
+                    {
+                        messageDto.RelevanceScore = relevanceResult.RelevanceScore;
+                        messageDto.RelevanceReasoning = relevanceResult.Reasoning;
+                    }
+
+                    allResponses.Add(messageDto);
+
+                    // Add to conversation history for next agents
+                    conversationHistory.Add(new ProviderMessage
+                    {
+                        Role = "assistant",
+                        Content = response.Content
+                    });
+
+                    roundResponses.Add($"{agent.Name}: {response.Content}");
+
+                    _logger.LogInformation(
+                        "AI agent {AgentName} responded (relevance: {Score}) in round {Round} using {Tokens} tokens",
+                        agent.Name, relevanceResult.RelevanceScore, round, response.TokensUsed);
+
+                    // Remove agent from remaining pool (they've spoken this invocation)
+                    remainingAgents.Remove(agent);
+
+                    // Add delay between responses for visual effect
+                    if (settings.ResponseDelayMs > 0 && agentsToRespond.IndexOf(relevanceResult) < agentsToRespond.Count - 1)
+                    {
+                        await Task.Delay(settings.ResponseDelayMs, cancellationToken);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to invoke AI agent {AgentId} in emergent mode", agent.Id);
+
+                    var failedMessage = new Message
+                    {
+                        ConversationId = conversationId,
+                        SenderType = SenderType.Ai,
+                        SenderAiAgentId = agent.Id,
+                        Content = $"Error: Failed to generate response. {ex.Message}",
+                        Status = MessageStatus.Failed,
+                        SequenceNumber = ++maxSequence
+                    };
+
+                    _dbContext.Messages.Add(failedMessage);
+                    failedMessage.SenderAiAgent = agent;
+                    allResponses.Add(MapToMessageDto(failedMessage));
+
+                    remainingAgents.Remove(agent);
+                }
+            }
+
+            // Build context of this round's responses for next round
+            if (roundResponses.Any())
+            {
+                previousRoundContext = string.Join("\n\n", roundResponses);
+            }
+
+            // Save after each round to persist progress
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            // Broadcast this round's responses immediately for real-time feel
+            var roundResponseList = allResponses.Skip(allResponses.Count - roundResponses.Count).ToList();
+            await BroadcastResponses(conversation, organizationId, conversationId, roundResponseList, cancellationToken);
+        }
+
+        return Ok(allResponses);
+    }
+
+    /// <summary>
+    /// Build personality-aware meeting behavior instructions for the agent
+    /// </summary>
+    private string BuildMeetingBehaviorPrompt(
+        AiAgent agent,
+        RelevanceScoringService.RelevanceResult relevanceResult,
+        string? previousRoundContext)
+    {
+        var prompt = "\n\n--- MEETING BEHAVIOR GUIDELINES ---\n";
+
+        // Communication style guidance
+        prompt += agent.CommunicationStyle switch
+        {
+            CommunicationStyle.Formal => "Maintain a professional, structured tone. Use clear headings and organized points.\n",
+            CommunicationStyle.Casual => "Be conversational and approachable. Feel free to use natural language.\n",
+            CommunicationStyle.Direct => "Be concise and get straight to the point. Avoid unnecessary pleasantries.\n",
+            CommunicationStyle.Diplomatic => "Be tactful and considerate of different perspectives. Acknowledge others' points.\n",
+            CommunicationStyle.Analytical => "Focus on data and evidence. Structure your response with clear reasoning.\n",
+            _ => ""
+        };
+
+        // Response type guidance
+        prompt += relevanceResult.SuggestedResponseType switch
+        {
+            RelevanceScoringService.ResponseType.Brief =>
+                "Keep your response BRIEF - 2-3 sentences maximum. Only share the most essential point.\n",
+            RelevanceScoringService.ResponseType.Question =>
+                "Frame your contribution as a clarifying QUESTION to move the discussion forward.\n",
+            RelevanceScoringService.ResponseType.Acknowledgment =>
+                "Provide a brief ACKNOWLEDGMENT (1-2 sentences). Example: 'Good point about X. I'd add that...' or 'I agree with the direction on Y.'\n",
+            _ => ""
+        };
+
+        // Stance guidance based on relevance analysis
+        if (!string.IsNullOrEmpty(previousRoundContext))
+        {
+            prompt += relevanceResult.SuggestedStance switch
+            {
+                RelevanceScoringService.Stance.Agree =>
+                    "You tend to AGREE with what's been said. Build on the points constructively.\n",
+                RelevanceScoringService.Stance.Disagree =>
+                    "You see issues with what's been proposed. Respectfully share your concerns and alternative view.\n",
+                RelevanceScoringService.Stance.BuildOn =>
+                    $"BUILD ON {relevanceResult.BuildOnAgent ?? "the previous speaker"}'s points. Reference their idea and extend it.\n",
+                RelevanceScoringService.Stance.Question =>
+                    "Ask a thoughtful QUESTION about what's been discussed to probe deeper.\n",
+                _ => ""
+            };
+        }
+
+        // Reaction tendency reminder
+        prompt += agent.ReactionTendency switch
+        {
+            ReactionTendency.DevilsAdvocate =>
+                "As someone who challenges assumptions, look for blind spots or risks others may have missed.\n",
+            ReactionTendency.ConsensusBuilder =>
+                "Look for common ground and help synthesize different viewpoints.\n",
+            ReactionTendency.Critical =>
+                "Apply your critical lens - what could go wrong? What are we missing?\n",
+            ReactionTendency.Supportive =>
+                "Be encouraging while adding your perspective.\n",
+            _ => ""
+        };
+
+        // Seniority-based behavior
+        if (agent.SeniorityLevel >= 4)
+        {
+            prompt += "As a senior voice, feel confident sharing your perspective and guiding the discussion.\n";
+        }
+        else if (agent.SeniorityLevel <= 2)
+        {
+            prompt += "Contribute your expertise while being respectful of others' experience.\n";
+        }
+
+        prompt += "--- END GUIDELINES ---\n";
+
+        return prompt;
+    }
+
+    /// <summary>
+    /// Broadcast responses to connected clients
+    /// </summary>
+    private async Task BroadcastResponses(
+        Conversation conversation,
+        Guid organizationId,
+        Guid conversationId,
+        List<MessageDto> responses,
+        CancellationToken cancellationToken)
+    {
         // Broadcast AI responses to all clients in the conversation
         var groupName = ConversationHub.GetConversationGroupName(organizationId.ToString(), conversationId.ToString());
         foreach (var response in responses)
@@ -603,8 +927,6 @@ public class ConversationsController : ControllerBase
                 responses.Count
             ), cancellationToken);
         }
-
-        return Ok(responses);
     }
 
     /// <summary>
@@ -985,6 +1307,22 @@ public class ConversationDto
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public List<ParticipantDto> Participants { get; set; } = new();
+
+    // Emergent mode settings
+    public EmergentModeSettingsDto? EmergentSettings { get; set; }
+}
+
+public class EmergentModeSettingsDto
+{
+    public int RelevanceThreshold { get; set; } = 70;
+    public int MaxRoundsPerMessage { get; set; } = 2;
+    public int MaxResponsesPerRound { get; set; } = 3;
+    public bool UseCheapModelForScoring { get; set; } = true;
+    public string? ScoringModelId { get; set; }
+    public string? ScoringModelProvider { get; set; }
+    public bool RequireUniqueInsight { get; set; } = true;
+    public bool ShowRelevanceScores { get; set; } = true;
+    public int ResponseDelayMs { get; set; } = 500;
 }
 
 public class ParticipantDto
@@ -1033,6 +1371,10 @@ public class MessageDto
     public UserSummaryDto? SenderUser { get; set; }
     public AiAgentSummaryDto? SenderAiAgent { get; set; }
     public List<Guid>? MentionedAgentIds { get; set; }
+
+    // Emergent mode fields
+    public int? RelevanceScore { get; set; }
+    public string? RelevanceReasoning { get; set; }
 }
 
 public class PaginatedMessagesResponse
@@ -1050,6 +1392,7 @@ public class CreateConversationRequest
     public List<Guid>? UserIds { get; set; }
     public int? MaxTurns { get; set; }
     public long? MaxTokens { get; set; }
+    public EmergentModeSettingsDto? EmergentSettings { get; set; }
 }
 
 public class UpdateConversationSettingsRequest
@@ -1058,6 +1401,7 @@ public class UpdateConversationSettingsRequest
     public string? Mode { get; set; }
     public int? MaxTurns { get; set; }
     public long? MaxTokens { get; set; }
+    public EmergentModeSettingsDto? EmergentSettings { get; set; }
 }
 
 public class SendMessageRequest

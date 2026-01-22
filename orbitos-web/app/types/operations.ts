@@ -481,7 +481,7 @@ export interface RevenueStream {
 }
 
 // Block Reference Types (Canvas to Entity linking)
-export type ReferenceEntityType = 'Resource' | 'Process' | 'Activity' | 'Product' | 'Segment' | 'Function' | 'Partner' | 'Channel' | 'ValueProposition' | 'CustomerRelationship' | 'RevenueStream'
+export type ReferenceEntityType = 'Resource' | 'Process' | 'Activity' | 'Product' | 'Segment' | 'Function' | 'Partner' | 'Channel' | 'ValueProposition' | 'CustomerRelationship' | 'RevenueStream' | 'Role'
 export type ReferenceRole = 'Primary' | 'Supporting' | 'Enabling' | 'Dependency'
 export type ReferenceLinkType = 'Linked' | 'Copied'
 
@@ -501,6 +501,39 @@ export interface BlockReference {
   tagsJson?: string
   createdAt: string
   updatedAt: string
+}
+
+// Enriched Block Reference (includes related data for drill-down)
+export interface EnrichedBlockReference extends BlockReference {
+  // For Role references: assigned people
+  assignedPeople?: RoleAssignmentSummary[]
+  coverageStatus?: 'Covered' | 'AtRisk' | 'Uncovered'
+  functions?: FunctionSummary[]
+
+  // For Process references: activities
+  activities?: ActivitySummary[]
+  processStatus?: 'Draft' | 'Active' | 'Deprecated'
+}
+
+export interface RoleAssignmentSummary {
+  resourceId: string
+  resourceName: string
+  allocationPercentage?: number
+  isPrimary: boolean
+  status: 'Active' | 'Inactive' | 'Archived'
+}
+
+export interface FunctionSummary {
+  id: string
+  name: string
+  category?: string
+}
+
+export interface ActivitySummary {
+  id: string
+  name: string
+  activityType: 'Manual' | 'Automated' | 'Hybrid' | 'Decision' | 'Handoff'
+  order: number
 }
 
 // Canvas Block Types (9 BMC blocks)

@@ -312,6 +312,56 @@ const contextualHelp = computed((): HelpContent => {
           'Batch approve similar actions to save time'
         ]
       }
+    },
+    '/app/profile': {
+      title: 'My Profile',
+      description: 'Manage your account settings',
+      icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',
+      sections: {
+        overview: 'Your profile page shows your personal information and account settings. Update your display name, manage sign-in methods, and view your account activity.',
+        fields: [
+          { name: 'Display Name', description: 'How your name appears throughout the app', tip: 'This is visible to other organization members' },
+          { name: 'First Name', description: 'Your given name (optional)', tip: 'Used with last name for formal displays' },
+          { name: 'Last Name', description: 'Your family name (optional)', tip: 'Used with first name for formal displays' },
+          { name: 'Email', description: 'Your account email address', tip: 'Cannot be changed - contact support if needed' }
+        ],
+        actions: [
+          { name: 'Edit Profile', description: 'Update your display name and personal details' },
+          { name: 'Change Password', description: 'Set a new password for your account' },
+          { name: 'Link Google', description: 'Connect your Google account for easy sign-in' }
+        ],
+        tips: [
+          'Use a recognizable display name for team collaboration',
+          'Link multiple sign-in methods for account recovery',
+          'Check your last login date to spot unauthorized access',
+          'Strong passwords should be at least 8 characters with mixed case and numbers'
+        ],
+        relatedPages: [
+          { name: 'Settings', path: '/app/settings' }
+        ]
+      }
+    },
+    '/app/settings': {
+      title: 'Settings',
+      description: 'Application preferences',
+      icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z',
+      sections: {
+        overview: 'Configure your application preferences including theme, language, and notifications. Access account management options and view system information.',
+        actions: [
+          { name: 'Edit Profile', description: 'Navigate to profile page for personal details' },
+          { name: 'Security Settings', description: 'Manage passwords and sign-in methods' },
+          { name: 'Delete Account', description: 'Permanently remove your account and data' }
+        ],
+        tips: [
+          'Dark mode is currently the default and only theme',
+          'Language and notification settings are coming soon',
+          'Account deletion is permanent and cannot be undone',
+          'Review all your data before deleting your account'
+        ],
+        relatedPages: [
+          { name: 'Profile', path: '/app/profile' }
+        ]
+      }
     }
   }
 

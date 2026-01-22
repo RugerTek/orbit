@@ -77,6 +77,21 @@ export interface Message {
   senderUser?: UserSummary
   senderAiAgent?: AiAgentSummary
   mentionedAgentIds?: string[]
+  // Emergent mode fields
+  relevanceScore?: number
+  relevanceReasoning?: string
+}
+
+export interface EmergentSettings {
+  relevanceThreshold: number
+  maxRoundsPerMessage: number
+  maxResponsesPerRound: number
+  useCheapModelForScoring: boolean
+  scoringModelId?: string
+  scoringModelProvider?: string
+  requireUniqueInsight: boolean
+  showRelevanceScores: boolean
+  responseDelayMs: number
 }
 
 export interface PaginatedMessagesResponse {
@@ -214,7 +229,13 @@ export const useConversations = () => {
         `/api/organizations/${orgId}/conversations/${conversationId}/messages`,
         { content }
       )
-      messages.value.push(message)
+
+      // Use deduplication-aware append to prevent race condition with SignalR
+      // (SignalR may broadcast the message before HTTP response returns)
+      const exists = messages.value.some(m => m.id === message.id)
+      if (!exists) {
+        messages.value.push(message)
+      }
 
       // Update conversation stats
       if (currentConversation.value && currentConversation.value.id === conversationId) {
@@ -242,9 +263,13 @@ export const useConversations = () => {
       )
       console.log('[useConversations] Got responses:', responses?.length || 0, 'messages', responses)
       if (responses && Array.isArray(responses) && responses.length > 0) {
-        // Use spread to trigger Vue reactivity properly
-        messages.value = [...messages.value, ...responses]
-        console.log('[useConversations] Messages array now has', messages.value.length, 'items')
+        // Filter out any messages that already exist (race condition with SignalR)
+        const existingIds = new Set(messages.value.map(m => m.id))
+        const newResponses = responses.filter(r => !existingIds.has(r.id))
+        if (newResponses.length > 0) {
+          messages.value = [...messages.value, ...newResponses]
+        }
+        console.log('[useConversations] Messages array now has', messages.value.length, 'items (added', newResponses.length, 'new)')
       } else {
         console.warn('[useConversations] No valid responses received from invoke')
       }
@@ -391,6 +416,13 @@ export const useConversations = () => {
     messages.value = []
   }
 
+  // Clear all conversation state (used when switching organizations)
+  const clearAllConversationState = () => {
+    conversations.value = []
+    currentConversation.value = null
+    messages.value = []
+  }
+
   // Append a single message (used for real-time updates)
   const appendMessage = (message: Message) => {
     // Ensure we don't add duplicates
@@ -420,7 +452,8 @@ export const useConversations = () => {
     OnDemand: { name: 'On-Demand', description: 'AI agents only respond when @mentioned', color: 'text-blue-400' },
     Moderated: { name: 'Moderated', description: 'AI responses require approval', color: 'text-yellow-400' },
     RoundRobin: { name: 'Round-Robin', description: 'Each AI responds in turn', color: 'text-green-400' },
-    Free: { name: 'Free (Caution)', description: 'All AIs may respond freely', color: 'text-red-400' }
+    Free: { name: 'Free (Caution)', description: 'All AIs may respond freely', color: 'text-red-400' },
+    Emergent: { name: 'Emergent', description: 'AI agents self-moderate and respond based on relevance', color: 'text-purple-400' }
   }
 
   return {
@@ -444,6 +477,7 @@ export const useConversations = () => {
     removeParticipant,
     deleteConversation,
     clearMessages,
+    clearAllConversationState,
     appendMessage
   }
 }

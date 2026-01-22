@@ -113,9 +113,14 @@ const mentionedAgents = computed(() => {
   })
 })
 
+// Debounce flag to prevent double-sends
+let sendingInProgress = false
+
 // Handle sending message
 const handleSend = async () => {
-  if (!messageInput.value.trim() || isSending.value) return
+  if (!messageInput.value.trim() || isSending.value || sendingInProgress) return
+
+  sendingInProgress = true
 
   const content = messageInput.value.trim()
 
@@ -156,6 +161,11 @@ const handleSend = async () => {
   } else {
     console.log('[Conversation] Skipping agent invocation (OnDemand mode with no mentions)')
   }
+
+  // Reset debounce flag after a short delay to prevent rapid double-clicks
+  setTimeout(() => {
+    sendingInProgress = false
+  }, 500)
 }
 
 // Scroll chat to bottom
@@ -318,6 +328,7 @@ const handleKeydown = (e: KeyboardEvent) => {
             <option value="OnDemand">On-Demand</option>
             <option value="Moderated">Moderated</option>
             <option value="RoundRobin">Round-Robin</option>
+            <option value="Emergent">Emergent</option>
             <option value="Free">Free (Caution)</option>
           </select>
 
@@ -424,6 +435,14 @@ const handleKeydown = (e: KeyboardEvent) => {
                 <span v-if="message.tokensUsed">{{ message.tokensUsed }} tokens</span>
                 <span v-if="message.responseTimeMs">{{ (message.responseTimeMs / 1000).toFixed(1) }}s</span>
                 <span v-if="message.cost">${{ message.cost.toFixed(4) }}</span>
+                <!-- Relevance score (Emergent mode) -->
+                <span
+                  v-if="message.relevanceScore !== undefined"
+                  class="px-1.5 py-0.5 rounded text-purple-300 bg-purple-500/20"
+                  :title="message.relevanceReasoning || 'Relevance score'"
+                >
+                  {{ message.relevanceScore }}% relevant
+                </span>
               </div>
 
               <!-- Failed status -->

@@ -47,7 +47,8 @@ public enum ReferenceEntityType
     Channel,
     ValueProposition,
     CustomerRelationship,
-    RevenueStream
+    RevenueStream,
+    Role // Added for Key Resources block - links to operational roles
 }
 
 public enum ReferenceRole

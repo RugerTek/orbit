@@ -462,6 +462,45 @@ When creating or modifying dialog/modal UIs, verify:
 - AI Agents (`/app/ai-agents`)
 - Business Canvas (`/app/canvases`)
 - Pending Actions (`/app/assignments`)
+- User Profile (`/app/profile`)
+- Settings (`/app/settings`)
+
+---
+
+### F008 - User Profile & Settings (Status: Implemented)
+**Spec:** `specs/features/F008-user-profile.json`
+
+**Capabilities:**
+- View and edit user profile (display name, first name, last name)
+- Change password with current password verification
+- Password strength meter with requirements checklist
+- Security section showing linked authentication methods
+- Link Google account to existing user
+- Settings page with preferences and account management
+- Delete account with confirmation flow
+
+**Key Files:**
+| Component | Location |
+|-----------|----------|
+| Profile Page | `orbitos-web/app/pages/app/profile.vue` |
+| Settings Page | `orbitos-web/app/pages/app/settings.vue` |
+| Profile Avatar | `orbitos-web/app/components/profile/ProfileAvatar.vue` |
+| Profile Edit Dialog | `orbitos-web/app/components/profile/ProfileEditDialog.vue` |
+| Change Password Dialog | `orbitos-web/app/components/profile/ChangePasswordDialog.vue` |
+| Security Section | `orbitos-web/app/components/profile/SecuritySection.vue` |
+| User Profile Composable | `orbitos-web/app/composables/useUserProfile.ts` |
+| User Types | `orbitos-web/app/types/user.ts` |
+| Auth Controller (Profile endpoints) | `orbitos-api/src/OrbitOS.Api/Controllers/AuthController.cs` |
+
+**API Endpoints:**
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/auth/profile` | Get current user's full profile |
+| PUT | `/api/auth/profile` | Update profile (display name, names) |
+| PUT | `/api/auth/change-password` | Change password with verification |
+| POST | `/api/auth/link-google` | Link Google account to user |
+
+**E2E Tests:** `orbitos-web/tests/e2e/profile.spec.ts`, `orbitos-web/tests/e2e/profile-interactions.spec.ts`
 
 ---
 
@@ -670,6 +709,43 @@ Cmd+K spotlight search for help content. Features:
 - Keyboard navigation
 - Results grouped by type
 
+### ProfileAvatar
+**Location:** `orbitos-web/app/components/profile/ProfileAvatar.vue`
+
+User avatar component with initials fallback. Features:
+- Displays user avatar image if available
+- Falls back to initials (from first/last name or display name)
+- Multiple sizes: sm, md, lg, xl
+- Gradient background for initials
+
+### ProfileEditDialog
+**Location:** `orbitos-web/app/components/profile/ProfileEditDialog.vue`
+
+Dialog for editing user profile. Features:
+- Edit display name, first name, last name
+- Real-time validation
+- Uses BaseDialog for proper modal behavior
+- Loading states during save
+
+### ChangePasswordDialog
+**Location:** `orbitos-web/app/components/profile/ChangePasswordDialog.vue`
+
+Dialog for changing user password. Features:
+- Current password verification
+- Password strength meter (weak/medium/strong)
+- Requirements checklist (length, uppercase, lowercase, number)
+- Password visibility toggles
+- Confirm password matching
+
+### SecuritySection
+**Location:** `orbitos-web/app/components/profile/SecuritySection.vue`
+
+Security information display. Features:
+- Shows linked auth methods (Password, Google, Microsoft)
+- Change password button
+- Link Google account button
+- Last login and account creation timestamps
+
 ---
 
 ## Composables Reference
@@ -686,6 +762,7 @@ Cmd+K spotlight search for help content. Features:
 | `usePendingActions` | AI action approval | Approve/reject workflow |
 | `useSuperAdmin` | Admin operations | User/Org/Role/Function CRUD |
 | `useHelp` | Contextual help system | `openSpotlight()`, `toggleHelpPanel()`, `searchHelp()`, `startWalkthrough()` |
+| `useUserProfile` | User profile management | `fetchProfile()`, `updateProfile()`, `changePassword()`, `linkGoogleAccount()` |
 
 ---
 
@@ -704,6 +781,8 @@ Cmd+K spotlight search for help content. Features:
 | `people-crud.spec.ts` | People management | Full CRUD lifecycle |
 | `operations-roles.spec.ts` | Roles management | CRUD, function assignment |
 | `comprehensive-user-journeys.spec.ts` | 10 user personas | Full application coverage |
+| `profile.spec.ts` | User profile | View, edit, password change, settings |
+| `profile-interactions.spec.ts` | Profile UX/UI | Button clicks, dialog behavior, forms |
 
 **Run all tests:**
 ```bash
