@@ -25,8 +25,7 @@ const showEditDialog = ref(false)
 const isSubmitting = ref(false)
 const newPerson = ref({
   name: '',
-  roleId: '' as string,
-  roleName: '',
+  roles: [] as { id: string; name: string }[],
   email: ''
 })
 const editingPerson = ref<{
@@ -74,12 +73,19 @@ const editRoleNameExists = computed(() => {
   return roles.value.some(r => r.name.toLowerCase() === query)
 })
 
-// Select a role from dropdown
+// Select a role from dropdown (add to array)
 const selectRole = (role: { id: string; name: string }) => {
-  newPerson.value.roleId = role.id
-  newPerson.value.roleName = role.name
-  roleSearchQuery.value = role.name
+  // Don't add duplicates
+  if (!newPerson.value.roles.some(r => r.id === role.id)) {
+    newPerson.value.roles.push({ id: role.id, name: role.name })
+  }
+  roleSearchQuery.value = ''
   showRoleDropdown.value = false
+}
+
+// Remove a role from the selection
+const removeRole = (roleId: string) => {
+  newPerson.value.roles = newPerson.value.roles.filter(r => r.id !== roleId)
 }
 
 const selectEditRole = (role: { id: string; name: string }) => {
@@ -122,10 +128,9 @@ const createAndSelectEditRole = async () => {
   }
 }
 
-// Clear role selection
-const clearRole = () => {
-  newPerson.value.roleId = ''
-  newPerson.value.roleName = ''
+// Clear all role selections
+const clearRoles = () => {
+  newPerson.value.roles = []
   roleSearchQuery.value = ''
 }
 
@@ -224,21 +229,24 @@ const handleAddPerson = async () => {
 
     console.log('Created resource:', createdResource)
 
-    // If a role was selected, create a RoleAssignment
-    if (newPerson.value.roleId && createdResource?.id) {
-      await createRoleAssignment({
-        resourceId: createdResource.id,
-        roleId: newPerson.value.roleId,
-        isPrimary: true,
-        allocationPercentage: 100
-      })
+    // Create RoleAssignments for all selected roles
+    if (newPerson.value.roles.length > 0 && createdResource?.id) {
+      // First role is primary, rest are secondary
+      for (const [index, role] of newPerson.value.roles.entries()) {
+        await createRoleAssignment({
+          resourceId: createdResource.id,
+          roleId: role.id,
+          isPrimary: index === 0, // First role is primary
+          allocationPercentage: Math.floor(100 / newPerson.value.roles.length)
+        })
+      }
     }
 
     // Refresh the lists
     await Promise.all([fetchPeople(), fetchRoleAssignments()])
 
     // Reset form and close dialog
-    newPerson.value = { name: '', roleId: '', roleName: '', email: '' }
+    newPerson.value = { name: '', roles: [], email: '' }
     roleSearchQuery.value = ''
     showAddDialog.value = false
   } catch (e: unknown) {
@@ -623,8 +631,25 @@ const stats = computed(() => {
           </div>
 
           <div class="relative">
-            <label class="orbitos-label">Primary Role</label>
-            <p class="text-xs text-white/40 mb-2">Assign a role to define this person's responsibilities</p>
+            <label class="orbitos-label">Roles</label>
+            <p class="text-xs text-white/40 mb-2">Assign one or more roles to define this person's responsibilities</p>
+            <!-- Selected roles badges -->
+            <div v-if="newPerson.roles.length > 0" class="flex flex-wrap gap-2 mb-2">
+              <span
+                v-for="(role, index) in newPerson.roles"
+                :key="role.id"
+                class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm"
+                :class="index === 0 ? 'bg-purple-500/20 border border-purple-500/30 text-purple-300' : 'bg-white/10 border border-white/20 text-white/70'"
+              >
+                {{ role.name }}
+                <span v-if="index === 0" class="text-xs text-purple-400 ml-1">(primary)</span>
+                <button type="button" @click="removeRole(role.id)" class="ml-1 hover:text-white">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </span>
+            </div>
             <div class="relative">
               <input
                 v-model="roleSearchQuery"
@@ -636,30 +661,20 @@ const stats = computed(() => {
                 @blur="closeRoleDropdown"
               />
               <button
-                v-if="newPerson.roleId"
+                v-if="newPerson.roles.length > 0"
                 type="button"
-                @click="clearRole"
+                @click="clearRoles"
                 class="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
+                title="Clear all roles"
               >
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
-            <!-- Selected role badge -->
-            <div v-if="newPerson.roleId" class="mt-2">
-              <span class="inline-flex items-center gap-1 rounded-full bg-purple-500/20 border border-purple-500/30 px-3 py-1 text-sm text-purple-300">
-                {{ newPerson.roleName }}
-                <button type="button" @click="clearRole" class="ml-1 hover:text-white">
-                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </span>
-            </div>
-            <!-- Dropdown -->
+            <!-- Dropdown - now shows even when roles are selected -->
             <div
-              v-if="showRoleDropdown && !newPerson.roleId"
+              v-if="showRoleDropdown"
               class="absolute z-10 mt-1 w-full rounded-lg border border-white/10 bg-slate-800 shadow-xl max-h-48 overflow-y-auto"
             >
               <!-- Create new option -->
@@ -676,9 +691,9 @@ const stats = computed(() => {
                 <span class="text-emerald-300">Create "{{ roleSearchQuery.trim() }}"</span>
                 <span v-if="isCreatingRole" class="orbitos-spinner orbitos-spinner-sm ml-auto"></span>
               </button>
-              <!-- Existing roles -->
+              <!-- Existing roles (excluding already selected) -->
               <button
-                v-for="role in filteredRoles"
+                v-for="role in filteredRoles.filter(r => !newPerson.roles.some(sr => sr.id === r.id))"
                 :key="role.id"
                 type="button"
                 @click="selectRole(role)"
@@ -688,8 +703,8 @@ const stats = computed(() => {
                 <div v-if="role.department" class="text-xs text-white/40">{{ role.department }}</div>
               </button>
               <!-- No results -->
-              <div v-if="filteredRoles.length === 0 && !roleSearchQuery.trim()" class="px-4 py-3 text-white/40 text-sm">
-                Type to search or create a role
+              <div v-if="filteredRoles.filter(r => !newPerson.roles.some(sr => sr.id === r.id)).length === 0 && !roleSearchQuery.trim()" class="px-4 py-3 text-white/40 text-sm">
+                {{ newPerson.roles.length > 0 ? 'All roles assigned. Type to create a new one.' : 'Type to search or create a role' }}
               </div>
             </div>
           </div>
@@ -698,7 +713,7 @@ const stats = computed(() => {
         <div class="mt-6 flex gap-3">
           <button
             type="button"
-            @click="showAddDialog = false; newPerson = { name: '', roleId: '', roleName: '', email: '' }; roleSearchQuery = ''"
+            @click="showAddDialog = false; newPerson = { name: '', roles: [], email: '' }; roleSearchQuery = ''"
             class="flex-1 orbitos-btn-secondary"
           >
             Cancel
