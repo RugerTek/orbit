@@ -8,7 +8,7 @@ export default defineNuxtConfig({
   nitro: {
     preset: 'azure'
   },
-  modules: ['@nuxtjs/tailwindcss'],
+  modules: ['@nuxtjs/tailwindcss', '@nuxt/eslint'],
   devServer: {
     host: '0.0.0.0',
     port: 3000,
