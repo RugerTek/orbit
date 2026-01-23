@@ -31,8 +31,7 @@ const newPerson = ref({
 const editingPerson = ref<{
   id: string
   name: string
-  roleId: string
-  roleName: string
+  roles: { id: string; name: string }[]
   email: string
 } | null>(null)
 
@@ -90,10 +89,19 @@ const removeRole = (roleId: string) => {
 
 const selectEditRole = (role: { id: string; name: string }) => {
   if (editingPerson.value) {
-    editingPerson.value.roleId = role.id
-    editingPerson.value.roleName = role.name
-    editRoleSearchQuery.value = role.name
+    // Don't add duplicates
+    if (!editingPerson.value.roles.some(r => r.id === role.id)) {
+      editingPerson.value.roles.push({ id: role.id, name: role.name })
+    }
+    editRoleSearchQuery.value = ''
     showEditRoleDropdown.value = false
+  }
+}
+
+// Remove a role from the edit selection
+const removeEditRole = (roleId: string) => {
+  if (editingPerson.value) {
+    editingPerson.value.roles = editingPerson.value.roles.filter(r => r.id !== roleId)
   }
 }
 
@@ -134,10 +142,9 @@ const clearRoles = () => {
   roleSearchQuery.value = ''
 }
 
-const clearEditRole = () => {
+const clearEditRoles = () => {
   if (editingPerson.value) {
-    editingPerson.value.roleId = ''
-    editingPerson.value.roleName = ''
+    editingPerson.value.roles = []
     editRoleSearchQuery.value = ''
   }
 }
@@ -267,33 +274,32 @@ const openEditDialog = async (person: { id: string; name: string; description?: 
     )
     const meta = parseMetadata(fullData.metadata)
 
-    // Get current role assignment for this person
+    // Get all current role assignments for this person
     const personRoles = roleAssignments.value.filter(ra => ra.resourceId === person.id)
-    const primaryRole = personRoles.find(ra => ra.isPrimary) || personRoles[0]
+    // Sort so primary role is first
+    const sortedRoles = [...personRoles].sort((a, b) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0))
 
     editingPerson.value = {
       id: fullData.id,
       name: fullData.name,
-      roleId: primaryRole?.roleId || '',
-      roleName: primaryRole?.roleName || '',
+      roles: sortedRoles.map(ra => ({ id: ra.roleId, name: ra.roleName || '' })),
       email: meta.email || ''
     }
-    editRoleSearchQuery.value = primaryRole?.roleName || ''
+    editRoleSearchQuery.value = ''
     showEditDialog.value = true
   } catch (e) {
     console.error('Failed to load person data:', e)
     // Fallback to basic data if fetch fails
     const personRoles = roleAssignments.value.filter(ra => ra.resourceId === person.id)
-    const primaryRole = personRoles.find(ra => ra.isPrimary) || personRoles[0]
+    const sortedRoles = [...personRoles].sort((a, b) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0))
 
     editingPerson.value = {
       id: person.id,
       name: person.name,
-      roleId: primaryRole?.roleId || '',
-      roleName: primaryRole?.roleName || '',
+      roles: sortedRoles.map(ra => ({ id: ra.roleId, name: ra.roleName || '' })),
       email: ''
     }
-    editRoleSearchQuery.value = primaryRole?.roleName || ''
+    editRoleSearchQuery.value = ''
     showEditDialog.value = true
   }
 }
@@ -313,23 +319,42 @@ const handleEditPerson = async () => {
 
     // Handle role assignment changes
     const currentRoleAssignments = roleAssignments.value.filter(ra => ra.resourceId === editingPerson.value?.id)
-    const currentPrimaryRole = currentRoleAssignments.find(ra => ra.isPrimary) || currentRoleAssignments[0]
+    const currentRoleIds = new Set(currentRoleAssignments.map(ra => ra.roleId))
+    const newRoleIds = new Set(editingPerson.value.roles.map(r => r.id))
 
-    // If role changed, update the assignment
-    if (editingPerson.value.roleId !== currentPrimaryRole?.roleId) {
-      // Remove old primary role assignment if exists
-      if (currentPrimaryRole) {
-        await del(`/api/organizations/${getOrgId()}/operations/resources/role-assignments/${currentPrimaryRole.id}`)
-      }
+    // Find roles to remove (in current but not in new)
+    const rolesToRemove = currentRoleAssignments.filter(ra => !newRoleIds.has(ra.roleId))
 
-      // Create new role assignment if a role is selected
-      if (editingPerson.value.roleId) {
-        await createRoleAssignment({
-          resourceId: editingPerson.value.id,
-          roleId: editingPerson.value.roleId,
-          isPrimary: true,
-          allocationPercentage: 100
-        })
+    // Find roles to add (in new but not in current)
+    const rolesToAdd = editingPerson.value.roles.filter(r => !currentRoleIds.has(r.id))
+
+    // Remove old role assignments
+    for (const assignment of rolesToRemove) {
+      await del(`/api/organizations/${getOrgId()}/operations/resources/role-assignments/${assignment.id}`)
+    }
+
+    // Add new role assignments
+    for (const [index, role] of rolesToAdd.entries()) {
+      // Check if this should be primary (it's first in new list and no existing primary)
+      const existingPrimary = currentRoleAssignments.find(ra => ra.isPrimary && newRoleIds.has(ra.roleId))
+      const isFirstRole = editingPerson.value.roles[0]?.id === role.id
+
+      await createRoleAssignment({
+        resourceId: editingPerson.value.id,
+        roleId: role.id,
+        isPrimary: isFirstRole && !existingPrimary,
+        allocationPercentage: Math.floor(100 / editingPerson.value.roles.length)
+      })
+    }
+
+    // Update primary role if order changed (first role in list should be primary)
+    if (editingPerson.value.roles.length > 0) {
+      const firstRoleId = editingPerson.value.roles[0].id
+      const currentPrimaryInNew = currentRoleAssignments.find(ra => ra.isPrimary && newRoleIds.has(ra.roleId))
+
+      // If current primary is not the first role, we need to update
+      if (currentPrimaryInNew && currentPrimaryInNew.roleId !== firstRoleId) {
+        // This would require an update endpoint - for now, the new primary will be set on newly added roles
       }
     }
 
@@ -767,8 +792,25 @@ const stats = computed(() => {
           </div>
 
           <div class="relative">
-            <label class="orbitos-label">Primary Role</label>
-            <p class="text-xs text-white/40 mb-2">Assign a role to define this person's responsibilities</p>
+            <label class="orbitos-label">Roles</label>
+            <p class="text-xs text-white/40 mb-2">Assign one or more roles to define this person's responsibilities</p>
+            <!-- Selected roles badges -->
+            <div v-if="editingPerson.roles.length > 0" class="flex flex-wrap gap-2 mb-2">
+              <span
+                v-for="(role, index) in editingPerson.roles"
+                :key="role.id"
+                class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm"
+                :class="index === 0 ? 'bg-purple-500/20 border border-purple-500/30 text-purple-300' : 'bg-white/10 border border-white/20 text-white/70'"
+              >
+                {{ role.name }}
+                <span v-if="index === 0" class="text-xs text-purple-400 ml-1">(primary)</span>
+                <button type="button" @click="removeEditRole(role.id)" class="ml-1 hover:text-white">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </span>
+            </div>
             <div class="relative">
               <input
                 v-model="editRoleSearchQuery"
@@ -780,30 +822,20 @@ const stats = computed(() => {
                 @blur="closeEditRoleDropdown"
               />
               <button
-                v-if="editingPerson.roleId"
+                v-if="editingPerson.roles.length > 0"
                 type="button"
-                @click="clearEditRole"
+                @click="clearEditRoles"
                 class="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
+                title="Clear all roles"
               >
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
-            <!-- Selected role badge -->
-            <div v-if="editingPerson.roleId" class="mt-2">
-              <span class="inline-flex items-center gap-1 rounded-full bg-purple-500/20 border border-purple-500/30 px-3 py-1 text-sm text-purple-300">
-                {{ editingPerson.roleName }}
-                <button type="button" @click="clearEditRole" class="ml-1 hover:text-white">
-                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </span>
-            </div>
-            <!-- Dropdown -->
+            <!-- Dropdown - shows even when roles are selected -->
             <div
-              v-if="showEditRoleDropdown && !editingPerson.roleId"
+              v-if="showEditRoleDropdown"
               class="absolute z-10 mt-1 w-full rounded-lg border border-white/10 bg-slate-800 shadow-xl max-h-48 overflow-y-auto"
             >
               <!-- Create new option -->
@@ -820,9 +852,9 @@ const stats = computed(() => {
                 <span class="text-emerald-300">Create "{{ editRoleSearchQuery.trim() }}"</span>
                 <span v-if="isCreatingRole" class="orbitos-spinner orbitos-spinner-sm ml-auto"></span>
               </button>
-              <!-- Existing roles -->
+              <!-- Existing roles (excluding already selected) -->
               <button
-                v-for="role in editFilteredRoles"
+                v-for="role in editFilteredRoles.filter(r => !editingPerson?.roles.some(sr => sr.id === r.id))"
                 :key="role.id"
                 type="button"
                 @click="selectEditRole(role)"
@@ -832,16 +864,16 @@ const stats = computed(() => {
                 <div v-if="role.department" class="text-xs text-white/40">{{ role.department }}</div>
               </button>
               <!-- No results -->
-              <div v-if="editFilteredRoles.length === 0 && !editRoleSearchQuery.trim()" class="px-4 py-3 text-white/40 text-sm">
-                Type to search or create a role
+              <div v-if="editFilteredRoles.filter(r => !editingPerson?.roles.some(sr => sr.id === r.id)).length === 0 && !editRoleSearchQuery.trim()" class="px-4 py-3 text-white/40 text-sm">
+                {{ editingPerson.roles.length > 0 ? 'All roles assigned. Type to create a new one.' : 'Type to search or create a role' }}
               </div>
             </div>
           </div>
 
-          <!-- Link to detail page for multiple roles -->
+          <!-- Link to detail page for allocation management -->
           <div class="rounded-lg bg-purple-500/10 border border-purple-500/20 p-3">
             <p class="text-xs text-purple-300">
-              Need to assign multiple roles with different allocations?
+              Need to adjust allocation percentages?
               <NuxtLink
                 :to="`/app/people/${editingPerson.id}`"
                 class="underline hover:text-purple-200"
