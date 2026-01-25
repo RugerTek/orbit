@@ -91,9 +91,27 @@ export function useProcessFlow(process: Ref<ProcessWithActivities | null>) {
         }
       }
 
+      // Map activity type to node component type
+      // IE symbols get their own node components, others use the generic activity node
+      const getNodeType = (activityType: string): string => {
+        switch (activityType) {
+          case 'decision': return 'decision'
+          case 'operation': return 'operation'
+          case 'inspection': return 'inspection'
+          case 'transport': return 'transport'
+          case 'delay': return 'delay'
+          case 'storage': return 'storage'
+          case 'document': return 'document'
+          case 'database': return 'database'
+          case 'manualInput': return 'manualInput'
+          case 'display': return 'display'
+          default: return 'activity' // manual, automated, hybrid, handoff
+        }
+      }
+
       result.push({
         id: activity.id,
-        type: activity.activityType === 'decision' ? 'decision' : 'activity',
+        type: getNodeType(activity.activityType),
         position,
         data: {
           activity,

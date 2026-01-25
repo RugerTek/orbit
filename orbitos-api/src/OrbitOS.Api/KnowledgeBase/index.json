@@ -1,0 +1,121 @@
+{
+  "categories": [
+    {
+      "id": "process-mapping",
+      "name": "Process Mapping",
+      "description": "Process flow design, industrial engineering symbols, and performance analysis",
+      "articles": [
+        {
+          "id": "process-mapping/ie-symbols",
+          "title": "IE Flowchart Symbols",
+          "summary": "ASME Y15.3 standard symbols for process analysis"
+        },
+        {
+          "id": "process-mapping/takt-time",
+          "title": "Takt Time",
+          "summary": "Calculate production rate to meet customer demand"
+        },
+        {
+          "id": "process-mapping/bottleneck-analysis",
+          "title": "Bottleneck Analysis",
+          "summary": "Identify and address process constraints"
+        },
+        {
+          "id": "process-mapping/process-efficiency",
+          "title": "Process Efficiency (PCE)",
+          "summary": "Measure value-add ratio in your processes"
+        },
+        {
+          "id": "process-mapping/oee",
+          "title": "OEE",
+          "summary": "Overall Equipment Effectiveness for equipment productivity"
+        }
+      ]
+    },
+    {
+      "id": "roles",
+      "name": "Roles & Responsibilities",
+      "description": "Role design, job architecture, and responsibility assignment",
+      "articles": [
+        {
+          "id": "roles/role-design",
+          "title": "Role Design Principles",
+          "summary": "How to design effective organizational roles"
+        },
+        {
+          "id": "roles/raci-matrix",
+          "title": "RACI Matrix",
+          "summary": "Clarify responsibilities with RACI assignments"
+        }
+      ]
+    },
+    {
+      "id": "functions",
+      "name": "Business Functions",
+      "description": "Function catalog design and coverage analysis",
+      "articles": [
+        {
+          "id": "functions/function-catalog",
+          "title": "Building a Function Catalog",
+          "summary": "Create and organize your business function inventory"
+        },
+        {
+          "id": "functions/coverage-analysis",
+          "title": "Coverage Analysis",
+          "summary": "Identify gaps and single points of failure"
+        }
+      ]
+    },
+    {
+      "id": "canvas",
+      "name": "Business Model Canvas",
+      "description": "Business Model Canvas methodology and strategy",
+      "articles": [
+        {
+          "id": "canvas/business-model-canvas",
+          "title": "Business Model Canvas",
+          "summary": "The 9-block framework for business model design"
+        },
+        {
+          "id": "canvas/value-propositions",
+          "title": "Value Propositions",
+          "summary": "Craft compelling value propositions"
+        }
+      ]
+    },
+    {
+      "id": "goals",
+      "name": "Goals & OKRs",
+      "description": "Goal setting, OKR methodology, and performance tracking",
+      "articles": [
+        {
+          "id": "goals/okr-methodology",
+          "title": "OKR Methodology",
+          "summary": "Objectives and Key Results framework"
+        },
+        {
+          "id": "goals/smart-goals",
+          "title": "SMART Goals",
+          "summary": "Specific, Measurable, Achievable, Relevant, Time-bound"
+        }
+      ]
+    },
+    {
+      "id": "org-design",
+      "name": "Organization Design",
+      "description": "Organizational structure and team topology",
+      "articles": [
+        {
+          "id": "org-design/org-structure",
+          "title": "Organization Structure",
+          "summary": "Design effective organizational hierarchies"
+        },
+        {
+          "id": "org-design/span-of-control",
+          "title": "Span of Control",
+          "summary": "Optimal reporting relationships and team sizes"
+        }
+      ]
+    }
+  ]
+}

@@ -18,6 +18,16 @@ import ActivityNode from './nodes/ActivityNode.vue'
 import DecisionNode from './nodes/DecisionNode.vue'
 import StartNode from './nodes/StartNode.vue'
 import EndNode from './nodes/EndNode.vue'
+// IE (Industrial Engineering) symbol nodes
+import OperationNode from './nodes/OperationNode.vue'
+import InspectionNode from './nodes/InspectionNode.vue'
+import TransportNode from './nodes/TransportNode.vue'
+import DelayNode from './nodes/DelayNode.vue'
+import StorageNode from './nodes/StorageNode.vue'
+import DocumentNode from './nodes/DocumentNode.vue'
+import DatabaseNode from './nodes/DatabaseNode.vue'
+import ManualInputNode from './nodes/ManualInputNode.vue'
+import DisplayNode from './nodes/DisplayNode.vue'
 
 const props = defineProps<{
   process: ProcessWithActivities
@@ -87,6 +97,16 @@ const nodeTypes: NodeTypesObject = {
   decision: markRaw(DecisionNode),
   start: markRaw(StartNode),
   end: markRaw(EndNode),
+  // IE (Industrial Engineering) symbol nodes
+  operation: markRaw(OperationNode),
+  inspection: markRaw(InspectionNode),
+  transport: markRaw(TransportNode),
+  delay: markRaw(DelayNode),
+  storage: markRaw(StorageNode),
+  document: markRaw(DocumentNode),
+  database: markRaw(DatabaseNode),
+  manualInput: markRaw(ManualInputNode),
+  display: markRaw(DisplayNode),
 }
 
 // Track positions that need to be saved

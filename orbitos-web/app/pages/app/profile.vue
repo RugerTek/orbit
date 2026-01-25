@@ -29,6 +29,12 @@ onMounted(async () => {
   if (!authToken.value) {
     await initializeAuth()
   }
+
+  // Wait briefly for auth state to stabilize (handles race conditions)
+  if (!authToken.value) {
+    await new Promise(resolve => setTimeout(resolve, 100))
+  }
+
   // Now fetch profile with valid auth token
   await fetchProfile()
 })

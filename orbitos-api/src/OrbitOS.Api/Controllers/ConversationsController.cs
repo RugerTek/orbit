@@ -126,6 +126,10 @@ public class ConversationsController : ControllerBase
         if (!orgExists)
             return NotFound("Organization not found");
 
+        // Require at least one AI agent for A2A conversations
+        if (request.AiAgentIds == null || request.AiAgentIds.Count == 0)
+            return BadRequest("At least one AI agent is required to create a conversation");
+
         var userId = GetCurrentUserId();
 
         // Parse mode
@@ -654,18 +658,31 @@ public class ConversationsController : ControllerBase
             Content = m.Content
         }).ToList();
 
-        var remainingAgents = new List<AiAgent>(agentsToInvoke);
+        // Track who has responded (for AllowMultipleResponses feature)
+        var agentsWhoResponded = new HashSet<Guid>();
+        var allAgents = new List<AiAgent>(agentsToInvoke);
         string? previousRoundContext = null;
 
         // Execute multiple rounds
-        for (int round = 0; round <= settings.MaxRoundsPerMessage && remainingAgents.Any(); round++)
+        for (int round = 0; round <= settings.MaxRoundsPerMessage; round++)
         {
-            _logger.LogInformation("Emergent mode round {Round} for conversation {ConversationId} with {AgentCount} agents",
-                round, conversationId, remainingAgents.Count);
+            // Determine which agents are available this round
+            var availableAgents = settings.AllowMultipleResponses
+                ? allAgents  // All agents can respond again
+                : allAgents.Where(a => !agentsWhoResponded.Contains(a.Id)).ToList();
 
-            // Get relevance scores for all remaining agents
+            if (!availableAgents.Any())
+            {
+                _logger.LogInformation("No available agents for round {Round}, ending", round);
+                break;
+            }
+
+            _logger.LogInformation("Emergent mode round {Round} for conversation {ConversationId} with {AgentCount} available agents",
+                round, conversationId, availableAgents.Count);
+
+            // Get relevance scores for all available agents
             var relevanceResults = await _relevanceService.EvaluateAgentRelevanceAsync(
-                remainingAgents,
+                availableAgents,
                 conversationHistory,
                 settings,
                 previousRoundContext,
@@ -678,11 +695,31 @@ public class ConversationsController : ControllerBase
                     r.AgentName, r.RelevanceScore, r.ShouldRespond, r.Reasoning);
             }
 
-            // Filter to agents that should respond
-            var agentsToRespond = relevanceResults
+            // Separate agents into those who should give full responses vs brief acknowledgments
+            var agentsForFullResponse = relevanceResults
                 .Where(r => r.ShouldRespond)
                 .OrderByDescending(r => r.RelevanceScore)
                 .Take(settings.MaxResponsesPerRound)
+                .ToList();
+
+            var agentsForAcknowledgment = settings.ShowBriefAcknowledgments && round == 0
+                ? relevanceResults
+                    .Where(r => !r.ShouldRespond && r.RelevanceScore >= settings.AcknowledgmentThreshold)
+                    .Take(2)  // Limit brief acknowledgments
+                    .ToList()
+                : new List<RelevanceScoringService.RelevanceResult>();
+
+            // Combine: full responses first, then acknowledgments
+            var agentsToRespond = agentsForFullResponse
+                .Concat(agentsForAcknowledgment.Select(a => new RelevanceScoringService.RelevanceResult
+                {
+                    AgentId = a.AgentId,
+                    AgentName = a.AgentName,
+                    RelevanceScore = a.RelevanceScore,
+                    Reasoning = a.Reasoning,
+                    ShouldRespond = true,
+                    SuggestedResponseType = RelevanceScoringService.ResponseType.Acknowledgment
+                }))
                 .ToList();
 
             if (!agentsToRespond.Any())
@@ -696,41 +733,68 @@ public class ConversationsController : ControllerBase
 
             foreach (var relevanceResult in agentsToRespond)
             {
-                var agent = remainingAgents.First(a => a.Id == relevanceResult.AgentId);
+                var agent = allAgents.First(a => a.Id == relevanceResult.AgentId);
+                var isAcknowledgment = relevanceResult.SuggestedResponseType == RelevanceScoringService.ResponseType.Acknowledgment;
 
                 try
                 {
-                    // Build system prompt with organization context + agent's custom prompt
-                    var systemPrompt = _contextService.BuildSystemPrompt(orgContext, agent.SystemPrompt);
+                    string responseContent;
+                    int tokensUsed = 0;
+                    int responseTimeMs = 0;
 
-                    // Add personality-aware meeting behavior instructions
-                    systemPrompt += BuildMeetingBehaviorPrompt(agent, relevanceResult, previousRoundContext);
-
-                    // Add instruction for unique insight if enabled
-                    if (settings.RequireUniqueInsight && !string.IsNullOrEmpty(previousRoundContext))
+                    if (isAcknowledgment)
                     {
-                        systemPrompt += "\n\nIMPORTANT: Other agents have already responded. " +
-                            "Only add your response if you have UNIQUE insights or perspectives not already covered. " +
-                            "Be concise and focus on what only you can contribute.";
+                        // Generate a brief acknowledgment without calling the AI
+                        responseContent = GenerateBriefAcknowledgment(agent, relevanceResult);
+                        tokensUsed = 0;  // No tokens used for pre-generated acknowledgments
+                        responseTimeMs = 0;
                     }
+                    else
+                    {
+                        // Build system prompt with organization context + agent's custom prompt
+                        var systemPrompt = _contextService.BuildSystemPrompt(orgContext, agent.SystemPrompt);
 
-                    // Call the AI service
-                    var response = await _aiService.SendMessageAsync(
-                        agent,
-                        systemPrompt,
-                        conversationHistory,
-                        cancellationToken);
+                        // Add personality-aware meeting behavior instructions
+                        systemPrompt += BuildMeetingBehaviorPrompt(agent, relevanceResult, previousRoundContext);
+
+                        // Add instruction for unique insight if enabled
+                        if (settings.RequireUniqueInsight && !string.IsNullOrEmpty(previousRoundContext))
+                        {
+                            systemPrompt += "\n\nIMPORTANT: Other agents have already responded. " +
+                                "Only add your response if you have UNIQUE insights or perspectives not already covered. " +
+                                "Be concise and focus on what only you can contribute.";
+                        }
+
+                        // Check if this agent already responded - add context
+                        if (agentsWhoResponded.Contains(agent.Id))
+                        {
+                            systemPrompt += "\n\nNOTE: You already contributed to this discussion. " +
+                                "Only add a follow-up if you have NEW information or want to build on what others have said. " +
+                                "Keep it brief - a sentence or two is fine.";
+                        }
+
+                        // Call the AI service
+                        var response = await _aiService.SendMessageAsync(
+                            agent,
+                            systemPrompt,
+                            conversationHistory,
+                            cancellationToken);
+
+                        responseContent = response.Content;
+                        tokensUsed = response.TokensUsed;
+                        responseTimeMs = response.ResponseTimeMs;
+                    }
 
                     var aiMessage = new Message
                     {
                         ConversationId = conversationId,
                         SenderType = SenderType.Ai,
                         SenderAiAgentId = agent.Id,
-                        Content = response.Content,
-                        TokensUsed = response.TokensUsed,
-                        ResponseTimeMs = response.ResponseTimeMs,
-                        CostCents = CalculateCost(response.TokensUsed, agent.Provider),
-                        ModelUsed = agent.ModelId,
+                        Content = responseContent,
+                        TokensUsed = tokensUsed,
+                        ResponseTimeMs = responseTimeMs,
+                        CostCents = isAcknowledgment ? 0 : CalculateCost(tokensUsed, agent.Provider),
+                        ModelUsed = isAcknowledgment ? null : agent.ModelId,
                         Status = MessageStatus.Sent,
                         SequenceNumber = ++maxSequence
                     };
@@ -740,7 +804,7 @@ public class ConversationsController : ControllerBase
                     // Update conversation stats
                     conversation.MessageCount++;
                     conversation.AiResponseCount++;
-                    conversation.TotalTokens += response.TokensUsed;
+                    conversation.TotalTokens += tokensUsed;
                     conversation.TotalCostCents += aiMessage.CostCents ?? 0;
                     conversation.LastMessageAt = DateTime.UtcNow;
 
@@ -751,7 +815,9 @@ public class ConversationsController : ControllerBase
                     if (settings.ShowRelevanceScores)
                     {
                         messageDto.RelevanceScore = relevanceResult.RelevanceScore;
-                        messageDto.RelevanceReasoning = relevanceResult.Reasoning;
+                        messageDto.RelevanceReasoning = isAcknowledgment
+                            ? "Brief acknowledgment (no substantive input)"
+                            : relevanceResult.Reasoning;
                     }
 
                     allResponses.Add(messageDto);
@@ -760,17 +826,17 @@ public class ConversationsController : ControllerBase
                     conversationHistory.Add(new ProviderMessage
                     {
                         Role = "assistant",
-                        Content = response.Content
+                        Content = responseContent
                     });
 
-                    roundResponses.Add($"{agent.Name}: {response.Content}");
+                    roundResponses.Add($"{agent.Name}: {responseContent}");
 
                     _logger.LogInformation(
-                        "AI agent {AgentName} responded (relevance: {Score}) in round {Round} using {Tokens} tokens",
-                        agent.Name, relevanceResult.RelevanceScore, round, response.TokensUsed);
+                        "AI agent {AgentName} responded (relevance: {Score}, acknowledgment: {IsAck}) in round {Round} using {Tokens} tokens",
+                        agent.Name, relevanceResult.RelevanceScore, isAcknowledgment, round, tokensUsed);
 
-                    // Remove agent from remaining pool (they've spoken this invocation)
-                    remainingAgents.Remove(agent);
+                    // Track that this agent has responded
+                    agentsWhoResponded.Add(agent.Id);
 
                     // Add delay between responses for visual effect
                     if (settings.ResponseDelayMs > 0 && agentsToRespond.IndexOf(relevanceResult) < agentsToRespond.Count - 1)
@@ -796,7 +862,8 @@ public class ConversationsController : ControllerBase
                     failedMessage.SenderAiAgent = agent;
                     allResponses.Add(MapToMessageDto(failedMessage));
 
-                    remainingAgents.Remove(agent);
+                    // Track the failed attempt
+                    agentsWhoResponded.Add(agent.Id);
                 }
             }
 
@@ -894,6 +961,63 @@ public class ConversationsController : ControllerBase
         prompt += "--- END GUIDELINES ---\n";
 
         return prompt;
+    }
+
+    /// <summary>
+    /// Generate a brief acknowledgment for agents who don't have substantive input.
+    /// This creates a more natural meeting-like experience where everyone has a chance to speak.
+    /// </summary>
+    private string GenerateBriefAcknowledgment(AiAgent agent, RelevanceScoringService.RelevanceResult relevanceResult)
+    {
+        // Different acknowledgment styles based on personality
+        var acknowledgments = agent.CommunicationStyle switch
+        {
+            CommunicationStyle.Formal => new[]
+            {
+                "I don't have anything substantial to add at this point.",
+                "The points raised are comprehensive. I have nothing further to contribute.",
+                "I'll defer to my colleagues on this matter.",
+                "This is outside my primary area of expertise. I'll listen and learn."
+            },
+            CommunicationStyle.Casual => new[]
+            {
+                "Nothing from me on this one!",
+                "I'm good - you all covered it well.",
+                "Sounds good to me. Moving on!",
+                "I'll sit this one out."
+            },
+            CommunicationStyle.Direct => new[]
+            {
+                "No input from me.",
+                "Pass.",
+                "Nothing to add.",
+                "Covered."
+            },
+            CommunicationStyle.Diplomatic => new[]
+            {
+                "Great points everyone. I don't have anything to add, but I'm supportive of the direction.",
+                "I appreciate the thorough discussion. Nothing further from my end.",
+                "The team has this well covered. I'm aligned with what's been said.",
+                "Good discussion. I'll chime in if something comes up in my area."
+            },
+            CommunicationStyle.Analytical => new[]
+            {
+                "The analysis presented is sound. No additional data points from me.",
+                "I've reviewed the discussion and have nothing to add at this stage.",
+                "From my perspective, the key points have been addressed.",
+                "No quantitative insights to contribute here."
+            },
+            _ => new[]
+            {
+                "Nothing to add from me.",
+                "I'm good here.",
+                "The discussion is on track. Nothing further from my side."
+            }
+        };
+
+        // Pick a random acknowledgment for variety
+        var random = new Random();
+        return acknowledgments[random.Next(acknowledgments.Length)];
     }
 
     /// <summary>
@@ -1183,6 +1307,7 @@ public class ConversationsController : ControllerBase
 
     private ConversationDto MapToConversationDto(Conversation c)
     {
+        var activeParticipants = c.Participants?.Where(p => p.IsActive).ToList() ?? new();
         return new ConversationDto
         {
             Id = c.Id,
@@ -1199,7 +1324,8 @@ public class ConversationsController : ControllerBase
             StartedAt = c.StartedAt,
             CreatedAt = c.CreatedAt,
             UpdatedAt = c.UpdatedAt,
-            Participants = c.Participants.Where(p => p.IsActive).Select(MapToParticipantDto).ToList()
+            ParticipantCount = activeParticipants.Count,
+            Participants = activeParticipants.Select(MapToParticipantDto).ToList()
         };
     }
 
@@ -1265,6 +1391,11 @@ public class ConversationsController : ControllerBase
             } : null,
             MentionedAgentIds = !string.IsNullOrEmpty(m.MentionedAgentIdsJson)
                 ? JsonSerializer.Deserialize<List<Guid>>(m.MentionedAgentIdsJson)
+                : null,
+            IsInnerDialogue = m.IsInnerDialogue,
+            InnerDialogueType = m.InnerDialogueType?.ToString(),
+            InnerDialogueSteps = !string.IsNullOrEmpty(m.InnerDialogueJson)
+                ? JsonSerializer.Deserialize<List<InnerDialogueStepDto>>(m.InnerDialogueJson)
                 : null
         };
     }
@@ -1300,6 +1431,7 @@ public class ConversationDto
     public decimal TotalCost { get; set; }
     public int MessageCount { get; set; }
     public int AiResponseCount { get; set; }
+    public int ParticipantCount { get; set; }
     public int? MaxTurns { get; set; }
     public long? MaxTokens { get; set; }
     public DateTime? LastMessageAt { get; set; }
@@ -1323,6 +1455,22 @@ public class EmergentModeSettingsDto
     public bool RequireUniqueInsight { get; set; } = true;
     public bool ShowRelevanceScores { get; set; } = true;
     public int ResponseDelayMs { get; set; } = 500;
+
+    /// <summary>
+    /// Whether to allow agents to respond multiple times (if they have new insights after others speak)
+    /// </summary>
+    public bool AllowMultipleResponses { get; set; } = false;
+
+    /// <summary>
+    /// Whether to show brief acknowledgments from agents who don't have substantive input
+    /// (e.g., "I don't have anything to add" or "Good points, nothing from my end")
+    /// </summary>
+    public bool ShowBriefAcknowledgments { get; set; } = false;
+
+    /// <summary>
+    /// Threshold below which agents will give brief acknowledgments instead of full responses (if ShowBriefAcknowledgments is true)
+    /// </summary>
+    public int AcknowledgmentThreshold { get; set; } = 50;
 }
 
 public class ParticipantDto
@@ -1375,6 +1523,11 @@ public class MessageDto
     // Emergent mode fields
     public int? RelevanceScore { get; set; }
     public string? RelevanceReasoning { get; set; }
+
+    // A2A Inner dialogue fields
+    public bool IsInnerDialogue { get; set; }
+    public string? InnerDialogueType { get; set; }
+    public List<InnerDialogueStepDto>? InnerDialogueSteps { get; set; }
 }
 
 public class PaginatedMessagesResponse

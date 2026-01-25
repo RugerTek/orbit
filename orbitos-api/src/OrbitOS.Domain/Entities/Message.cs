@@ -78,6 +78,22 @@ public class Message : BaseEntity
     public Guid? ParentMessageId { get; set; }
 
     /// <summary>
+    /// Whether this message is part of A2A inner dialogue (not the main response)
+    /// </summary>
+    public bool IsInnerDialogue { get; set; } = false;
+
+    /// <summary>
+    /// JSON array of inner dialogue steps showing the AI's thought process
+    /// Structure: [{ stepNumber, type, title, description, agentId?, agentName?, query?, response? }]
+    /// </summary>
+    public string? InnerDialogueJson { get; set; }
+
+    /// <summary>
+    /// Type of inner dialogue step (for filtering/display)
+    /// </summary>
+    public InnerDialogueType? InnerDialogueType { get; set; }
+
+    /// <summary>
     /// Order of message within the conversation
     /// </summary>
     public int SequenceNumber { get; set; }
@@ -111,4 +127,21 @@ public enum MessageStatus
     Sent,
     Streaming,
     Failed
+}
+
+/// <summary>
+/// Type of inner dialogue step for A2A communication
+/// </summary>
+public enum InnerDialogueType
+{
+    /// <summary>Routing query to specialists</summary>
+    Routing,
+    /// <summary>Consulting a specialist agent</summary>
+    Consulting,
+    /// <summary>Agent asking another agent a question</summary>
+    AgentToAgent,
+    /// <summary>Synthesizing responses from multiple agents</summary>
+    Synthesis,
+    /// <summary>General reasoning/thinking step</summary>
+    Reasoning
 }

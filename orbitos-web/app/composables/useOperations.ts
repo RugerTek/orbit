@@ -118,6 +118,7 @@ interface ApiActivity {
   linkedProcessName?: string
   positionX: number
   positionY: number
+  metadataJson?: string
   createdAt: string
 }
 
@@ -244,6 +245,16 @@ const activityTypeMap: Record<string, OpsActivity['activityType']> = {
   'Hybrid': 'hybrid',
   'Decision': 'decision',
   'Handoff': 'handoff',
+  // IE symbols (ASME Y15.3)
+  'Operation': 'operation',
+  'Inspection': 'inspection',
+  'Transport': 'transport',
+  'Delay': 'delay',
+  'Storage': 'storage',
+  'Document': 'document',
+  'Database': 'database',
+  'ManualInput': 'manualInput',
+  'Display': 'display',
   // Legacy number support (in case API ever returns numbers)
   '0': 'manual',
   '1': 'automated',
@@ -381,6 +392,7 @@ function transformProcess(api: ApiProcess): ProcessWithActivities {
       instructions: a.instructions,
       positionX: a.positionX || 0,
       positionY: a.positionY || 0,
+      metadataJson: a.metadataJson,
       createdAt: a.createdAt,
       updatedAt: a.createdAt,
       function: a.functionName ? { id: a.functionId!, name: a.functionName } as OpsFunction : undefined,
@@ -681,6 +693,10 @@ const customerRelationships = ref<CustomerRelationship[]>([])
 const revenueStreams = ref<RevenueStream[]>([])
 const bmcCanvases = ref<Canvas[]>([])
 
+// Org Chart state (shared across components)
+const orgChart = ref<OrgChartTree | null>(null)
+const orgChartMetrics = ref<OrgChartMetrics | null>(null)
+
 export function useOperations() {
   const { get, post, put, patch, delete: del } = useApi()
 
@@ -764,7 +780,12 @@ export function useOperations() {
   // Activities
   const createActivity = async (processId: string, activity: Partial<OpsActivity>) => {
     // Map lowercase frontend type to PascalCase enum string for backend (JsonStringEnumConverter)
-    const typeToPascal: Record<string, string> = { manual: 'Manual', automated: 'Automated', hybrid: 'Hybrid', decision: 'Decision', handoff: 'Handoff' }
+    const typeToPascal: Record<string, string> = {
+      manual: 'Manual', automated: 'Automated', hybrid: 'Hybrid', decision: 'Decision', handoff: 'Handoff',
+      // IE symbols (ASME Y15.3)
+      operation: 'Operation', inspection: 'Inspection', transport: 'Transport', delay: 'Delay', storage: 'Storage',
+      document: 'Document', database: 'Database', manualInput: 'ManualInput', display: 'Display'
+    }
     const activityTypeStr = activity.activityType ? typeToPascal[activity.activityType] : 'Manual'
 
     const data = await post<ApiActivity>(`/api/organizations/${organizationId.value}/operations/processes/${processId}/activities`, {
@@ -779,13 +800,19 @@ export function useOperations() {
       linkedProcessId: activity.linkedProcessId,
       positionX: activity.positionX || 0,
       positionY: activity.positionY || 0,
+      metadataJson: activity.metadataJson,
     })
     return data
   }
 
   const updateActivity = async (processId: string, activityId: string, activity: Partial<OpsActivity>) => {
     // Map lowercase frontend type to PascalCase enum string for backend (JsonStringEnumConverter)
-    const typeToPascal: Record<string, string> = { manual: 'Manual', automated: 'Automated', hybrid: 'Hybrid', decision: 'Decision', handoff: 'Handoff' }
+    const typeToPascal: Record<string, string> = {
+      manual: 'Manual', automated: 'Automated', hybrid: 'Hybrid', decision: 'Decision', handoff: 'Handoff',
+      // IE symbols (ASME Y15.3)
+      operation: 'Operation', inspection: 'Inspection', transport: 'Transport', delay: 'Delay', storage: 'Storage',
+      document: 'Document', database: 'Database', manualInput: 'ManualInput', display: 'Display'
+    }
     const activityTypeStr = activity.activityType ? typeToPascal[activity.activityType] : undefined
 
     // Build request body - explicitly include linkedProcessId even when null to clear it
@@ -800,6 +827,7 @@ export function useOperations() {
       assignedResourceId: activity.assignedResourceId,
       positionX: activity.positionX || 0,
       positionY: activity.positionY || 0,
+      metadataJson: activity.metadataJson,
     }
 
     // Explicitly include linkedProcessId to ensure null values are sent to clear the field
@@ -1543,8 +1571,6 @@ export function useOperations() {
   // ===========================================
   // Org Chart Functions
   // ===========================================
-  const orgChart = ref<OrgChartTree | null>(null)
-  const orgChartMetrics = ref<OrgChartMetrics | null>(null)
 
   const fetchOrgChart = async (): Promise<OrgChartTree> => {
     const data = await get<OrgChartTree>(`/api/organizations/${organizationId.value}/operations/resources/org-chart`)

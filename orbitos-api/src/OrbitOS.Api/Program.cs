@@ -59,12 +59,18 @@ builder.Services.AddHttpClient("Anthropic");
 builder.Services.AddHttpClient("OpenAI");
 builder.Services.AddHttpClient("Google");
 
+// Add Knowledge Base service (singleton - loads and caches articles at startup)
+builder.Services.AddSingleton<IKnowledgeBaseService, KnowledgeBaseService>();
+
 // Add AI services
 builder.Services.AddScoped<IAiChatService, AiChatService>();
 builder.Services.AddScoped<IDashboardInsightsService, DashboardInsightsService>();
 builder.Services.AddScoped<IMultiProviderAiService, MultiProviderAiService>();
 builder.Services.AddScoped<IOrganizationContextService, OrganizationContextService>();
 builder.Services.AddScoped<RelevanceScoringService>();
+builder.Services.AddScoped<IBuiltInAgentService, BuiltInAgentService>();
+builder.Services.AddScoped<IScopedContextLoader, ScopedContextLoader>();
+builder.Services.AddScoped<IOrchestratorService, OrchestratorService>();
 
 // Add services to the container.
 builder.Services.AddControllers()

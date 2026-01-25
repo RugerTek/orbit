@@ -449,46 +449,61 @@ public class AuthController : ControllerBase
         // Generate slug from name
         var slug = GenerateSlug(request.Name);
 
-        // Check if slug is unique
-        var slugExists = await _dbContext.Organizations.AnyAsync(o => o.Slug == slug && o.DeletedAt == null);
+        // Check if slug is unique (check ALL orgs including soft-deleted, since DB constraint applies to all)
+        var slugExists = await _dbContext.Organizations
+            .IgnoreQueryFilters()
+            .AnyAsync(o => o.Slug == slug);
         if (slugExists)
         {
-            // Append random suffix
+            // Append random suffix to ensure uniqueness
             slug = $"{slug}-{Guid.NewGuid().ToString()[..6]}";
         }
 
-        var organization = new Organization
+        try
         {
-            Name = request.Name,
-            Slug = slug,
-            Description = request.Description,
-            LogoUrl = request.LogoUrl
-        };
+            var organization = new Organization
+            {
+                Name = request.Name,
+                Slug = slug,
+                Description = request.Description,
+                LogoUrl = request.LogoUrl
+            };
 
-        _dbContext.Organizations.Add(organization);
+            _dbContext.Organizations.Add(organization);
 
-        // Add current user as owner
-        var membership = new OrganizationMembership
+            // Add current user as owner
+            var membership = new OrganizationMembership
+            {
+                UserId = user.Id,
+                OrganizationId = organization.Id,
+                Role = MembershipRole.Owner
+            };
+
+            _dbContext.OrganizationMemberships.Add(membership);
+
+            await _dbContext.SaveChangesAsync();
+
+            return Ok(new UserOrganizationDto
+            {
+                Id = organization.Id,
+                Name = organization.Name,
+                Slug = organization.Slug,
+                Description = organization.Description,
+                LogoUrl = organization.LogoUrl,
+                Role = MembershipRole.Owner,
+                CreatedAt = organization.CreatedAt
+            });
+        }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
         {
-            UserId = user.Id,
-            OrganizationId = organization.Id,
-            Role = MembershipRole.Owner
-        };
-
-        _dbContext.OrganizationMemberships.Add(membership);
-
-        await _dbContext.SaveChangesAsync();
-
-        return Ok(new UserOrganizationDto
-        {
-            Id = organization.Id,
-            Name = organization.Name,
-            Slug = organization.Slug,
-            Description = organization.Description,
-            LogoUrl = organization.LogoUrl,
-            Role = MembershipRole.Owner,
-            CreatedAt = organization.CreatedAt
-        });
+            // Log the error for debugging
+            Console.WriteLine($"Failed to create organization: {ex.Message}");
+            if (ex.InnerException != null)
+            {
+                Console.WriteLine($"Inner exception: {ex.InnerException.Message}");
+            }
+            return BadRequest(new { Message = "Failed to create organization. The name may already be taken." });
+        }
     }
 
     private static string GenerateSlug(string name)

@@ -69,7 +69,7 @@ const getLevelLabel = (level: number) => {
                 {{ person.isVacant ? person.vacantPositionTitle : person.name }}
               </div>
               <div class="text-sm text-white/50 truncate">
-                {{ person.description || (person.isVacant ? 'Vacant Position' : person.resourceSubtypeName) }}
+                {{ person.description || (person.isVacant ? 'Vacant Position' : (person.roleNames || person.resourceSubtypeName)) }}
               </div>
             </div>
           </div>

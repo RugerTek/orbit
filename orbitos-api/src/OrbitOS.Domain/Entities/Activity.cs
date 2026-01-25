@@ -20,6 +20,12 @@ public class Activity : BaseEntity
     public double PositionX { get; set; } = 0;
     public double PositionY { get; set; } = 0;
 
+    // Type-specific metadata (JSON) - stores IE symbol specific fields
+    // e.g., Inspection: { inspectionCriteria, passRate, defectTypes }
+    // e.g., Transport: { distance, transportMode, origin, destination }
+    // e.g., Storage: { storageType, capacity, location }
+    public string? MetadataJson { get; set; }
+
     // Navigation properties
     public Process Process { get; set; } = null!;
     public ICollection<ActivityEdge> OutgoingEdges { get; set; } = new List<ActivityEdge>();
@@ -31,9 +37,21 @@ public class Activity : BaseEntity
 
 public enum ActivityType
 {
+    // Basic activity types
     Manual,
     Automated,
     Hybrid,
     Decision,
-    Handoff
+    Handoff,
+
+    // Industrial Engineering (ASME Y15.3) symbols
+    Operation,    // Large circle - primary value-adding activity (ASME standard)
+    Inspection,   // Square - quality check/verification
+    Transport,    // Circle with arrow - movement of materials/info
+    Delay,        // D-shape - wait/queue time
+    Storage,      // Inverted triangle - controlled storage
+    Document,     // Wavy-bottom rectangle - paper/digital document
+    Database,     // Cylinder - data store
+    ManualInput,  // Parallelogram - user data entry
+    Display       // Angled rectangle - screen output
 }

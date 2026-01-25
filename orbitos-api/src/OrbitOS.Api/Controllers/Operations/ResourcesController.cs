@@ -535,12 +535,14 @@ public class ResourcesController : ControllerBase
     [HttpGet("org-chart")]
     public async Task<ActionResult<OrgChartTreeDto>> GetOrgChart(Guid organizationId)
     {
-        // Get all person-type resources with their reporting relationships
+        // Get all person-type resources with their reporting relationships and role assignments
         var people = await _dbContext.Resources
             .Include(r => r.ResourceSubtype)
             .Include(r => r.LinkedUser)
             .Include(r => r.ReportsToResource)
             .Include(r => r.DirectReports)
+            .Include(r => r.RoleAssignments)
+                .ThenInclude(ra => ra.Role)
             .Where(r => r.OrganizationId == organizationId)
             .Where(r => r.ResourceSubtype.ResourceType == ResourceType.Person)
             .ToListAsync();
@@ -584,6 +586,14 @@ public class ResourcesController : ControllerBase
         OrgChartResourceDto ToDto(Resource r, int depth)
         {
             var directReportsCount = childrenMap.TryGetValue(r.Id, out var children) ? children.Count : 0;
+            // Build comma-separated list of role names (primary roles first)
+            var roleNames = r.RoleAssignments?
+                .OrderByDescending(ra => ra.IsPrimary)
+                .Select(ra => ra.Role?.Name)
+                .Where(name => !string.IsNullOrEmpty(name))
+                .ToList();
+            var roleNamesStr = roleNames?.Count > 0 ? string.Join(", ", roleNames) : null;
+
             return new OrgChartResourceDto
             {
                 Id = r.Id,
@@ -604,7 +614,8 @@ public class ResourcesController : ControllerBase
                 VacantPositionTitle = r.VacantPositionTitle,
                 DirectReportsCount = directReportsCount,
                 IndirectReportsCount = CountIndirectReports(r.Id),
-                ManagementDepth = depth
+                ManagementDepth = depth,
+                RoleNames = roleNamesStr
             };
         }
 
@@ -725,6 +736,8 @@ public class ResourcesController : ControllerBase
         var resource = await _dbContext.Resources
             .Include(r => r.ResourceSubtype)
             .Include(r => r.LinkedUser)
+            .Include(r => r.RoleAssignments)
+                .ThenInclude(ra => ra.Role)
             .FirstOrDefaultAsync(r => r.Id == id && r.OrganizationId == organizationId);
 
         if (resource == null)
@@ -764,6 +777,14 @@ public class ResourcesController : ControllerBase
         var directReportsCount = await _dbContext.Resources
             .CountAsync(r => r.ReportsToResourceId == id);
 
+        // Build role names string
+        var roleNames = resource.RoleAssignments?
+            .OrderByDescending(ra => ra.IsPrimary)
+            .Select(ra => ra.Role?.Name)
+            .Where(name => !string.IsNullOrEmpty(name))
+            .ToList();
+        var roleNamesStr = roleNames?.Count > 0 ? string.Join(", ", roleNames) : null;
+
         return Ok(new OrgChartResourceDto
         {
             Id = resource.Id,
@@ -782,7 +803,8 @@ public class ResourcesController : ControllerBase
             ManagerName = resource.ReportsToResource?.Name,
             IsVacant = resource.IsVacant,
             VacantPositionTitle = resource.VacantPositionTitle,
-            DirectReportsCount = directReportsCount
+            DirectReportsCount = directReportsCount,
+            RoleNames = roleNamesStr
         });
     }
 

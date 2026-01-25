@@ -17,6 +17,12 @@ onMounted(async () => {
   if (!authToken.value) {
     await initializeAuth()
   }
+
+  // Wait briefly for auth state to stabilize (handles race conditions)
+  if (!authToken.value) {
+    await new Promise(resolve => setTimeout(resolve, 100))
+  }
+
   if (!profile.value) {
     await fetchProfile()
   }
@@ -106,6 +112,27 @@ watch(showDeleteDialog, (isOpen) => {
               <div>
                 <p class="text-sm font-medium text-white">Security</p>
                 <p class="text-xs text-white/40">Manage passwords and sign-in methods</p>
+              </div>
+            </div>
+            <svg class="w-5 h-5 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </NuxtLink>
+
+          <!-- AI Usage Analytics Link -->
+          <NuxtLink
+            to="/app/usage"
+            class="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
+          >
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
+              <div>
+                <p class="text-sm font-medium text-white">AI Usage Analytics</p>
+                <p class="text-xs text-white/40">View token consumption, costs, and model usage</p>
               </div>
             </div>
             <svg class="w-5 h-5 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">

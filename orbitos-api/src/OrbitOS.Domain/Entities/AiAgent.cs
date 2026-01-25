@@ -92,6 +92,49 @@ public class AiAgent : BaseEntity
     /// </summary>
     public bool GivesBriefAcknowledgments { get; set; } = true;
 
+    // ===== A2A (Agent-to-Agent) Fields =====
+
+    /// <summary>
+    /// Agent type: BuiltIn (system-provided specialists) or Custom (user-created personas)
+    /// </summary>
+    public AgentType AgentType { get; set; } = AgentType.Custom;
+
+    /// <summary>
+    /// For Built-in agents: identifies the specialist type (people, process, strategy, finance)
+    /// </summary>
+    public string? SpecialistKey { get; set; }
+
+    /// <summary>
+    /// Context domains this agent has access to.
+    /// Stored as JSON array: ["resources", "roles", "functions"]
+    /// </summary>
+    public string? ContextScopesJson { get; set; }
+
+    /// <summary>
+    /// The locked base prompt for Built-in agents (not directly editable by users)
+    /// </summary>
+    public string? BasePrompt { get; set; }
+
+    /// <summary>
+    /// User-provided custom instructions appended to BasePrompt for Built-in agents
+    /// </summary>
+    public string? CustomInstructions { get; set; }
+
+    /// <summary>
+    /// Whether this agent can call Built-in agents for detailed data (A2A)
+    /// </summary>
+    public bool CanCallBuiltInAgents { get; set; } = false;
+
+    /// <summary>
+    /// Whether the orchestrator can delegate to this agent
+    /// </summary>
+    public bool CanBeOrchestrated { get; set; } = false;
+
+    /// <summary>
+    /// System-provided agents cannot be deleted, only disabled
+    /// </summary>
+    public bool IsSystemProvided { get; set; } = false;
+
     // Multi-tenancy
     public Guid OrganizationId { get; set; }
 
@@ -138,4 +181,34 @@ public enum ReactionTendency
     DevilsAdvocate,
     /// <summary>Seeks common ground and alignment</summary>
     ConsensusBuilder
+}
+
+/// <summary>
+/// Type of AI agent: Built-in (system-provided specialists) or Custom (user-created)
+/// </summary>
+public enum AgentType
+{
+    /// <summary>User-created agent with custom persona</summary>
+    Custom = 0,
+    /// <summary>System-provided specialist agent with scoped context</summary>
+    BuiltIn = 1
+}
+
+/// <summary>
+/// Available context scopes for Built-in agents
+/// </summary>
+public static class ContextScopes
+{
+    public const string Resources = "resources";
+    public const string Roles = "roles";
+    public const string Functions = "functions";
+    public const string Processes = "processes";
+    public const string Activities = "activities";
+    public const string Canvases = "canvases";
+    public const string Goals = "goals";
+    public const string Partners = "partners";
+    public const string Channels = "channels";
+    public const string ValuePropositions = "value_propositions";
+    public const string CustomerRelationships = "customer_relationships";
+    public const string RevenueStreams = "revenue_streams";
 }

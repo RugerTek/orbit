@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
+using OrbitOS.Api.Services;
 
 namespace OrbitOS.Api.Controllers;
 
@@ -13,11 +14,16 @@ namespace OrbitOS.Api.Controllers;
 public class HelpController : ControllerBase
 {
     private readonly IWebHostEnvironment _environment;
+    private readonly IKnowledgeBaseService _knowledgeBaseService;
     private readonly ILogger<HelpController> _logger;
 
-    public HelpController(IWebHostEnvironment environment, ILogger<HelpController> logger)
+    public HelpController(
+        IWebHostEnvironment environment,
+        IKnowledgeBaseService knowledgeBaseService,
+        ILogger<HelpController> logger)
     {
         _environment = environment;
+        _knowledgeBaseService = knowledgeBaseService;
         _logger = logger;
     }
 
@@ -252,6 +258,113 @@ public class HelpController : ControllerBase
         {
             _logger.LogError(ex, "Error searching help content");
             return StatusCode(500, new { error = "Search failed" });
+        }
+    }
+
+    // ============================================
+    // Knowledge Base Endpoints
+    // ============================================
+
+    /// <summary>
+    /// Get knowledge base index with all categories and article summaries
+    /// </summary>
+    [HttpGet("knowledge-base")]
+    [ProducesResponseType(typeof(KnowledgeBaseIndex), StatusCodes.Status200OK)]
+    public IActionResult GetKnowledgeBaseIndex()
+    {
+        try
+        {
+            var index = _knowledgeBaseService.GetIndex();
+            return Ok(index);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error loading knowledge base index");
+            return StatusCode(500, new { error = "Failed to load knowledge base index" });
+        }
+    }
+
+    /// <summary>
+    /// Get a specific knowledge base article by ID
+    /// </summary>
+    [HttpGet("knowledge-base/articles/{*articleId}")]
+    [ProducesResponseType(typeof(KnowledgeBaseArticle), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public IActionResult GetKnowledgeBaseArticle(string articleId)
+    {
+        try
+        {
+            var article = _knowledgeBaseService.GetArticle(articleId);
+            if (article == null)
+            {
+                return NotFound(new { error = $"Article '{articleId}' not found" });
+            }
+            return Ok(article);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error loading knowledge base article {ArticleId}", articleId);
+            return StatusCode(500, new { error = "Failed to load article" });
+        }
+    }
+
+    /// <summary>
+    /// Search knowledge base articles
+    /// </summary>
+    [HttpGet("knowledge-base/search")]
+    [ProducesResponseType(typeof(List<KnowledgeBaseArticle>), StatusCodes.Status200OK)]
+    public IActionResult SearchKnowledgeBase([FromQuery] string q, [FromQuery] int limit = 5)
+    {
+        if (string.IsNullOrWhiteSpace(q))
+        {
+            return BadRequest(new { error = "Search query is required" });
+        }
+
+        try
+        {
+            var results = _knowledgeBaseService.SearchArticles(q, limit);
+            return Ok(results);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error searching knowledge base");
+            return StatusCode(500, new { error = "Search failed" });
+        }
+    }
+
+    /// <summary>
+    /// Get all articles in a specific category
+    /// </summary>
+    [HttpGet("knowledge-base/categories/{categoryId}")]
+    [ProducesResponseType(typeof(List<KnowledgeBaseArticle>), StatusCodes.Status200OK)]
+    public IActionResult GetCategoryArticles(string categoryId)
+    {
+        try
+        {
+            var index = _knowledgeBaseService.GetIndex();
+            var category = index.Categories.FirstOrDefault(c => c.Id == categoryId);
+
+            if (category == null)
+            {
+                return NotFound(new { error = $"Category '{categoryId}' not found" });
+            }
+
+            var articles = new List<KnowledgeBaseArticle>();
+            foreach (var summary in category.Articles)
+            {
+                var article = _knowledgeBaseService.GetArticle(summary.Id);
+                if (article != null)
+                {
+                    articles.Add(article);
+                }
+            }
+
+            return Ok(articles);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error loading category articles for {CategoryId}", categoryId);
+            return StatusCode(500, new { error = "Failed to load category articles" });
         }
     }
 }

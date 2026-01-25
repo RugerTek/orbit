@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { ProcessWithActivities, OpsActivity, ActivityWithDetails } from '~/types/operations'
+import type { ActivityMetadata } from '~/types/activity-metadata'
+import { getDefaultMetadata, parseMetadata, stringifyMetadata } from '~/types/activity-metadata'
 
 definePageMeta({
   layout: 'app'
@@ -24,7 +26,8 @@ const editForm = ref({
   duration: '',
   assignedRole: '',
   type: 'manual' as OpsActivity['activityType'],
-  linkedProcessId: '' as string
+  linkedProcessId: '' as string,
+  metadata: {} as ActivityMetadata
 })
 
 // Drag and drop state
@@ -43,7 +46,8 @@ const newActivity = ref({
   assignedRole: '',
   duration: '',
   description: '',
-  linkedProcessId: '' as string
+  linkedProcessId: '' as string,
+  metadata: {} as ActivityMetadata
 })
 
 // Show edit process dialog (for trigger/output/purpose)
@@ -195,7 +199,8 @@ const startEditing = (activity: OpsActivity) => {
     duration: activity.estimatedDuration?.toString() || '',
     assignedRole: activityWithDetails.assignedResource?.name || '',
     type: activity.activityType,
-    linkedProcessId: activity.linkedProcessId || ''
+    linkedProcessId: activity.linkedProcessId || '',
+    metadata: activity.metadataJson ? parseMetadata(activity.metadataJson) : {}
   }
 }
 
@@ -217,7 +222,10 @@ const saveEdit = async () => {
       linkedProcessId: editForm.value.linkedProcessId || null,
       order: currentActivity.order,
       positionX: currentActivity.positionX,
-      positionY: currentActivity.positionY
+      positionY: currentActivity.positionY,
+      metadataJson: Object.keys(editForm.value.metadata || {}).length > 0
+        ? stringifyMetadata(editForm.value.metadata)
+        : null
     })
 
     // Refresh process to get updated linked process data
@@ -279,7 +287,10 @@ const addNewActivity = async () => {
       order: newOrder,
       activityType: newActivity.value.type,
       estimatedDuration: newActivity.value.duration ? parseInt(newActivity.value.duration) : undefined,
-      linkedProcessId: newActivity.value.linkedProcessId || undefined
+      linkedProcessId: newActivity.value.linkedProcessId || undefined,
+      metadataJson: Object.keys(newActivity.value.metadata || {}).length > 0
+        ? stringifyMetadata(newActivity.value.metadata)
+        : undefined
     })
 
     // Close modal and reset form FIRST (before data refresh to avoid race condition)
@@ -290,7 +301,8 @@ const addNewActivity = async () => {
       assignedRole: '',
       duration: '',
       description: '',
-      linkedProcessId: ''
+      linkedProcessId: '',
+      metadata: {}
     }
 
     // Wait for next tick to let the modal fully unmount
@@ -644,13 +656,23 @@ const uniqueRoles = computed(() => {
           </div>
 
           <NuxtLink
+            to="/app/processes/guide"
+            class="orbitos-btn-secondary py-2 px-4 text-sm inline-flex items-center gap-2"
+            title="Symbol guide and best practices"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+            Guide
+          </NuxtLink>
+          <NuxtLink
             :to="`/app/processes/${processId}/documentation`"
             class="orbitos-btn-secondary py-2 px-4 text-sm inline-flex items-center gap-2"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            Documentation
+            Export
           </NuxtLink>
           <button
             type="button"
@@ -785,11 +807,24 @@ const uniqueRoles = computed(() => {
                   <div>
                     <label class="orbitos-label">Type</label>
                     <select v-model="editForm.type" class="orbitos-input">
-                      <option value="manual">Manual</option>
-                      <option value="automated">Automated</option>
-                      <option value="decision">Decision</option>
-                      <option value="handoff">Handoff</option>
-                      <option value="hybrid">Hybrid</option>
+                      <optgroup label="Basic Activities">
+                        <option value="manual">Manual</option>
+                        <option value="automated">Automated</option>
+                        <option value="hybrid">Hybrid</option>
+                        <option value="handoff">Handoff</option>
+                        <option value="decision">Decision</option>
+                      </optgroup>
+                      <optgroup label="IE Symbols (ASME)">
+                        <option value="operation">Operation (Value-Add)</option>
+                        <option value="inspection">Inspection (Quality Check)</option>
+                        <option value="transport">Transport (Movement)</option>
+                        <option value="delay">Delay (Wait/Queue)</option>
+                        <option value="storage">Storage</option>
+                        <option value="document">Document</option>
+                        <option value="database">Database</option>
+                        <option value="manualInput">Manual Input (Data Entry)</option>
+                        <option value="display">Display (Output)</option>
+                      </optgroup>
                     </select>
                   </div>
                   <div>
@@ -810,6 +845,13 @@ const uniqueRoles = computed(() => {
                     </select>
                     <p class="text-xs text-white/40 mt-1">Link this activity to another process for drill-down</p>
                   </div>
+
+                  <!-- Type-specific metadata fields for IE symbols -->
+                  <ActivityMetadataFields
+                    v-model="editForm.metadata"
+                    :activity-type="editForm.type"
+                  />
+
                   <div class="flex gap-2 pt-2">
                     <button
                       type="button"
@@ -1019,11 +1061,24 @@ const uniqueRoles = computed(() => {
         <div>
           <label class="orbitos-label">Type</label>
           <select v-model="newActivity.type" class="orbitos-input">
-            <option value="manual">Manual</option>
-            <option value="automated">Automated</option>
-            <option value="decision">Decision</option>
-            <option value="handoff">Handoff</option>
-            <option value="hybrid">Hybrid</option>
+            <optgroup label="Basic Activities">
+              <option value="manual">Manual</option>
+              <option value="automated">Automated</option>
+              <option value="hybrid">Hybrid</option>
+              <option value="handoff">Handoff</option>
+              <option value="decision">Decision</option>
+            </optgroup>
+            <optgroup label="IE Symbols (ASME)">
+              <option value="operation">Operation (Value-Add)</option>
+              <option value="inspection">Inspection (Quality Check)</option>
+              <option value="transport">Transport (Movement)</option>
+              <option value="delay">Delay (Wait/Queue)</option>
+              <option value="storage">Storage</option>
+              <option value="document">Document</option>
+              <option value="database">Database</option>
+              <option value="manualInput">Manual Input (Data Entry)</option>
+              <option value="display">Display (Output)</option>
+            </optgroup>
           </select>
         </div>
 
@@ -1057,6 +1112,12 @@ const uniqueRoles = computed(() => {
           </select>
           <p class="text-xs text-white/40 mt-1">Enable drill-down to another process</p>
         </div>
+
+        <!-- Type-specific metadata fields for IE symbols -->
+        <ActivityMetadataFields
+          v-model="newActivity.metadata"
+          :activity-type="newActivity.type"
+        />
       </div>
 
       <template #footer="{ close }">

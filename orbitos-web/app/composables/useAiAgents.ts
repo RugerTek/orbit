@@ -1,6 +1,8 @@
 import { useApi } from '~/composables/useApi'
 import { useOrganizations } from '~/composables/useOrganizations'
 
+export type AgentType = 'BuiltIn' | 'Custom'
+
 export interface AiAgent {
   id: string
   name: string
@@ -23,6 +25,15 @@ export interface AiAgent {
   seniorityLevel: number
   asksQuestions: boolean
   givesBriefAcknowledgments: boolean
+  // A2A fields
+  agentType: AgentType
+  specialistKey?: string
+  contextScopes?: string[]
+  basePrompt?: string
+  customInstructions?: string
+  canCallBuiltInAgents: boolean
+  canBeOrchestrated: boolean
+  isSystemProvided: boolean
   createdAt: string
   updatedAt: string
 }
@@ -59,6 +70,9 @@ export interface CreateAiAgentRequest {
   seniorityLevel?: number
   asksQuestions?: boolean
   givesBriefAcknowledgments?: boolean
+  // A2A fields
+  canCallBuiltInAgents?: boolean
+  contextScopes?: string[]
 }
 
 export interface UpdateAiAgentRequest {
@@ -82,7 +96,27 @@ export interface UpdateAiAgentRequest {
   seniorityLevel?: number
   asksQuestions?: boolean
   givesBriefAcknowledgments?: boolean
+  // A2A fields
+  customInstructions?: string
+  canCallBuiltInAgents?: boolean
+  contextScopes?: string[]
 }
+
+// Available context scopes for AI agents to access organization data
+export const AVAILABLE_CONTEXT_SCOPES = [
+  { key: 'resources', label: 'People & Resources', description: 'Team members and resource data' },
+  { key: 'roles', label: 'Roles', description: 'Organizational roles and assignments' },
+  { key: 'functions', label: 'Functions', description: 'Business functions and capabilities' },
+  { key: 'processes', label: 'Processes', description: 'Business processes and workflows' },
+  { key: 'activities', label: 'Activities', description: 'Process activities and tasks' },
+  { key: 'canvases', label: 'Business Canvas', description: 'Business model canvases' },
+  { key: 'goals', label: 'Goals & OKRs', description: 'Objectives and key results' },
+  { key: 'partners', label: 'Partners', description: 'Key partners and relationships' },
+  { key: 'channels', label: 'Channels', description: 'Sales and distribution channels' },
+  { key: 'value_propositions', label: 'Value Propositions', description: 'Customer value propositions' },
+  { key: 'customer_relationships', label: 'Customer Relationships', description: 'Customer relationship types' },
+  { key: 'revenue_streams', label: 'Revenue Streams', description: 'Revenue and pricing models' }
+] as const
 
 // Global state for AI agents
 const agents = ref<AiAgent[]>([])
@@ -183,6 +217,37 @@ export const useAiAgents = () => {
     return grouped
   })
 
+  // Get Built-in agents
+  const builtInAgents = computed(() => {
+    return agents.value.filter(a => a.agentType === 'BuiltIn')
+  })
+
+  // Get Custom agents
+  const customAgents = computed(() => {
+    return agents.value.filter(a => a.agentType === 'Custom')
+  })
+
+  // Get active agents (for conversation participant selection)
+  const activeAgents = computed(() => {
+    return agents.value.filter(a => a.isActive)
+  })
+
+  // Specialist icon mapping
+  const specialistIcons: Record<string, string> = {
+    people: '👥',
+    process: '⚙️',
+    strategy: '🎯',
+    finance: '💰'
+  }
+
+  // Get icon for agent
+  const getAgentIcon = (agent: AiAgent): string => {
+    if (agent.agentType === 'BuiltIn' && agent.specialistKey) {
+      return specialistIcons[agent.specialistKey] || '🤖'
+    }
+    return agent.name.charAt(0)
+  }
+
   // Provider display info
   const providerInfo: Record<string, { name: string; color: string; bgColor: string }> = {
     anthropic: { name: 'Anthropic', color: 'text-orange-400', bgColor: 'bg-orange-500/20' },
@@ -192,9 +257,14 @@ export const useAiAgents = () => {
 
   return {
     agents,
+    builtInAgents,
+    customAgents,
+    activeAgents,
     availableModels,
     modelsByProvider,
     providerInfo,
+    specialistIcons,
+    getAgentIcon,
     isLoading,
     isLoadingModels,
     fetchAgents,

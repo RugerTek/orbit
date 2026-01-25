@@ -296,16 +296,22 @@ const statusLabel = (status: string) => {
         <h1 class="orbitos-heading-lg">Roles</h1>
         <p class="orbitos-text">Operational roles and their coverage status.</p>
       </div>
-      <button
-        type="button"
-        @click="showAddDialog = true"
-        class="orbitos-btn-primary py-2 px-4 text-sm"
-      >
-        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-        </svg>
-        Add Role
-      </button>
+      <div class="flex items-center gap-3">
+        <KnowledgeBaseGuideButton
+          article-id="roles/role-design"
+          label="Role Design Guide"
+        />
+        <button
+          type="button"
+          @click="showAddDialog = true"
+          class="orbitos-btn-primary py-2 px-4 text-sm"
+        >
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+          Add Role
+        </button>
+      </div>
     </div>
 
     <!-- Stats -->

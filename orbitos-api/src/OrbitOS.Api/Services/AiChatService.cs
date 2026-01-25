@@ -50,6 +50,7 @@ public class AiChatService : IAiChatService
 {
     private readonly OrbitOSDbContext _dbContext;
     private readonly IOrganizationContextService _contextService;
+    private readonly IKnowledgeBaseService _knowledgeBaseService;
     private readonly ILogger<AiChatService> _logger;
     private readonly HttpClient _httpClient;
     private readonly string _apiKey;
@@ -58,12 +59,14 @@ public class AiChatService : IAiChatService
     public AiChatService(
         OrbitOSDbContext dbContext,
         IOrganizationContextService contextService,
+        IKnowledgeBaseService knowledgeBaseService,
         ILogger<AiChatService> logger,
         IConfiguration configuration,
         IHttpClientFactory httpClientFactory)
     {
         _dbContext = dbContext;
         _contextService = contextService;
+        _knowledgeBaseService = knowledgeBaseService;
         _logger = logger;
         _httpClient = httpClientFactory.CreateClient("Anthropic");
         _apiKey = configuration["ANTHROPIC_API_KEY"]
@@ -115,7 +118,7 @@ public class AiChatService : IAiChatService
         var requestBody = new ClaudeRequest
         {
             Model = "claude-sonnet-4-20250514",
-            MaxTokens = 4096,
+            MaxTokens = 8192, // Doubled from 4096 to allow longer responses
             System = systemPrompt,
             Messages = messages,
             Tools = tools.Count > 0 ? tools : null
@@ -127,24 +130,57 @@ public class AiChatService : IAiChatService
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         });
 
-        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, ANTHROPIC_API_URL);
-        httpRequest.Headers.Add("x-api-key", _apiKey);
-        httpRequest.Headers.Add("anthropic-version", "2023-06-01");
-        httpRequest.Content = new StringContent(json, Encoding.UTF8, "application/json");
+        // Retry logic with exponential backoff for rate limits
+        // Rate limit is 10,000 tokens/minute, so we need longer delays
+        const int maxRetries = 3;
+        var baseDelayMs = 15000; // 15 seconds base delay for rate limits
 
-        var httpResponse = await _httpClient.SendAsync(httpRequest, cancellationToken);
-        var responseJson = await httpResponse.Content.ReadAsStringAsync(cancellationToken);
-
-        if (!httpResponse.IsSuccessStatusCode)
+        for (var attempt = 0; attempt <= maxRetries; attempt++)
         {
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, ANTHROPIC_API_URL);
+            httpRequest.Headers.Add("x-api-key", _apiKey);
+            httpRequest.Headers.Add("anthropic-version", "2023-06-01");
+            httpRequest.Content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var httpResponse = await _httpClient.SendAsync(httpRequest, cancellationToken);
+            var responseJson = await httpResponse.Content.ReadAsStringAsync(cancellationToken);
+
+            if (httpResponse.IsSuccessStatusCode)
+            {
+                return JsonSerializer.Deserialize<ClaudeResponse>(responseJson, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+                }) ?? throw new Exception("Failed to parse Claude response");
+            }
+
+            // Handle rate limiting (429 TooManyRequests)
+            if (httpResponse.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+            {
+                if (attempt < maxRetries)
+                {
+                    // Check for Retry-After header, otherwise use exponential backoff
+                    // Delays: 15s, 30s, 60s
+                    var retryAfter = httpResponse.Headers.RetryAfter?.Delta?.TotalMilliseconds
+                        ?? baseDelayMs * Math.Pow(2, attempt);
+
+                    _logger.LogWarning(
+                        "Rate limited by Claude API. Attempt {Attempt}/{MaxRetries}. Waiting {Delay}ms before retry.",
+                        attempt + 1, maxRetries, retryAfter);
+
+                    await Task.Delay((int)retryAfter, cancellationToken);
+                    continue;
+                }
+
+                _logger.LogError("Claude API rate limit exceeded after {MaxRetries} retries", maxRetries);
+                throw new Exception("I'm receiving too many requests right now. Please wait about 30 seconds and try again.");
+            }
+
+            // For other errors, log and throw immediately
             _logger.LogError("Claude API error: {StatusCode} - {Response}", httpResponse.StatusCode, responseJson);
             throw new Exception($"Claude API error: {httpResponse.StatusCode}");
         }
 
-        return JsonSerializer.Deserialize<ClaudeResponse>(responseJson, new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
-        }) ?? throw new Exception("Failed to parse Claude response");
+        throw new Exception("Claude API error: Maximum retries exceeded");
     }
 
     private List<ClaudeTool> BuildTools()
@@ -350,6 +386,21 @@ public class AiChatService : IAiChatService
                         ["processes"] = new ClaudeToolProperty { Type = "array", Description = "Array of process objects with name, purpose, description, trigger, output, frequency" }
                     },
                     Required = new[] { "processes" }
+                }
+            },
+            new ClaudeTool
+            {
+                Name = "add_activities_to_process",
+                Description = "Add activities (steps) to an existing process. Use IE symbols: Operation (circle) for value-adding work, Inspection (square) for quality checks, Transport (arrow) for movement, Delay (D) for waiting, Storage (triangle) for storage.",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["processId"] = new ClaudeToolProperty { Type = "string", Description = "The ID of the process to add activities to" },
+                        ["activities"] = new ClaudeToolProperty { Type = "array", Description = "Array of activity objects. Each activity should have: name (string), description (string), activityType (Manual, Automated, Hybrid, Decision, Handoff - use Manual for most IE operations), instructions (optional string), estimatedDurationMinutes (optional number), order (optional number for sequence)" }
+                    },
+                    Required = new[] { "processId", "activities" }
                 }
             },
             // Goal Management Tools
@@ -775,6 +826,215 @@ public class AiChatService : IAiChatService
                     },
                     Required = new[] { "conversationId" }
                 }
+            },
+            // Knowledge Base Tools
+            new ClaudeTool
+            {
+                Name = "lookup_knowledge_base",
+                Description = "Look up best practices and guidelines from the knowledge base. Use this when the user asks about methodologies, frameworks, or how to do something correctly (e.g., 'What are IE symbols?', 'How do I calculate OEE?', 'Best practices for role design').",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["article_id"] = new ClaudeToolProperty { Type = "string", Description = "The article ID to retrieve (e.g., 'process-mapping/ie-symbols', 'roles/raci-matrix')" },
+                        ["search_query"] = new ClaudeToolProperty { Type = "string", Description = "Search for articles by keyword if you don't know the exact ID" }
+                    },
+                    Required = Array.Empty<string>()
+                }
+            },
+            // ===== Data Query Tools =====
+            // These tools allow the AI to fetch organization data on-demand instead of having it pre-loaded
+            new ClaudeTool
+            {
+                Name = "get_people",
+                Description = "Get list of people in the organization with their roles and capabilities. Use this when you need to see who works in the organization, their roles, or their skills.",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["search"] = new ClaudeToolProperty { Type = "string", Description = "Optional: Filter people by name (case-insensitive partial match)" },
+                        ["roleId"] = new ClaudeToolProperty { Type = "string", Description = "Optional: Filter people by role ID" },
+                        ["limit"] = new ClaudeToolProperty { Type = "integer", Description = "Optional: Maximum number of results (default: 50)" }
+                    },
+                    Required = Array.Empty<string>()
+                }
+            },
+            new ClaudeTool
+            {
+                Name = "get_roles",
+                Description = "Get list of roles in the organization with their departments and assignment counts. Use this when you need to see what roles exist or find a specific role.",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["search"] = new ClaudeToolProperty { Type = "string", Description = "Optional: Filter roles by name (case-insensitive partial match)" },
+                        ["department"] = new ClaudeToolProperty { Type = "string", Description = "Optional: Filter roles by department" },
+                        ["limit"] = new ClaudeToolProperty { Type = "integer", Description = "Optional: Maximum number of results (default: 50)" }
+                    },
+                    Required = Array.Empty<string>()
+                }
+            },
+            new ClaudeTool
+            {
+                Name = "get_functions",
+                Description = "Get list of business functions (skills/capabilities) in the organization. Use this when you need to see what functions exist or find functions in a category.",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["search"] = new ClaudeToolProperty { Type = "string", Description = "Optional: Filter functions by name (case-insensitive partial match)" },
+                        ["category"] = new ClaudeToolProperty { Type = "string", Description = "Optional: Filter functions by category" },
+                        ["limit"] = new ClaudeToolProperty { Type = "integer", Description = "Optional: Maximum number of results (default: 50)" }
+                    },
+                    Required = Array.Empty<string>()
+                }
+            },
+            new ClaudeTool
+            {
+                Name = "get_processes",
+                Description = "Get list of business processes in the organization. Use this when you need to see what processes exist.",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["search"] = new ClaudeToolProperty { Type = "string", Description = "Optional: Filter processes by name (case-insensitive partial match)" },
+                        ["status"] = new ClaudeToolProperty { Type = "string", Description = "Optional: Filter by status (Active, Draft, Deprecated)" },
+                        ["limit"] = new ClaudeToolProperty { Type = "integer", Description = "Optional: Maximum number of results (default: 50)" }
+                    },
+                    Required = Array.Empty<string>()
+                }
+            },
+            new ClaudeTool
+            {
+                Name = "get_goals",
+                Description = "Get list of goals, objectives, and key results in the organization. Use this when you need to see what goals exist.",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["search"] = new ClaudeToolProperty { Type = "string", Description = "Optional: Filter goals by name (case-insensitive partial match)" },
+                        ["goalType"] = new ClaudeToolProperty { Type = "string", Description = "Optional: Filter by type (Objective, KeyResult, Initiative)" },
+                        ["status"] = new ClaudeToolProperty { Type = "string", Description = "Optional: Filter by status" },
+                        ["limit"] = new ClaudeToolProperty { Type = "integer", Description = "Optional: Maximum number of results (default: 50)" }
+                    },
+                    Required = Array.Empty<string>()
+                }
+            },
+            new ClaudeTool
+            {
+                Name = "get_partners",
+                Description = "Get list of partners (suppliers, distributors, strategic partners) in the organization.",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["search"] = new ClaudeToolProperty { Type = "string", Description = "Optional: Filter partners by name (case-insensitive partial match)" },
+                        ["type"] = new ClaudeToolProperty { Type = "string", Description = "Optional: Filter by type (Supplier, Distributor, Strategic, etc.)" },
+                        ["limit"] = new ClaudeToolProperty { Type = "integer", Description = "Optional: Maximum number of results (default: 50)" }
+                    },
+                    Required = Array.Empty<string>()
+                }
+            },
+            new ClaudeTool
+            {
+                Name = "get_channels",
+                Description = "Get list of channels (sales, marketing, distribution) in the organization.",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["search"] = new ClaudeToolProperty { Type = "string", Description = "Optional: Filter channels by name (case-insensitive partial match)" },
+                        ["type"] = new ClaudeToolProperty { Type = "string", Description = "Optional: Filter by type (Direct, Indirect, Digital, Physical, Hybrid)" },
+                        ["category"] = new ClaudeToolProperty { Type = "string", Description = "Optional: Filter by category (Sales, Marketing, Distribution, Support, Communication)" },
+                        ["limit"] = new ClaudeToolProperty { Type = "integer", Description = "Optional: Maximum number of results (default: 50)" }
+                    },
+                    Required = Array.Empty<string>()
+                }
+            },
+            new ClaudeTool
+            {
+                Name = "get_value_propositions",
+                Description = "Get list of value propositions in the organization.",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["search"] = new ClaudeToolProperty { Type = "string", Description = "Optional: Filter by name (case-insensitive partial match)" },
+                        ["limit"] = new ClaudeToolProperty { Type = "integer", Description = "Optional: Maximum number of results (default: 50)" }
+                    },
+                    Required = Array.Empty<string>()
+                }
+            },
+            new ClaudeTool
+            {
+                Name = "get_customer_relationships",
+                Description = "Get list of customer relationship types in the organization.",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["search"] = new ClaudeToolProperty { Type = "string", Description = "Optional: Filter by name (case-insensitive partial match)" },
+                        ["type"] = new ClaudeToolProperty { Type = "string", Description = "Optional: Filter by type" },
+                        ["limit"] = new ClaudeToolProperty { Type = "integer", Description = "Optional: Maximum number of results (default: 50)" }
+                    },
+                    Required = Array.Empty<string>()
+                }
+            },
+            new ClaudeTool
+            {
+                Name = "get_revenue_streams",
+                Description = "Get list of revenue streams in the organization.",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["search"] = new ClaudeToolProperty { Type = "string", Description = "Optional: Filter by name (case-insensitive partial match)" },
+                        ["type"] = new ClaudeToolProperty { Type = "string", Description = "Optional: Filter by type" },
+                        ["limit"] = new ClaudeToolProperty { Type = "integer", Description = "Optional: Maximum number of results (default: 50)" }
+                    },
+                    Required = Array.Empty<string>()
+                }
+            },
+            new ClaudeTool
+            {
+                Name = "get_canvases",
+                Description = "Get list of business model canvases in the organization.",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["search"] = new ClaudeToolProperty { Type = "string", Description = "Optional: Filter by name (case-insensitive partial match)" },
+                        ["canvasType"] = new ClaudeToolProperty { Type = "string", Description = "Optional: Filter by canvas type" },
+                        ["limit"] = new ClaudeToolProperty { Type = "integer", Description = "Optional: Maximum number of results (default: 50)" }
+                    },
+                    Required = Array.Empty<string>()
+                }
+            },
+            new ClaudeTool
+            {
+                Name = "get_full_context",
+                Description = "Get ALL organization data at once. ONLY use this when the user explicitly asks for a comprehensive overview or full analysis. This is expensive - prefer specific query tools for targeted questions.",
+                InputSchema = new ClaudeToolSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ClaudeToolProperty>
+                    {
+                        ["confirm"] = new ClaudeToolProperty { Type = "boolean", Description = "Set to true to confirm you want to fetch all data" }
+                    },
+                    Required = new[] { "confirm" }
+                }
             }
         };
     }
@@ -884,6 +1144,7 @@ public class AiChatService : IAiChatService
                 // Process management tools
                 "create_process" => await CreateProcessAsync(organizationId, input, cancellationToken),
                 "bulk_create_processes" => await BulkCreateProcessesAsync(organizationId, input, cancellationToken),
+                "add_activities_to_process" => await AddActivitiesToProcessAsync(organizationId, input, cancellationToken),
                 // Goal management tools
                 "create_goal" => await CreateGoalAsync(organizationId, input, cancellationToken),
                 "bulk_create_goals" => await BulkCreateGoalsAsync(organizationId, input, cancellationToken),
@@ -918,6 +1179,21 @@ public class AiChatService : IAiChatService
                 "remove_agents_from_conversation" => await RemoveAgentsFromConversationAsync(organizationId, input, cancellationToken),
                 "list_conversations" => await ListConversationsAsync(organizationId, input, cancellationToken),
                 "delete_conversation" => await DeleteConversationAsync(organizationId, input, cancellationToken),
+                // Knowledge Base tools
+                "lookup_knowledge_base" => LookupKnowledgeBaseAsync(input),
+                // Data Query tools
+                "get_people" => await GetPeopleAsync(organizationId, input, cancellationToken),
+                "get_roles" => await GetRolesAsync(organizationId, input, cancellationToken),
+                "get_functions" => await GetFunctionsAsync(organizationId, input, cancellationToken),
+                "get_processes" => await GetProcessesAsync(organizationId, input, cancellationToken),
+                "get_goals" => await GetGoalsAsync(organizationId, input, cancellationToken),
+                "get_partners" => await GetPartnersAsync(organizationId, input, cancellationToken),
+                "get_channels" => await GetChannelsAsync(organizationId, input, cancellationToken),
+                "get_value_propositions" => await GetValuePropositionsAsync(organizationId, input, cancellationToken),
+                "get_customer_relationships" => await GetCustomerRelationshipsAsync(organizationId, input, cancellationToken),
+                "get_revenue_streams" => await GetRevenueStreamsAsync(organizationId, input, cancellationToken),
+                "get_canvases" => await GetCanvasesAsync(organizationId, input, cancellationToken),
+                "get_full_context" => await GetFullContextAsync(organizationId, input, cancellationToken),
                 _ => new ToolResult { Action = "unknown", Message = $"Unknown tool: {toolName}" }
             };
         }
@@ -927,6 +1203,808 @@ public class AiChatService : IAiChatService
             return new ToolResult { Action = "error", Message = $"Error: {ex.Message}" };
         }
     }
+
+    private ToolResult LookupKnowledgeBaseAsync(JsonElement? input)
+    {
+        // Check if article_id is provided for direct lookup
+        if (input?.TryGetProperty("article_id", out var articleIdProp) == true)
+        {
+            var articleId = articleIdProp.GetString();
+            if (!string.IsNullOrEmpty(articleId))
+            {
+                var article = _knowledgeBaseService.GetArticle(articleId);
+                if (article != null)
+                {
+                    return new ToolResult
+                    {
+                        Action = "found",
+                        Message = $"# {article.Title}\n\n{article.Content}",
+                        Data = JsonSerializer.SerializeToElement(new
+                        {
+                            id = article.Id,
+                            title = article.Title,
+                            category = article.Category,
+                            relatedArticles = article.RelatedArticles
+                        })
+                    };
+                }
+                return new ToolResult
+                {
+                    Action = "not_found",
+                    Message = $"Article '{articleId}' not found in the knowledge base."
+                };
+            }
+        }
+
+        // Check if search_query is provided for search
+        if (input?.TryGetProperty("search_query", out var searchProp) == true)
+        {
+            var query = searchProp.GetString();
+            if (!string.IsNullOrEmpty(query))
+            {
+                var results = _knowledgeBaseService.SearchArticles(query, 5);
+                if (results.Count > 0)
+                {
+                    var sb = new StringBuilder();
+                    sb.AppendLine($"Found {results.Count} articles matching '{query}':\n");
+
+                    foreach (var article in results)
+                    {
+                        sb.AppendLine($"## {article.Title}");
+                        sb.AppendLine($"**ID:** `{article.Id}`");
+                        sb.AppendLine($"**Summary:** {article.Summary}");
+                        sb.AppendLine();
+                    }
+
+                    sb.AppendLine("\nUse `lookup_knowledge_base` with the `article_id` to get the full content of any article.");
+
+                    return new ToolResult
+                    {
+                        Action = "search_results",
+                        Message = sb.ToString(),
+                        Data = JsonSerializer.SerializeToElement(results.Select(a => new
+                        {
+                            id = a.Id,
+                            title = a.Title,
+                            summary = a.Summary
+                        }))
+                    };
+                }
+                return new ToolResult
+                {
+                    Action = "no_results",
+                    Message = $"No articles found matching '{query}'."
+                };
+            }
+        }
+
+        // No valid input - return available topics
+        var index = _knowledgeBaseService.GetIndex();
+        var topicsSb = new StringBuilder();
+        topicsSb.AppendLine("Please provide either an `article_id` or `search_query`. Available topics:\n");
+
+        foreach (var category in index.Categories)
+        {
+            topicsSb.AppendLine($"**{category.Name}**:");
+            foreach (var article in category.Articles)
+            {
+                topicsSb.AppendLine($"  - `{article.Id}`: {article.Title}");
+            }
+            topicsSb.AppendLine();
+        }
+
+        return new ToolResult
+        {
+            Action = "help",
+            Message = topicsSb.ToString()
+        };
+    }
+
+    #region Data Query Tools
+
+    private async Task<ToolResult> GetPeopleAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        var search = input?.TryGetProperty("search", out var searchProp) == true ? searchProp.GetString() : null;
+        var roleId = input?.TryGetProperty("roleId", out var roleIdProp) == true ? roleIdProp.GetString() : null;
+        var limit = input?.TryGetProperty("limit", out var limitProp) == true ? limitProp.GetInt32() : 50;
+
+        var query = _dbContext.Resources
+            .Include(r => r.ResourceSubtype)
+            .Include(r => r.RoleAssignments)
+                .ThenInclude(ra => ra.Role)
+            .Include(r => r.FunctionCapabilities)
+                .ThenInclude(fc => fc.Function)
+            .Where(r => r.OrganizationId == organizationId && r.ResourceSubtype.ResourceType == ResourceType.Person);
+
+        if (!string.IsNullOrEmpty(search))
+            query = query.Where(r => r.Name.ToLower().Contains(search.ToLower()));
+
+        if (!string.IsNullOrEmpty(roleId) && Guid.TryParse(roleId, out var roleGuid))
+            query = query.Where(r => r.RoleAssignments.Any(ra => ra.RoleId == roleGuid));
+
+        var people = await query.Take(limit).ToListAsync(cancellationToken);
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"## People ({people.Count} results)\n");
+
+        foreach (var person in people)
+        {
+            sb.AppendLine($"### {person.Name}");
+            sb.AppendLine($"- **ID:** `{person.Id}`");
+            sb.AppendLine($"- **Status:** {person.Status}");
+            if (!string.IsNullOrEmpty(person.Description))
+                sb.AppendLine($"- **Description:** {person.Description}");
+            if (person.RoleAssignments.Any())
+                sb.AppendLine($"- **Roles:** {string.Join(", ", person.RoleAssignments.Select(ra => $"{ra.Role.Name}{(ra.IsPrimary ? " (Primary)" : "")}"))}");
+            if (person.FunctionCapabilities.Any())
+                sb.AppendLine($"- **Capabilities:** {string.Join(", ", person.FunctionCapabilities.Select(fc => $"{fc.Function.Name} ({fc.Level})"))}");
+            sb.AppendLine();
+        }
+
+        return new ToolResult
+        {
+            Action = "query_results",
+            Message = sb.ToString(),
+            Data = JsonSerializer.SerializeToElement(people.Select(p => new
+            {
+                id = p.Id,
+                name = p.Name,
+                status = p.Status.ToString(),
+                description = p.Description,
+                roles = p.RoleAssignments.Select(ra => new { id = ra.RoleId, name = ra.Role.Name, isPrimary = ra.IsPrimary }),
+                capabilities = p.FunctionCapabilities.Select(fc => new { functionId = fc.FunctionId, name = fc.Function.Name, level = fc.Level.ToString() })
+            }))
+        };
+    }
+
+    private async Task<ToolResult> GetRolesAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        var search = input?.TryGetProperty("search", out var searchProp) == true ? searchProp.GetString() : null;
+        var department = input?.TryGetProperty("department", out var deptProp) == true ? deptProp.GetString() : null;
+        var limit = input?.TryGetProperty("limit", out var limitProp) == true ? limitProp.GetInt32() : 50;
+
+        var query = _dbContext.Roles.Where(r => r.OrganizationId == organizationId);
+
+        if (!string.IsNullOrEmpty(search))
+            query = query.Where(r => r.Name.ToLower().Contains(search.ToLower()));
+
+        if (!string.IsNullOrEmpty(department))
+            query = query.Where(r => r.Department != null && r.Department.ToLower().Contains(department.ToLower()));
+
+        var roles = await query
+            .Select(r => new
+            {
+                r.Id,
+                r.Name,
+                r.Description,
+                r.Department,
+                AssignmentCount = _dbContext.RoleAssignments.Count(ra => ra.RoleId == r.Id)
+            })
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"## Roles ({roles.Count} results)\n");
+
+        foreach (var role in roles)
+        {
+            sb.AppendLine($"- **{role.Name}** (ID: `{role.Id}`)");
+            if (!string.IsNullOrEmpty(role.Department))
+                sb.AppendLine($"  - Department: {role.Department}");
+            sb.AppendLine($"  - Assignments: {role.AssignmentCount} people");
+            if (!string.IsNullOrEmpty(role.Description))
+                sb.AppendLine($"  - Description: {role.Description}");
+        }
+
+        return new ToolResult
+        {
+            Action = "query_results",
+            Message = sb.ToString(),
+            Data = JsonSerializer.SerializeToElement(roles)
+        };
+    }
+
+    private async Task<ToolResult> GetFunctionsAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        var search = input?.TryGetProperty("search", out var searchProp) == true ? searchProp.GetString() : null;
+        var category = input?.TryGetProperty("category", out var catProp) == true ? catProp.GetString() : null;
+        var limit = input?.TryGetProperty("limit", out var limitProp) == true ? limitProp.GetInt32() : 50;
+
+        var query = _dbContext.Functions.Where(f => f.OrganizationId == organizationId);
+
+        if (!string.IsNullOrEmpty(search))
+            query = query.Where(f => f.Name.ToLower().Contains(search.ToLower()));
+
+        if (!string.IsNullOrEmpty(category))
+            query = query.Where(f => f.Category != null && f.Category.ToLower().Contains(category.ToLower()));
+
+        var functions = await query
+            .Select(f => new
+            {
+                f.Id,
+                f.Name,
+                f.Description,
+                f.Category,
+                f.Purpose,
+                CapabilityCount = f.FunctionCapabilities.Count
+            })
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"## Functions ({functions.Count} results)\n");
+
+        var grouped = functions.GroupBy(f => f.Category ?? "Uncategorized");
+        foreach (var group in grouped)
+        {
+            sb.AppendLine($"### {group.Key}");
+            foreach (var func in group)
+            {
+                sb.AppendLine($"- **{func.Name}** (ID: `{func.Id}`, {func.CapabilityCount} capable)");
+                if (!string.IsNullOrEmpty(func.Description))
+                    sb.AppendLine($"  - {func.Description}");
+            }
+            sb.AppendLine();
+        }
+
+        return new ToolResult
+        {
+            Action = "query_results",
+            Message = sb.ToString(),
+            Data = JsonSerializer.SerializeToElement(functions)
+        };
+    }
+
+    private async Task<ToolResult> GetProcessesAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        var search = input?.TryGetProperty("search", out var searchProp) == true ? searchProp.GetString() : null;
+        var statusStr = input?.TryGetProperty("status", out var statusProp) == true ? statusProp.GetString() : null;
+        var limit = input?.TryGetProperty("limit", out var limitProp) == true ? limitProp.GetInt32() : 50;
+
+        var query = _dbContext.Processes
+            .Include(p => p.Owner)
+            .Where(p => p.OrganizationId == organizationId);
+
+        if (!string.IsNullOrEmpty(search))
+            query = query.Where(p => p.Name.ToLower().Contains(search.ToLower()));
+
+        if (!string.IsNullOrEmpty(statusStr) && Enum.TryParse<ProcessStatus>(statusStr, true, out var status))
+            query = query.Where(p => p.Status == status);
+
+        var processes = await query
+            .Select(p => new
+            {
+                p.Id,
+                p.Name,
+                p.Description,
+                p.Purpose,
+                p.Trigger,
+                p.Output,
+                Status = p.Status.ToString(),
+                OwnerName = p.Owner != null ? p.Owner.Name : null,
+                ActivityCount = p.Activities.Count
+            })
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"## Processes ({processes.Count} results)\n");
+
+        foreach (var process in processes)
+        {
+            sb.AppendLine($"### {process.Name}");
+            sb.AppendLine($"- **ID:** `{process.Id}`");
+            sb.AppendLine($"- **Status:** {process.Status}");
+            sb.AppendLine($"- **Activities:** {process.ActivityCount}");
+            if (!string.IsNullOrEmpty(process.OwnerName))
+                sb.AppendLine($"- **Owner:** {process.OwnerName}");
+            if (!string.IsNullOrEmpty(process.Purpose))
+                sb.AppendLine($"- **Purpose:** {process.Purpose}");
+            if (!string.IsNullOrEmpty(process.Trigger))
+                sb.AppendLine($"- **Trigger:** {process.Trigger}");
+            if (!string.IsNullOrEmpty(process.Output))
+                sb.AppendLine($"- **Output:** {process.Output}");
+            sb.AppendLine();
+        }
+
+        return new ToolResult
+        {
+            Action = "query_results",
+            Message = sb.ToString(),
+            Data = JsonSerializer.SerializeToElement(processes)
+        };
+    }
+
+    private async Task<ToolResult> GetGoalsAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        var search = input?.TryGetProperty("search", out var searchProp) == true ? searchProp.GetString() : null;
+        var goalTypeStr = input?.TryGetProperty("goalType", out var typeProp) == true ? typeProp.GetString() : null;
+        var statusStr = input?.TryGetProperty("status", out var statusProp) == true ? statusProp.GetString() : null;
+        var limit = input?.TryGetProperty("limit", out var limitProp) == true ? limitProp.GetInt32() : 50;
+
+        var query = _dbContext.Goals
+            .Include(g => g.Owner)
+            .Where(g => g.OrganizationId == organizationId);
+
+        if (!string.IsNullOrEmpty(search))
+            query = query.Where(g => g.Name.ToLower().Contains(search.ToLower()));
+
+        if (!string.IsNullOrEmpty(goalTypeStr) && Enum.TryParse<GoalType>(goalTypeStr, true, out var goalType))
+            query = query.Where(g => g.GoalType == goalType);
+
+        if (!string.IsNullOrEmpty(statusStr) && Enum.TryParse<GoalStatus>(statusStr, true, out var status))
+            query = query.Where(g => g.Status == status);
+
+        var goals = await query
+            .Select(g => new
+            {
+                g.Id,
+                g.Name,
+                g.Description,
+                GoalType = g.GoalType.ToString(),
+                Status = g.Status.ToString(),
+                OwnerName = g.Owner != null ? g.Owner.Name : null,
+                g.TargetValue,
+                g.CurrentValue,
+                g.Unit
+            })
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"## Goals ({goals.Count} results)\n");
+
+        foreach (var goal in goals)
+        {
+            sb.AppendLine($"### {goal.Name}");
+            sb.AppendLine($"- **ID:** `{goal.Id}`");
+            sb.AppendLine($"- **Type:** {goal.GoalType}");
+            sb.AppendLine($"- **Status:** {goal.Status}");
+            if (!string.IsNullOrEmpty(goal.OwnerName))
+                sb.AppendLine($"- **Owner:** {goal.OwnerName}");
+            if (goal.TargetValue.HasValue)
+                sb.AppendLine($"- **Target:** {goal.TargetValue} {goal.Unit}");
+            if (goal.CurrentValue.HasValue)
+                sb.AppendLine($"- **Current:** {goal.CurrentValue} {goal.Unit}");
+            if (!string.IsNullOrEmpty(goal.Description))
+                sb.AppendLine($"- **Description:** {goal.Description}");
+            sb.AppendLine();
+        }
+
+        return new ToolResult
+        {
+            Action = "query_results",
+            Message = sb.ToString(),
+            Data = JsonSerializer.SerializeToElement(goals)
+        };
+    }
+
+    private async Task<ToolResult> GetPartnersAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        var search = input?.TryGetProperty("search", out var searchProp) == true ? searchProp.GetString() : null;
+        var typeStr = input?.TryGetProperty("type", out var typeProp) == true ? typeProp.GetString() : null;
+        var limit = input?.TryGetProperty("limit", out var limitProp) == true ? limitProp.GetInt32() : 50;
+
+        var query = _dbContext.Partners.Where(p => p.OrganizationId == organizationId);
+
+        if (!string.IsNullOrEmpty(search))
+            query = query.Where(p => p.Name.ToLower().Contains(search.ToLower()));
+
+        if (!string.IsNullOrEmpty(typeStr) && Enum.TryParse<PartnerType>(typeStr, true, out var partnerType))
+            query = query.Where(p => p.Type == partnerType);
+
+        var partners = await query
+            .Select(p => new
+            {
+                p.Id,
+                p.Name,
+                p.Description,
+                Type = p.Type.ToString(),
+                Status = p.Status.ToString(),
+                StrategicValue = p.StrategicValue.ToString()
+            })
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"## Partners ({partners.Count} results)\n");
+
+        foreach (var partner in partners)
+        {
+            sb.AppendLine($"- **{partner.Name}** (ID: `{partner.Id}`)");
+            sb.AppendLine($"  - Type: {partner.Type}, Status: {partner.Status}");
+            sb.AppendLine($"  - Strategic Value: {partner.StrategicValue}");
+            if (!string.IsNullOrEmpty(partner.Description))
+                sb.AppendLine($"  - {partner.Description}");
+        }
+
+        return new ToolResult
+        {
+            Action = "query_results",
+            Message = sb.ToString(),
+            Data = JsonSerializer.SerializeToElement(partners)
+        };
+    }
+
+    private async Task<ToolResult> GetChannelsAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        var search = input?.TryGetProperty("search", out var searchProp) == true ? searchProp.GetString() : null;
+        var typeStr = input?.TryGetProperty("type", out var typeProp) == true ? typeProp.GetString() : null;
+        var categoryStr = input?.TryGetProperty("category", out var catProp) == true ? catProp.GetString() : null;
+        var limit = input?.TryGetProperty("limit", out var limitProp) == true ? limitProp.GetInt32() : 50;
+
+        var query = _dbContext.Channels
+            .Include(c => c.Partner)
+            .Where(c => c.OrganizationId == organizationId);
+
+        if (!string.IsNullOrEmpty(search))
+            query = query.Where(c => c.Name.ToLower().Contains(search.ToLower()));
+
+        if (!string.IsNullOrEmpty(typeStr) && Enum.TryParse<ChannelType>(typeStr, true, out var channelType))
+            query = query.Where(c => c.Type == channelType);
+
+        if (!string.IsNullOrEmpty(categoryStr) && Enum.TryParse<ChannelCategory>(categoryStr, true, out var category))
+            query = query.Where(c => c.Category == category);
+
+        var channels = await query
+            .Select(c => new
+            {
+                c.Id,
+                c.Name,
+                c.Description,
+                Type = c.Type.ToString(),
+                Category = c.Category.ToString(),
+                Status = c.Status.ToString(),
+                Ownership = c.Ownership.ToString(),
+                PartnerName = c.Partner != null ? c.Partner.Name : null
+            })
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"## Channels ({channels.Count} results)\n");
+
+        foreach (var channel in channels)
+        {
+            sb.AppendLine($"- **{channel.Name}** (ID: `{channel.Id}`)");
+            sb.AppendLine($"  - Type: {channel.Type}, Category: {channel.Category}");
+            sb.AppendLine($"  - Status: {channel.Status}, Ownership: {channel.Ownership}");
+            if (!string.IsNullOrEmpty(channel.PartnerName))
+                sb.AppendLine($"  - Partner: {channel.PartnerName}");
+            if (!string.IsNullOrEmpty(channel.Description))
+                sb.AppendLine($"  - {channel.Description}");
+        }
+
+        return new ToolResult
+        {
+            Action = "query_results",
+            Message = sb.ToString(),
+            Data = JsonSerializer.SerializeToElement(channels)
+        };
+    }
+
+    private async Task<ToolResult> GetValuePropositionsAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        var search = input?.TryGetProperty("search", out var searchProp) == true ? searchProp.GetString() : null;
+        var limit = input?.TryGetProperty("limit", out var limitProp) == true ? limitProp.GetInt32() : 50;
+
+        var query = _dbContext.ValuePropositions.Where(v => v.OrganizationId == organizationId);
+
+        if (!string.IsNullOrEmpty(search))
+            query = query.Where(v => v.Name.ToLower().Contains(search.ToLower()));
+
+        var valueProps = await query
+            .Select(v => new
+            {
+                v.Id,
+                v.Name,
+                v.Headline,
+                v.Description,
+                Status = v.Status.ToString()
+            })
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"## Value Propositions ({valueProps.Count} results)\n");
+
+        foreach (var vp in valueProps)
+        {
+            sb.AppendLine($"### {vp.Name}");
+            sb.AppendLine($"- **ID:** `{vp.Id}`");
+            sb.AppendLine($"- **Headline:** {vp.Headline}");
+            sb.AppendLine($"- **Status:** {vp.Status}");
+            if (!string.IsNullOrEmpty(vp.Description))
+                sb.AppendLine($"- {vp.Description}");
+            sb.AppendLine();
+        }
+
+        return new ToolResult
+        {
+            Action = "query_results",
+            Message = sb.ToString(),
+            Data = JsonSerializer.SerializeToElement(valueProps)
+        };
+    }
+
+    private async Task<ToolResult> GetCustomerRelationshipsAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        var search = input?.TryGetProperty("search", out var searchProp) == true ? searchProp.GetString() : null;
+        var typeStr = input?.TryGetProperty("type", out var typeProp) == true ? typeProp.GetString() : null;
+        var limit = input?.TryGetProperty("limit", out var limitProp) == true ? limitProp.GetInt32() : 50;
+
+        var query = _dbContext.CustomerRelationships.Where(cr => cr.OrganizationId == organizationId);
+
+        if (!string.IsNullOrEmpty(search))
+            query = query.Where(cr => cr.Name.ToLower().Contains(search.ToLower()));
+
+        if (!string.IsNullOrEmpty(typeStr) && Enum.TryParse<CustomerRelationshipType>(typeStr, true, out var crType))
+            query = query.Where(cr => cr.Type == crType);
+
+        var customerRels = await query
+            .Select(cr => new
+            {
+                cr.Id,
+                cr.Name,
+                cr.Description,
+                Type = cr.Type.ToString(),
+                Status = cr.Status.ToString()
+            })
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"## Customer Relationships ({customerRels.Count} results)\n");
+
+        foreach (var cr in customerRels)
+        {
+            sb.AppendLine($"- **{cr.Name}** (ID: `{cr.Id}`)");
+            sb.AppendLine($"  - Type: {cr.Type}, Status: {cr.Status}");
+            if (!string.IsNullOrEmpty(cr.Description))
+                sb.AppendLine($"  - {cr.Description}");
+        }
+
+        return new ToolResult
+        {
+            Action = "query_results",
+            Message = sb.ToString(),
+            Data = JsonSerializer.SerializeToElement(customerRels)
+        };
+    }
+
+    private async Task<ToolResult> GetRevenueStreamsAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        var search = input?.TryGetProperty("search", out var searchProp) == true ? searchProp.GetString() : null;
+        var typeStr = input?.TryGetProperty("type", out var typeProp) == true ? typeProp.GetString() : null;
+        var limit = input?.TryGetProperty("limit", out var limitProp) == true ? limitProp.GetInt32() : 50;
+
+        var query = _dbContext.RevenueStreams.Where(rs => rs.OrganizationId == organizationId);
+
+        if (!string.IsNullOrEmpty(search))
+            query = query.Where(rs => rs.Name.ToLower().Contains(search.ToLower()));
+
+        if (!string.IsNullOrEmpty(typeStr) && Enum.TryParse<RevenueStreamType>(typeStr, true, out var rsType))
+            query = query.Where(rs => rs.Type == rsType);
+
+        var revenueStreams = await query
+            .Select(rs => new
+            {
+                rs.Id,
+                rs.Name,
+                rs.Description,
+                Type = rs.Type.ToString(),
+                Status = rs.Status.ToString(),
+                PricingMechanism = rs.PricingMechanism.ToString()
+            })
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"## Revenue Streams ({revenueStreams.Count} results)\n");
+
+        foreach (var rs in revenueStreams)
+        {
+            sb.AppendLine($"- **{rs.Name}** (ID: `{rs.Id}`)");
+            sb.AppendLine($"  - Type: {rs.Type}, Status: {rs.Status}");
+            sb.AppendLine($"  - Pricing: {rs.PricingMechanism}");
+            if (!string.IsNullOrEmpty(rs.Description))
+                sb.AppendLine($"  - {rs.Description}");
+        }
+
+        return new ToolResult
+        {
+            Action = "query_results",
+            Message = sb.ToString(),
+            Data = JsonSerializer.SerializeToElement(revenueStreams)
+        };
+    }
+
+    private async Task<ToolResult> GetCanvasesAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        var search = input?.TryGetProperty("search", out var searchProp) == true ? searchProp.GetString() : null;
+        var canvasTypeStr = input?.TryGetProperty("canvasType", out var typeProp) == true ? typeProp.GetString() : null;
+        var limit = input?.TryGetProperty("limit", out var limitProp) == true ? limitProp.GetInt32() : 50;
+
+        var query = _dbContext.Canvases.Where(c => c.OrganizationId == organizationId);
+
+        if (!string.IsNullOrEmpty(search))
+            query = query.Where(c => c.Name.ToLower().Contains(search.ToLower()));
+
+        if (!string.IsNullOrEmpty(canvasTypeStr) && Enum.TryParse<CanvasType>(canvasTypeStr, true, out var canvasType))
+            query = query.Where(c => c.CanvasType == canvasType);
+
+        var canvases = await query
+            .Select(c => new
+            {
+                c.Id,
+                c.Name,
+                c.Description,
+                CanvasType = c.CanvasType.ToString(),
+                Status = c.Status.ToString(),
+                BlockCount = c.Blocks.Count
+            })
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"## Canvases ({canvases.Count} results)\n");
+
+        foreach (var canvas in canvases)
+        {
+            sb.AppendLine($"- **{canvas.Name}** (ID: `{canvas.Id}`)");
+            sb.AppendLine($"  - Type: {canvas.CanvasType}, Status: {canvas.Status}");
+            sb.AppendLine($"  - Blocks: {canvas.BlockCount}");
+            if (!string.IsNullOrEmpty(canvas.Description))
+                sb.AppendLine($"  - {canvas.Description}");
+        }
+
+        return new ToolResult
+        {
+            Action = "query_results",
+            Message = sb.ToString(),
+            Data = JsonSerializer.SerializeToElement(canvases)
+        };
+    }
+
+    private async Task<ToolResult> GetFullContextAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        var confirm = input?.TryGetProperty("confirm", out var confirmProp) == true && confirmProp.GetBoolean();
+
+        if (!confirm)
+        {
+            return new ToolResult
+            {
+                Action = "confirmation_required",
+                Message = "Getting full context will fetch ALL organization data. Set confirm=true to proceed. Consider using specific query tools (get_people, get_roles, etc.) if you only need partial data."
+            };
+        }
+
+        // Fetch ALL data - use the original queries from OrganizationContextService
+        var sb = new StringBuilder();
+        sb.AppendLine("# Full Organization Context\n");
+
+        // People
+        var people = await _dbContext.Resources
+            .Include(r => r.ResourceSubtype)
+            .Include(r => r.RoleAssignments)
+                .ThenInclude(ra => ra.Role)
+            .Include(r => r.FunctionCapabilities)
+                .ThenInclude(fc => fc.Function)
+            .Where(r => r.OrganizationId == organizationId && r.ResourceSubtype.ResourceType == ResourceType.Person)
+            .ToListAsync(cancellationToken);
+
+        sb.AppendLine($"## People ({people.Count})\n");
+        foreach (var person in people)
+        {
+            sb.AppendLine($"- **{person.Name}** (ID: `{person.Id}`, Status: {person.Status})");
+            if (person.RoleAssignments.Any())
+                sb.AppendLine($"  - Roles: {string.Join(", ", person.RoleAssignments.Select(ra => ra.Role.Name))}");
+            if (person.FunctionCapabilities.Any())
+                sb.AppendLine($"  - Capabilities: {string.Join(", ", person.FunctionCapabilities.Select(fc => fc.Function.Name))}");
+        }
+        sb.AppendLine();
+
+        // Roles
+        var roles = await _dbContext.Roles
+            .Where(r => r.OrganizationId == organizationId)
+            .ToListAsync(cancellationToken);
+
+        sb.AppendLine($"## Roles ({roles.Count})\n");
+        foreach (var role in roles)
+            sb.AppendLine($"- **{role.Name}** (ID: `{role.Id}`){(role.Department != null ? $" - {role.Department}" : "")}");
+        sb.AppendLine();
+
+        // Functions
+        var functions = await _dbContext.Functions
+            .Where(f => f.OrganizationId == organizationId)
+            .ToListAsync(cancellationToken);
+
+        sb.AppendLine($"## Functions ({functions.Count})\n");
+        var funcGrouped = functions.GroupBy(f => f.Category ?? "Uncategorized");
+        foreach (var group in funcGrouped)
+        {
+            sb.AppendLine($"**{group.Key}:** {string.Join(", ", group.Select(f => f.Name))}");
+        }
+        sb.AppendLine();
+
+        // Processes
+        var processes = await _dbContext.Processes
+            .Include(p => p.Owner)
+            .Where(p => p.OrganizationId == organizationId)
+            .ToListAsync(cancellationToken);
+
+        sb.AppendLine($"## Processes ({processes.Count})\n");
+        foreach (var process in processes)
+            sb.AppendLine($"- **{process.Name}** (ID: `{process.Id}`, Owner: {process.Owner?.Name ?? "Unassigned"})");
+        sb.AppendLine();
+
+        // Goals
+        var goals = await _dbContext.Goals
+            .Where(g => g.OrganizationId == organizationId)
+            .ToListAsync(cancellationToken);
+
+        sb.AppendLine($"## Goals ({goals.Count})\n");
+        foreach (var goal in goals)
+            sb.AppendLine($"- **{goal.Name}** ({goal.GoalType}, Status: {goal.Status})");
+        sb.AppendLine();
+
+        // Partners
+        var partners = await _dbContext.Partners
+            .Where(p => p.OrganizationId == organizationId)
+            .ToListAsync(cancellationToken);
+
+        sb.AppendLine($"## Partners ({partners.Count})\n");
+        foreach (var partner in partners)
+            sb.AppendLine($"- **{partner.Name}** ({partner.Type})");
+        sb.AppendLine();
+
+        // Channels
+        var channels = await _dbContext.Channels
+            .Where(c => c.OrganizationId == organizationId)
+            .ToListAsync(cancellationToken);
+
+        sb.AppendLine($"## Channels ({channels.Count})\n");
+        foreach (var channel in channels)
+            sb.AppendLine($"- **{channel.Name}** ({channel.Type}, {channel.Category})");
+        sb.AppendLine();
+
+        // Value Propositions
+        var valueProps = await _dbContext.ValuePropositions
+            .Where(v => v.OrganizationId == organizationId)
+            .ToListAsync(cancellationToken);
+
+        sb.AppendLine($"## Value Propositions ({valueProps.Count})\n");
+        foreach (var vp in valueProps)
+            sb.AppendLine($"- **{vp.Name}**: {vp.Headline}");
+        sb.AppendLine();
+
+        // Customer Relationships
+        var customerRels = await _dbContext.CustomerRelationships
+            .Where(cr => cr.OrganizationId == organizationId)
+            .ToListAsync(cancellationToken);
+
+        sb.AppendLine($"## Customer Relationships ({customerRels.Count})\n");
+        foreach (var cr in customerRels)
+            sb.AppendLine($"- **{cr.Name}** ({cr.Type})");
+        sb.AppendLine();
+
+        // Revenue Streams
+        var revenueStreams = await _dbContext.RevenueStreams
+            .Where(rs => rs.OrganizationId == organizationId)
+            .ToListAsync(cancellationToken);
+
+        sb.AppendLine($"## Revenue Streams ({revenueStreams.Count})\n");
+        foreach (var rs in revenueStreams)
+            sb.AppendLine($"- **{rs.Name}** ({rs.Type}, {rs.PricingMechanism})");
+
+        return new ToolResult
+        {
+            Action = "full_context",
+            Message = sb.ToString()
+        };
+    }
+
+    #endregion
 
     private async Task<ToolResult> CreatePersonAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
     {
@@ -1650,6 +2728,75 @@ public class AiChatService : IAiChatService
 
         await _dbContext.SaveChangesAsync(cancellationToken);
         return new ToolResult { Action = "bulk_created", Message = $"Successfully created {created.Count} processes: {string.Join(", ", created)}" };
+    }
+
+    private async Task<ToolResult> AddActivitiesToProcessAsync(Guid organizationId, JsonElement? input, CancellationToken cancellationToken)
+    {
+        if (input == null) return new ToolResult { Action = "error", Message = "No input provided" };
+
+        var processIdStr = input.Value.GetProperty("processId").GetString()!;
+        if (!Guid.TryParse(processIdStr, out var processId))
+            return new ToolResult { Action = "error", Message = $"Invalid process ID: {processIdStr}" };
+
+        // Verify the process exists and belongs to this organization
+        var process = await _dbContext.Processes
+            .FirstOrDefaultAsync(p => p.Id == processId && p.OrganizationId == organizationId, cancellationToken);
+
+        if (process == null)
+            return new ToolResult { Action = "error", Message = $"Process not found with ID: {processIdStr}" };
+
+        var activitiesArray = input.Value.GetProperty("activities");
+        var created = new List<string>();
+        var currentOrder = await _dbContext.Activities
+            .Where(a => a.ProcessId == processId)
+            .MaxAsync(a => (int?)a.Order, cancellationToken) ?? 0;
+
+        foreach (var actData in activitiesArray.EnumerateArray())
+        {
+            var name = actData.GetProperty("name").GetString()!;
+            var description = actData.TryGetProperty("description", out var descProp) ? descProp.GetString() : null;
+            var instructions = actData.TryGetProperty("instructions", out var instrProp) ? instrProp.GetString() : null;
+            var activityTypeStr = actData.TryGetProperty("activityType", out var typeProp) ? typeProp.GetString() : "Manual";
+            var estimatedDuration = actData.TryGetProperty("estimatedDurationMinutes", out var durProp) ? (int?)durProp.GetInt32() : null;
+            var orderVal = actData.TryGetProperty("order", out var orderProp) ? orderProp.GetInt32() : ++currentOrder;
+
+            if (!Enum.TryParse<ActivityType>(activityTypeStr, true, out var activityType))
+                activityType = ActivityType.Manual;
+
+            var activity = new Activity
+            {
+                Name = name,
+                Description = description,
+                Instructions = instructions,
+                ActivityType = activityType,
+                EstimatedDurationMinutes = estimatedDuration,
+                Order = orderVal,
+                ProcessId = processId,
+                PositionX = 100 + (created.Count * 200), // Space out activities horizontally
+                PositionY = 200
+            };
+
+            _dbContext.Activities.Add(activity);
+            created.Add(name);
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"Successfully added {created.Count} activities to process **{process.Name}**:");
+        foreach (var actName in created)
+        {
+            sb.AppendLine($"- {actName}");
+        }
+        sb.AppendLine();
+        sb.AppendLine("The activities have been added in sequence. You can view and edit them in the process editor.");
+
+        return new ToolResult
+        {
+            Action = "activities_added",
+            Message = sb.ToString(),
+            Data = JsonSerializer.SerializeToElement(new { processId, processName = process.Name, activitiesAdded = created.Count, activityNames = created })
+        };
     }
 
     #endregion

@@ -54,7 +54,7 @@ const initials = computed(() => {
           {{ person.isVacant ? person.vacantPositionTitle : person.name }}
         </div>
         <div class="text-[10px] text-white/50 truncate">
-          {{ person.description || (person.isVacant ? 'Vacant Position' : person.resourceSubtypeName) }}
+          {{ person.description || (person.isVacant ? 'Vacant Position' : (person.roleNames || person.resourceSubtypeName)) }}
         </div>
       </div>
     </div>

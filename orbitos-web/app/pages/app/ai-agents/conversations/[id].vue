@@ -31,7 +31,7 @@ const {
   appendMessage
 } = useConversations()
 
-const { agents, fetchAgents } = useAiAgents()
+const { agents, builtInAgents, customAgents, specialistIcons, fetchAgents } = useAiAgents()
 const { joinConversation, leaveConversation, onMessage, markAsRead, clearUnreadCount } = useNotifications()
 
 // Message input
@@ -217,6 +217,23 @@ const availableAgentsToAdd = computed(() => {
   return agents.value.filter(a => a.isActive && !existingAgentIds.has(a.id))
 })
 
+// Split available agents by type
+const availableBuiltInAgents = computed(() => {
+  return availableAgentsToAdd.value.filter(a => a.agentType === 'BuiltIn')
+})
+
+const availableCustomAgents = computed(() => {
+  return availableAgentsToAdd.value.filter(a => a.agentType === 'Custom')
+})
+
+// Helper to get agent icon/initial
+const getAgentAvatar = (agent: AiAgent) => {
+  if (agent.agentType === 'BuiltIn' && agent.specialistKey) {
+    return specialistIcons[agent.specialistKey] || '🤖'
+  }
+  return agent.name.charAt(0)
+}
+
 // Format timestamp
 const formatTime = (dateStr: string) => {
   const date = new Date(dateStr)
@@ -291,10 +308,13 @@ const handleKeydown = (e: KeyboardEvent) => {
               <div v-for="p in currentConversation.participants.slice(0, 4)" :key="p.id" class="flex items-center gap-1">
                 <div
                   v-if="p.aiAgent"
-                  class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium text-white"
-                  :style="{ backgroundColor: p.aiAgent.avatarColor || '#8B5CF6' }"
+                  :class="[
+                    'w-5 h-5 flex items-center justify-center text-white',
+                    p.aiAgent.agentType === 'BuiltIn' ? 'rounded-lg text-xs' : 'rounded-full text-xs font-medium'
+                  ]"
+                  :style="{ backgroundColor: p.aiAgent.avatarColor || (p.aiAgent.agentType === 'BuiltIn' ? '#3B82F6' : '#8B5CF6') }"
                 >
-                  {{ p.aiAgent.name.charAt(0) }}
+                  {{ p.aiAgent.agentType === 'BuiltIn' && p.aiAgent.specialistKey ? specialistIcons[p.aiAgent.specialistKey] || '🤖' : p.aiAgent.name.charAt(0) }}
                 </div>
                 <div
                   v-else-if="p.user"
@@ -391,10 +411,13 @@ const handleKeydown = (e: KeyboardEvent) => {
             <!-- Avatar -->
             <div
               v-if="message.senderAiAgent"
-              class="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-sm font-medium text-white"
-              :style="{ backgroundColor: message.senderAiAgent.avatarColor || '#8B5CF6' }"
+              :class="[
+                'w-8 h-8 flex-shrink-0 flex items-center justify-center text-white',
+                message.senderAiAgent.agentType === 'BuiltIn' ? 'rounded-xl text-lg' : 'rounded-full text-sm font-medium'
+              ]"
+              :style="{ backgroundColor: message.senderAiAgent.avatarColor || (message.senderAiAgent.agentType === 'BuiltIn' ? '#3B82F6' : '#8B5CF6') }"
             >
-              {{ message.senderAiAgent.name.charAt(0) }}
+              {{ message.senderAiAgent.agentType === 'BuiltIn' && message.senderAiAgent.specialistKey ? specialistIcons[message.senderAiAgent.specialistKey] || '🤖' : message.senderAiAgent.name.charAt(0) }}
             </div>
             <div
               v-else-if="message.senderUser"
@@ -427,8 +450,21 @@ const handleKeydown = (e: KeyboardEvent) => {
                 <span class="text-xs text-white/40">{{ formatTime(message.createdAt) }}</span>
               </div>
 
-              <!-- Content -->
-              <div class="text-white/90 whitespace-pre-wrap">{{ message.content }}</div>
+              <!-- Inner Dialogue (A2A thought process) -->
+              <InnerDialogueDisplay
+                v-if="message.innerDialogueSteps?.length"
+                :steps="message.innerDialogueSteps"
+                :is-collapsible="true"
+                class="mb-3"
+              />
+
+              <!-- Content - with tool invocation parsing for AI messages -->
+              <ToolInvocationDisplay
+                v-if="message.senderType === 'ai' && message.content.includes('<invoke')"
+                :content="message.content"
+                class="text-white/90"
+              />
+              <div v-else class="text-white/90 whitespace-pre-wrap">{{ message.content }}</div>
 
               <!-- AI message stats -->
               <div v-if="message.senderType === 'ai' && message.status === 'sent'" class="flex items-center gap-3 mt-2 text-xs text-white/40">
@@ -515,10 +551,13 @@ const handleKeydown = (e: KeyboardEvent) => {
               <div class="flex items-center gap-2">
                 <div
                   v-if="p.aiAgent"
-                  class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium text-white"
-                  :style="{ backgroundColor: p.aiAgent.avatarColor || '#8B5CF6' }"
+                  :class="[
+                    'w-7 h-7 flex items-center justify-center text-white',
+                    p.aiAgent.agentType === 'BuiltIn' ? 'rounded-lg text-base' : 'rounded-full text-xs font-medium'
+                  ]"
+                  :style="{ backgroundColor: p.aiAgent.avatarColor || (p.aiAgent.agentType === 'BuiltIn' ? '#3B82F6' : '#8B5CF6') }"
                 >
-                  {{ p.aiAgent.name.charAt(0) }}
+                  {{ p.aiAgent.agentType === 'BuiltIn' && p.aiAgent.specialistKey ? specialistIcons[p.aiAgent.specialistKey] || '🤖' : p.aiAgent.name.charAt(0) }}
                 </div>
                 <div
                   v-else-if="p.user"
@@ -527,7 +566,15 @@ const handleKeydown = (e: KeyboardEvent) => {
                   {{ p.user.displayName.charAt(0) }}
                 </div>
                 <div>
-                  <div class="text-sm text-white">{{ p.aiAgent?.name || p.user?.displayName }}</div>
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-sm text-white">{{ p.aiAgent?.name || p.user?.displayName }}</span>
+                    <span
+                      v-if="p.aiAgent?.agentType === 'BuiltIn'"
+                      class="text-[10px] px-1 py-0.5 rounded bg-blue-500/20 text-blue-400"
+                    >
+                      Built-in
+                    </span>
+                  </div>
                   <div class="text-xs text-white/40">{{ p.aiAgent?.roleTitle || p.role }}</div>
                 </div>
               </div>
@@ -592,11 +639,11 @@ const handleKeydown = (e: KeyboardEvent) => {
     </div>
 
     <!-- Add Participant Dialog -->
-    <UiBaseDialog
-      v-if="showAddParticipantDialog"
+    <BaseDialog
       v-model="showAddParticipantDialog"
       size="md"
       title="Add AI Agent"
+      subtitle="Select an agent to add to this conversation"
       :submit-on-enter="false"
     >
       <div v-if="availableAgentsToAdd.length === 0" class="text-center py-8 text-white/60">
@@ -606,29 +653,65 @@ const handleKeydown = (e: KeyboardEvent) => {
         </NuxtLink>
       </div>
 
-      <div v-else class="space-y-2 max-h-80 overflow-y-auto">
-        <button
-          v-for="agent in availableAgentsToAdd"
-          :key="agent.id"
-          class="w-full flex items-center gap-3 p-3 rounded-xl border border-white/10 hover:border-purple-500/50 hover:bg-purple-500/10 transition-colors text-left"
-          @click="handleAddAgent(agent.id)"
-        >
-          <div
-            class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium text-white"
-            :style="{ backgroundColor: agent.avatarColor || '#8B5CF6' }"
-          >
-            {{ agent.name.charAt(0) }}
+      <div v-else class="space-y-4 max-h-80 overflow-y-auto">
+        <!-- Built-in Agents Section -->
+        <div v-if="availableBuiltInAgents.length > 0">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-xs font-medium text-blue-400 uppercase tracking-wider">Built-in Specialists</span>
+            <div class="flex-1 h-px bg-blue-500/20"></div>
           </div>
-          <div class="flex-1">
-            <div class="text-white font-medium">{{ agent.name }}</div>
-            <div class="text-white/60 text-sm">{{ agent.roleTitle }}</div>
+          <div class="space-y-2">
+            <button
+              v-for="agent in availableBuiltInAgents"
+              :key="agent.id"
+              class="w-full flex items-center gap-3 p-3 rounded-xl border border-white/10 hover:border-blue-500/50 hover:bg-blue-500/10 transition-colors text-left"
+              @click="handleAddAgent(agent.id)"
+            >
+              <div
+                class="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                :style="{ backgroundColor: agent.avatarColor || '#3B82F6' }"
+              >
+                {{ specialistIcons[agent.specialistKey || ''] || '🤖' }}
+              </div>
+              <div class="flex-1">
+                <div class="text-white font-medium">{{ agent.name }}</div>
+                <div class="text-white/60 text-sm">{{ agent.roleTitle }}</div>
+              </div>
+            </button>
           </div>
-          <span
-            :class="['text-xs px-2 py-1 rounded', providerColors[agent.provider] || 'bg-gray-500/20 text-gray-300']"
-          >
-            {{ agent.modelDisplayName }}
-          </span>
-        </button>
+        </div>
+
+        <!-- Custom Agents Section -->
+        <div v-if="availableCustomAgents.length > 0">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-xs font-medium text-purple-400 uppercase tracking-wider">Custom Agents</span>
+            <div class="flex-1 h-px bg-purple-500/20"></div>
+          </div>
+          <div class="space-y-2">
+            <button
+              v-for="agent in availableCustomAgents"
+              :key="agent.id"
+              class="w-full flex items-center gap-3 p-3 rounded-xl border border-white/10 hover:border-purple-500/50 hover:bg-purple-500/10 transition-colors text-left"
+              @click="handleAddAgent(agent.id)"
+            >
+              <div
+                class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium text-white"
+                :style="{ backgroundColor: agent.avatarColor || '#8B5CF6' }"
+              >
+                {{ agent.name.charAt(0) }}
+              </div>
+              <div class="flex-1">
+                <div class="text-white font-medium">{{ agent.name }}</div>
+                <div class="text-white/60 text-sm">{{ agent.roleTitle }}</div>
+              </div>
+              <span
+                :class="['text-xs px-2 py-1 rounded', providerColors[agent.provider] || 'bg-gray-500/20 text-gray-300']"
+              >
+                {{ agent.modelDisplayName }}
+              </span>
+            </button>
+          </div>
+        </div>
       </div>
 
       <template #footer="{ close }">
@@ -639,6 +722,6 @@ const handleKeydown = (e: KeyboardEvent) => {
           Cancel
         </button>
       </template>
-    </UiBaseDialog>
+    </BaseDialog>
   </div>
 </template>

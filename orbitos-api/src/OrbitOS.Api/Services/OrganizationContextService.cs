@@ -24,13 +24,16 @@ public interface IOrganizationContextService
 public class OrganizationContextService : IOrganizationContextService
 {
     private readonly OrbitOSDbContext _dbContext;
+    private readonly IKnowledgeBaseService _knowledgeBaseService;
     private readonly ILogger<OrganizationContextService> _logger;
 
     public OrganizationContextService(
         OrbitOSDbContext dbContext,
+        IKnowledgeBaseService knowledgeBaseService,
         ILogger<OrganizationContextService> logger)
     {
         _dbContext = dbContext;
+        _knowledgeBaseService = knowledgeBaseService;
         _logger = logger;
     }
 
@@ -48,201 +51,85 @@ public class OrganizationContextService : IOrganizationContextService
             context.OrganizationName = org.Name;
         }
 
-        // Fetch People with their roles and capabilities
-        var people = await _dbContext.Resources
-            .Include(r => r.ResourceSubtype)
-            .Include(r => r.RoleAssignments)
-                .ThenInclude(ra => ra.Role)
-            .Include(r => r.FunctionCapabilities)
-                .ThenInclude(fc => fc.Function)
+        // Only fetch COUNTS for the summary - no detailed data
+        // This keeps the system prompt small and forces the AI to use query tools
+
+        // Count People
+        var peopleCount = await _dbContext.Resources
             .Where(r => r.OrganizationId == organizationId && r.ResourceSubtype.ResourceType == ResourceType.Person)
-            .ToListAsync(cancellationToken);
+            .CountAsync(cancellationToken);
+        // Create dummy entries just for count (empty list with correct count)
+        context.People = Enumerable.Range(0, peopleCount).Select(_ => new PersonContext()).ToList();
 
-        context.People = people.Select(p => new PersonContext
-        {
-            Id = p.Id,
-            Name = p.Name,
-            Description = p.Description,
-            Status = p.Status.ToString(),
-            Roles = p.RoleAssignments.Select(ra => new RoleContext
-            {
-                Id = ra.RoleId,
-                Name = ra.Role.Name,
-                AllocationPercentage = ra.AllocationPercentage,
-                IsPrimary = ra.IsPrimary
-            }).ToList(),
-            Capabilities = p.FunctionCapabilities.Select(fc => new CapabilityContext
-            {
-                FunctionId = fc.FunctionId,
-                FunctionName = fc.Function.Name,
-                Level = fc.Level.ToString()
-            }).ToList()
-        }).ToList();
-
-        // Fetch Roles
-        var roles = await _dbContext.Roles
+        // Count Roles
+        var rolesCount = await _dbContext.Roles
             .Where(r => r.OrganizationId == organizationId)
-            .Select(r => new RoleSummary
-            {
-                Id = r.Id,
-                Name = r.Name,
-                Description = r.Description,
-                Department = r.Department,
-                AssignmentCount = _dbContext.RoleAssignments.Count(ra => ra.RoleId == r.Id)
-            })
-            .ToListAsync(cancellationToken);
-        context.Roles = roles;
+            .CountAsync(cancellationToken);
+        context.Roles = Enumerable.Range(0, rolesCount).Select(_ => new RoleSummary()).ToList();
 
-        // Fetch Functions
-        var functions = await _dbContext.Functions
+        // Count Functions
+        var functionsCount = await _dbContext.Functions
             .Where(f => f.OrganizationId == organizationId)
-            .Select(f => new FunctionSummary
-            {
-                Id = f.Id,
-                Name = f.Name,
-                Description = f.Description,
-                Category = f.Category,
-                CapabilityCount = f.FunctionCapabilities.Count
-            })
-            .ToListAsync(cancellationToken);
-        context.Functions = functions;
+            .CountAsync(cancellationToken);
+        context.Functions = Enumerable.Range(0, functionsCount).Select(_ => new FunctionSummary()).ToList();
 
-        // Fetch Person Subtypes
+        // Fetch Person Subtypes (these are needed for creating people, so fetch fully)
         var subtypes = await _dbContext.ResourceSubtypes
             .Where(s => s.OrganizationId == organizationId && s.ResourceType == ResourceType.Person)
             .Select(s => new SubtypeContext { Id = s.Id, Name = s.Name })
             .ToListAsync(cancellationToken);
         context.PersonSubtypes = subtypes;
 
-        // Fetch Canvases
-        var canvases = await _dbContext.Canvases
+        // Count Canvases
+        var canvasesCount = await _dbContext.Canvases
             .Where(c => c.OrganizationId == organizationId)
-            .Select(c => new CanvasSummary
-            {
-                Id = c.Id,
-                Name = c.Name,
-                Description = c.Description,
-                CanvasType = c.CanvasType.ToString(),
-                Status = c.Status.ToString(),
-                BlockCount = c.Blocks.Count
-            })
-            .ToListAsync(cancellationToken);
-        context.Canvases = canvases;
+            .CountAsync(cancellationToken);
+        context.Canvases = Enumerable.Range(0, canvasesCount).Select(_ => new CanvasSummary()).ToList();
 
-        // Fetch Processes
-        var processes = await _dbContext.Processes
-            .Include(p => p.Owner)
+        // Count Processes
+        var processesCount = await _dbContext.Processes
             .Where(p => p.OrganizationId == organizationId)
-            .Select(p => new ProcessSummary
-            {
-                Id = p.Id,
-                Name = p.Name,
-                Description = p.Description,
-                Purpose = p.Purpose,
-                Status = p.Status.ToString(),
-                OwnerName = p.Owner != null ? p.Owner.Name : null,
-                ActivityCount = p.Activities.Count
-            })
-            .ToListAsync(cancellationToken);
-        context.Processes = processes;
+            .CountAsync(cancellationToken);
+        context.Processes = Enumerable.Range(0, processesCount).Select(_ => new ProcessSummary()).ToList();
 
-        // Fetch Goals
-        var goals = await _dbContext.Goals
-            .Include(g => g.Owner)
+        // Count Goals
+        var goalsCount = await _dbContext.Goals
             .Where(g => g.OrganizationId == organizationId)
-            .Select(g => new GoalSummary
-            {
-                Id = g.Id,
-                Name = g.Name,
-                Description = g.Description,
-                GoalType = g.GoalType.ToString(),
-                Status = g.Status.ToString(),
-                OwnerName = g.Owner != null ? g.Owner.Name : null,
-                TargetValue = g.TargetValue,
-                CurrentValue = g.CurrentValue,
-                Unit = g.Unit
-            })
-            .ToListAsync(cancellationToken);
-        context.Goals = goals;
+            .CountAsync(cancellationToken);
+        context.Goals = Enumerable.Range(0, goalsCount).Select(_ => new GoalSummary()).ToList();
 
-        // Fetch Partners
-        var partners = await _dbContext.Partners
+        // Count Partners
+        var partnersCount = await _dbContext.Partners
             .Where(p => p.OrganizationId == organizationId)
-            .Select(p => new PartnerSummary
-            {
-                Id = p.Id,
-                Name = p.Name,
-                Description = p.Description,
-                Type = p.Type.ToString(),
-                Status = p.Status.ToString(),
-                StrategicValue = p.StrategicValue.ToString()
-            })
-            .ToListAsync(cancellationToken);
-        context.Partners = partners;
+            .CountAsync(cancellationToken);
+        context.Partners = Enumerable.Range(0, partnersCount).Select(_ => new PartnerSummary()).ToList();
 
-        // Fetch Channels
-        var channels = await _dbContext.Channels
-            .Include(c => c.Partner)
+        // Count Channels
+        var channelsCount = await _dbContext.Channels
             .Where(c => c.OrganizationId == organizationId)
-            .Select(c => new ChannelSummary
-            {
-                Id = c.Id,
-                Name = c.Name,
-                Description = c.Description,
-                Type = c.Type.ToString(),
-                Category = c.Category.ToString(),
-                Status = c.Status.ToString(),
-                Ownership = c.Ownership.ToString(),
-                PartnerName = c.Partner != null ? c.Partner.Name : null
-            })
-            .ToListAsync(cancellationToken);
-        context.Channels = channels;
+            .CountAsync(cancellationToken);
+        context.Channels = Enumerable.Range(0, channelsCount).Select(_ => new ChannelSummary()).ToList();
 
-        // Fetch Value Propositions
-        var valuePropositions = await _dbContext.ValuePropositions
+        // Count Value Propositions
+        var valuePropsCount = await _dbContext.ValuePropositions
             .Where(v => v.OrganizationId == organizationId)
-            .Select(v => new ValuePropositionSummary
-            {
-                Id = v.Id,
-                Name = v.Name,
-                Headline = v.Headline,
-                Description = v.Description,
-                Status = v.Status.ToString()
-            })
-            .ToListAsync(cancellationToken);
-        context.ValuePropositions = valuePropositions;
+            .CountAsync(cancellationToken);
+        context.ValuePropositions = Enumerable.Range(0, valuePropsCount).Select(_ => new ValuePropositionSummary()).ToList();
 
-        // Fetch Customer Relationships
-        var customerRelationships = await _dbContext.CustomerRelationships
+        // Count Customer Relationships
+        var customerRelsCount = await _dbContext.CustomerRelationships
             .Where(cr => cr.OrganizationId == organizationId)
-            .Select(cr => new CustomerRelationshipSummary
-            {
-                Id = cr.Id,
-                Name = cr.Name,
-                Description = cr.Description,
-                Type = cr.Type.ToString(),
-                Status = cr.Status.ToString()
-            })
-            .ToListAsync(cancellationToken);
-        context.CustomerRelationships = customerRelationships;
+            .CountAsync(cancellationToken);
+        context.CustomerRelationships = Enumerable.Range(0, customerRelsCount).Select(_ => new CustomerRelationshipSummary()).ToList();
 
-        // Fetch Revenue Streams
-        var revenueStreams = await _dbContext.RevenueStreams
+        // Count Revenue Streams
+        var revenueStreamsCount = await _dbContext.RevenueStreams
             .Where(rs => rs.OrganizationId == organizationId)
-            .Select(rs => new RevenueStreamSummary
-            {
-                Id = rs.Id,
-                Name = rs.Name,
-                Description = rs.Description,
-                Type = rs.Type.ToString(),
-                Status = rs.Status.ToString(),
-                PricingMechanism = rs.PricingMechanism.ToString()
-            })
-            .ToListAsync(cancellationToken);
-        context.RevenueStreams = revenueStreams;
+            .CountAsync(cancellationToken);
+        context.RevenueStreams = Enumerable.Range(0, revenueStreamsCount).Select(_ => new RevenueStreamSummary()).ToList();
 
-        _logger.LogDebug("Built organization context for {OrgId}: {PeopleCount} people, {FunctionCount} functions, {ProcessCount} processes",
-            organizationId, context.People.Count, context.Functions.Count, context.Processes.Count);
+        _logger.LogDebug("Built minimal organization context for {OrgId}: {PeopleCount} people, {FunctionCount} functions, {ProcessCount} processes (counts only)",
+            organizationId, peopleCount, functionsCount, processesCount);
 
         return context;
     }
@@ -263,115 +150,99 @@ public class OrganizationContextService : IOrganizationContextService
         sb.AppendLine($"You are helping the organization: **{context.OrganizationName ?? "Unknown Organization"}**");
         sb.AppendLine();
 
-        sb.AppendLine("## Your Capabilities");
-        sb.AppendLine("You have FULL access to all organization data and can help with:");
-        sb.AppendLine();
-        sb.AppendLine("### People & Organization");
-        sb.AppendLine("- Viewing and understanding the organization's people, roles, and functions");
-        sb.AppendLine("- Adding new people, updating their information, assigning roles and capabilities");
-        sb.AppendLine();
-        sb.AppendLine("### Business Functions");
-        sb.AppendLine("- Creating, updating, and deleting business functions (capabilities/skills)");
-        sb.AppendLine("- Bulk creating multiple functions at once");
-        sb.AppendLine("- Suggesting functions based on industry best practices");
-        sb.AppendLine();
-        sb.AppendLine("### Business Model Canvas");
-        sb.AppendLine("- Creating and managing Business Model Canvases");
-        sb.AppendLine("- Creating Partners, Channels, Value Propositions, Customer Relationships, Revenue Streams");
-        sb.AppendLine("- Suggesting business model elements based on industry/context");
-        sb.AppendLine();
-        sb.AppendLine("### Processes & Workflows");
-        sb.AppendLine("- Creating and managing business processes with activities");
-        sb.AppendLine();
-        sb.AppendLine("### Goals & OKRs");
-        sb.AppendLine("- Creating objectives, key results, and initiatives");
-        sb.AppendLine();
-        sb.AppendLine("### Analysis & Suggestions");
-        sb.AppendLine("- Analyzing organizational health (coverage gaps, single points of failure)");
-        sb.AppendLine("- Generating industry-standard content");
+        // Summary counts only - no detailed data to keep token usage low
+        sb.AppendLine("## Organization Data Summary");
+        sb.AppendLine("This organization has the following data (use data query tools to access details):");
+        sb.AppendLine($"- People: {context.People.Count}");
+        sb.AppendLine($"- Roles: {context.Roles.Count}");
+        sb.AppendLine($"- Functions: {context.Functions.Count}");
+        sb.AppendLine($"- Processes: {context.Processes.Count}");
+        sb.AppendLine($"- Goals: {context.Goals.Count}");
+        sb.AppendLine($"- Partners: {context.Partners.Count}");
+        sb.AppendLine($"- Channels: {context.Channels.Count}");
+        sb.AppendLine($"- Value Propositions: {context.ValuePropositions.Count}");
+        sb.AppendLine($"- Customer Relationships: {context.CustomerRelationships.Count}");
+        sb.AppendLine($"- Revenue Streams: {context.RevenueStreams.Count}");
+        sb.AppendLine($"- Canvases: {context.Canvases.Count}");
         sb.AppendLine();
 
-        sb.AppendLine("## Current Organization Data");
-        sb.AppendLine();
-
-        // People section
-        sb.AppendLine($"### People ({context.People.Count} total)");
-        if (context.People.Any())
-        {
-            foreach (var person in context.People.Take(20))
-            {
-                sb.AppendLine($"- **{person.Name}** (ID: {person.Id}, Status: {person.Status})");
-                if (person.Roles.Any())
-                    sb.AppendLine($"  - Roles: {string.Join(", ", person.Roles.Select(r => r.Name + (r.IsPrimary ? " (Primary)" : "")))}");
-                if (person.Capabilities.Any())
-                    sb.AppendLine($"  - Capabilities: {string.Join(", ", person.Capabilities.Select(c => c.FunctionName))}");
-            }
-            if (context.People.Count > 20) sb.AppendLine($"  ...and {context.People.Count - 20} more");
-        }
-        else sb.AppendLine("No people have been added yet.");
-        sb.AppendLine();
-
-        // Roles section
-        sb.AppendLine($"### Roles ({context.Roles.Count} total)");
-        if (context.Roles.Any())
-            foreach (var role in context.Roles)
-                sb.AppendLine($"- **{role.Name}** (ID: {role.Id}) - {role.AssignmentCount} assigned{(role.Department != null ? $", Dept: {role.Department}" : "")}");
-        else sb.AppendLine("No roles have been defined yet.");
-        sb.AppendLine();
-
-        // Functions section
-        sb.AppendLine($"### Functions ({context.Functions.Count} total)");
-        if (context.Functions.Any())
-        {
-            var grouped = context.Functions.GroupBy(f => f.Category ?? "Uncategorized");
-            foreach (var group in grouped)
-            {
-                sb.AppendLine($"**{group.Key}:** {string.Join(", ", group.Take(10).Select(f => f.Name))}");
-                if (group.Count() > 10) sb.AppendLine($"  ...and {group.Count() - 10} more");
-            }
-        }
-        else sb.AppendLine("No functions have been defined yet.");
-        sb.AppendLine();
-
-        // Processes section
-        sb.AppendLine($"### Processes ({context.Processes.Count} total)");
-        if (context.Processes.Any())
-            foreach (var p in context.Processes)
-                sb.AppendLine($"- **{p.Name}** (ID: {p.Id}, {p.ActivityCount} activities, Owner: {p.OwnerName ?? "Unassigned"})");
-        else sb.AppendLine("No processes have been defined yet.");
-        sb.AppendLine();
-
-        // Goals section
-        sb.AppendLine($"### Goals ({context.Goals.Count} total)");
-        if (context.Goals.Any())
-            foreach (var g in context.Goals)
-                sb.AppendLine($"- **{g.Name}** (ID: {g.Id}, Type: {g.GoalType}, Status: {g.Status})");
-        else sb.AppendLine("No goals have been defined yet.");
-        sb.AppendLine();
-
-        // Business Model Canvas Data
-        sb.AppendLine("### Business Model Canvas Data");
-        sb.AppendLine($"- Canvases: {context.Canvases.Count} ({string.Join(", ", context.Canvases.Take(5).Select(c => c.Name))}{(context.Canvases.Count > 5 ? "..." : "")})");
-        sb.AppendLine($"- Partners: {context.Partners.Count} ({string.Join(", ", context.Partners.Take(5).Select(p => p.Name))}{(context.Partners.Count > 5 ? "..." : "")})");
-        sb.AppendLine($"- Channels: {context.Channels.Count} ({string.Join(", ", context.Channels.Take(5).Select(c => c.Name))}{(context.Channels.Count > 5 ? "..." : "")})");
-        sb.AppendLine($"- Value Propositions: {context.ValuePropositions.Count} ({string.Join(", ", context.ValuePropositions.Take(5).Select(v => v.Name))}{(context.ValuePropositions.Count > 5 ? "..." : "")})");
-        sb.AppendLine($"- Customer Relationships: {context.CustomerRelationships.Count} ({string.Join(", ", context.CustomerRelationships.Take(5).Select(c => c.Name))}{(context.CustomerRelationships.Count > 5 ? "..." : "")})");
-        sb.AppendLine($"- Revenue Streams: {context.RevenueStreams.Count} ({string.Join(", ", context.RevenueStreams.Take(5).Select(r => r.Name))}{(context.RevenueStreams.Count > 5 ? "..." : "")})");
-        sb.AppendLine();
-
+        // Person subtypes are needed for creating people
         if (context.PersonSubtypes.Any())
         {
-            sb.AppendLine("### Available Person Types");
+            sb.AppendLine("### Available Person Types (for creating people)");
             foreach (var subtype in context.PersonSubtypes)
                 sb.AppendLine($"- {subtype.Name} (ID: {subtype.Id})");
             sb.AppendLine();
         }
 
+        sb.AppendLine("## Data Access - IMPORTANT");
+        sb.AppendLine("You do NOT have organization data pre-loaded. Use these tools to query data on-demand:");
+        sb.AppendLine("- `get_people` - Get list of people with their roles and capabilities");
+        sb.AppendLine("- `get_roles` - Get list of roles with assignments");
+        sb.AppendLine("- `get_functions` - Get list of business functions");
+        sb.AppendLine("- `get_processes` - Get list of business processes");
+        sb.AppendLine("- `get_goals` - Get list of goals/OKRs");
+        sb.AppendLine("- `get_partners` - Get list of partners");
+        sb.AppendLine("- `get_channels` - Get list of channels");
+        sb.AppendLine("- `get_value_propositions` - Get list of value propositions");
+        sb.AppendLine("- `get_customer_relationships` - Get list of customer relationships");
+        sb.AppendLine("- `get_revenue_streams` - Get list of revenue streams");
+        sb.AppendLine("- `get_canvases` - Get list of business model canvases");
+        sb.AppendLine("- `get_full_context` - Get ALL organization data (use sparingly, only for comprehensive overviews)");
+        sb.AppendLine();
+        sb.AppendLine("**Best Practices:**");
+        sb.AppendLine("- Query only the data you need to answer the user's question");
+        sb.AppendLine("- For specific questions like 'who is the CEO?', use `get_people` with a search filter");
+        sb.AppendLine("- For comprehensive analysis, you may need multiple queries");
+        sb.AppendLine("- Only use `get_full_context` when explicitly asked for a complete overview");
+        sb.AppendLine();
+
+        sb.AppendLine("## Capabilities - What You Can Do");
+        sb.AppendLine();
+        sb.AppendLine("### People & Organization");
+        sb.AppendLine("- Query and understand the organization's people, roles, and functions");
+        sb.AppendLine("- Add new people, update their information, assign roles and capabilities");
+        sb.AppendLine();
+        sb.AppendLine("### Business Functions");
+        sb.AppendLine("- Create, update, and delete business functions (capabilities/skills)");
+        sb.AppendLine("- Bulk create multiple functions at once");
+        sb.AppendLine("- Suggest functions based on industry best practices");
+        sb.AppendLine();
+        sb.AppendLine("### Business Model Canvas");
+        sb.AppendLine("- Create and manage Business Model Canvases");
+        sb.AppendLine("- Create Partners, Channels, Value Propositions, Customer Relationships, Revenue Streams");
+        sb.AppendLine("- Suggest business model elements based on industry/context");
+        sb.AppendLine();
+        sb.AppendLine("### Processes & Workflows");
+        sb.AppendLine("- Create and manage business processes with activities");
+        sb.AppendLine();
+        sb.AppendLine("### Goals & OKRs");
+        sb.AppendLine("- Create objectives, key results, and initiatives");
+        sb.AppendLine();
+        sb.AppendLine("### Analysis & Suggestions");
+        sb.AppendLine("- Analyze organizational health (coverage gaps, single points of failure)");
+        sb.AppendLine("- Generate industry-standard content");
+        sb.AppendLine();
+
+        // Knowledge Base Section
+        sb.AppendLine("## Knowledge Base");
+        sb.AppendLine("You have access to a knowledge base of best practices and guidelines. Use the `lookup_knowledge_base` tool to retrieve detailed content when users ask about methodologies, frameworks, or best practices.");
+        sb.AppendLine();
+        sb.AppendLine("**Available Topics:**");
+
+        var index = _knowledgeBaseService.GetIndex();
+        foreach (var category in index.Categories)
+        {
+            var articleTitles = string.Join(", ", category.Articles.Select(a => a.Title));
+            sb.AppendLine($"- **{category.Name}**: {articleTitles}");
+        }
+        sb.AppendLine();
+
         sb.AppendLine("## Response Guidelines");
-        sb.AppendLine("- Be concise, helpful, and use the organization data to provide relevant answers");
+        sb.AppendLine("- Be concise, helpful, and query data as needed to answer questions");
         sb.AppendLine("- When suggesting changes, explain the reasoning");
         sb.AppendLine("- Format responses with bullet points and clear structure");
-        sb.AppendLine("- Reference specific data from the organization when relevant");
+        sb.AppendLine("- Always query data before referencing it - don't assume or guess");
 
         return sb.ToString();
     }

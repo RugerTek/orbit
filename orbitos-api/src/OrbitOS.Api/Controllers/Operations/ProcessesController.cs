@@ -135,7 +135,8 @@ public class ProcessesController : ControllerBase
                 } : null,
                 CreatedAt = a.CreatedAt,
                 PositionX = a.PositionX,
-                PositionY = a.PositionY
+                PositionY = a.PositionY,
+                MetadataJson = a.MetadataJson
             }).ToList(),
             Edges = process.Edges.Select(e => new ActivityEdgeDto
             {
@@ -347,7 +348,8 @@ public class ProcessesController : ControllerBase
             AssignedResourceId = request.AssignedResourceId,
             LinkedProcessId = request.LinkedProcessId,
             PositionX = request.PositionX,
-            PositionY = request.PositionY
+            PositionY = request.PositionY,
+            MetadataJson = request.MetadataJson
         };
 
         _dbContext.Activities.Add(activity);
@@ -369,7 +371,8 @@ public class ProcessesController : ControllerBase
                 LinkedProcessId = activity.LinkedProcessId,
                 CreatedAt = activity.CreatedAt,
                 PositionX = activity.PositionX,
-                PositionY = activity.PositionY
+                PositionY = activity.PositionY,
+                MetadataJson = activity.MetadataJson
             });
     }
 
@@ -401,6 +404,7 @@ public class ProcessesController : ControllerBase
         activity.LinkedProcessId = request.LinkedProcessId;
         activity.PositionX = request.PositionX;
         activity.PositionY = request.PositionY;
+        activity.MetadataJson = request.MetadataJson;
 
         await _dbContext.SaveChangesAsync();
 
@@ -428,7 +432,8 @@ public class ProcessesController : ControllerBase
             LinkedProcessName = activity.LinkedProcess?.Name,
             CreatedAt = activity.CreatedAt,
             PositionX = activity.PositionX,
-            PositionY = activity.PositionY
+            PositionY = activity.PositionY,
+            MetadataJson = activity.MetadataJson
         });
     }
 

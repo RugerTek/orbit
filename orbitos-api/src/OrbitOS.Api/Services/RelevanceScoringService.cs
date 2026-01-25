@@ -169,6 +169,35 @@ public class RelevanceScoringService
     }
 
     /// <summary>
+    /// Detect if a message is a social/greeting message that all agents should respond to
+    /// </summary>
+    private bool IsSocialOrGreetingMessage(string message)
+    {
+        var trimmed = message.Trim().ToLowerInvariant();
+        var greetings = new[] {
+            "hello", "hi", "hey", "good morning", "good afternoon", "good evening",
+            "howdy", "greetings", "what's up", "whats up", "hola", "sup",
+            "how are you", "how's everyone", "how is everyone", "nice to meet",
+            "welcome", "thanks everyone", "thank you all", "let's get started",
+            "shall we begin", "ready to start"
+        };
+
+        // Check for short messages that are likely greetings
+        var wordCount = trimmed.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
+        if (wordCount <= 5 && greetings.Any(g => trimmed.Contains(g)))
+            return true;
+
+        // Very short messages (1-3 words) with greeting patterns
+        if (wordCount <= 3 && (trimmed.EndsWith("!") || trimmed.EndsWith("?")))
+        {
+            if (greetings.Any(g => trimmed.StartsWith(g)))
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Calculate expertise scores based on keyword matching
     /// </summary>
     private Dictionary<Guid, int> CalculateExpertiseScores(
@@ -180,9 +209,19 @@ public class RelevanceScoringService
         var allText = lastMessage + " " + string.Join(" ", history.TakeLast(5).Select(m => m.Content));
         var textLower = allText.ToLowerInvariant();
 
+        // Check if this is a social/greeting message - everyone should respond
+        var isSocialMessage = IsSocialOrGreetingMessage(lastMessage);
+
         foreach (var agent in agents)
         {
             var score = 0;
+
+            // Social messages get a baseline boost for all agents
+            if (isSocialMessage)
+            {
+                score += 50; // Ensures most agents meet the 70 threshold
+                _logger.LogDebug("Social message detected, boosting {AgentName} by 50", agent.Name);
+            }
 
             // Check expertise areas
             if (!string.IsNullOrEmpty(agent.ExpertiseAreas))

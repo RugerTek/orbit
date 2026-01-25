@@ -297,16 +297,22 @@ const statusLabel = (status: string) => {
         <h1 class="orbitos-heading-lg">Functions</h1>
         <p class="orbitos-text">Atomic work units that can be performed by people with specific capabilities.</p>
       </div>
-      <button
-        type="button"
-        @click="showAddDialog = true"
-        class="orbitos-btn-primary py-2 px-4 text-sm"
-      >
-        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-        </svg>
-        Add Function
-      </button>
+      <div class="flex items-center gap-3">
+        <KnowledgeBaseGuideButton
+          article-id="functions/function-catalog"
+          label="Functions Guide"
+        />
+        <button
+          type="button"
+          @click="showAddDialog = true"
+          class="orbitos-btn-primary py-2 px-4 text-sm"
+        >
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+          Add Function
+        </button>
+      </div>
     </div>
 
     <!-- Summary Stats -->

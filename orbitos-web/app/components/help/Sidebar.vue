@@ -362,6 +362,27 @@ const contextualHelp = computed((): HelpContent => {
           { name: 'Profile', path: '/app/profile' }
         ]
       }
+    },
+    '/app/knowledge-base': {
+      title: 'Knowledge Base',
+      description: 'Best practices and methodologies',
+      icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253',
+      sections: {
+        overview: 'The Knowledge Base contains best practices, methodologies, and guidelines for business operations. Browse by category or search for specific topics. AI agents also use this content to provide informed recommendations.',
+        tips: [
+          'Articles cover process mapping, roles, functions, goals, and organization design',
+          'AI agents reference these articles when providing advice',
+          'Use the search to quickly find relevant content',
+          'Each module page has a guide button linking to relevant articles'
+        ],
+        relatedPages: [
+          { name: 'Roles', path: '/app/roles' },
+          { name: 'Functions', path: '/app/functions' },
+          { name: 'Processes', path: '/app/processes' },
+          { name: 'Goals', path: '/app/goals' },
+          { name: 'AI Agents', path: '/app/ai-agents' }
+        ]
+      }
     }
   }
 
@@ -545,6 +566,18 @@ const toggleSidebar = () => {
 
         <!-- Footer -->
         <div class="border-t border-white/10 px-4 py-3 bg-slate-800/80">
+          <NuxtLink
+            to="/app/knowledge-base"
+            class="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-purple-500/10 border border-purple-500/30 text-purple-300 hover:bg-purple-500/20 transition-colors"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+            <span class="text-sm font-medium">Knowledge Base</span>
+            <svg class="w-3 h-3 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </NuxtLink>
           <div class="flex items-center justify-between text-xs text-slate-500">
             <span>Press <kbd class="rounded border border-slate-600 bg-slate-700/50 px-1.5 py-0.5">Cmd+K</kbd> to search</span>
             <span class="text-slate-600">Context-aware help</span>

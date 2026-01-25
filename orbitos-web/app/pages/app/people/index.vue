@@ -3,7 +3,7 @@ definePageMeta({
   layout: 'app'
 })
 
-const { people, resources, roles, resourceSubtypes, isLoading, fetchPeople, fetchResources, fetchRoles, fetchRoleAssignments, fetchResourceSubtypes, createResourceSubtype, roleAssignments, createRoleAssignment, createRole } = useOperations()
+const { people, resources, roles, resourceSubtypes, isLoading, fetchPeople, fetchResources, fetchRoles, fetchRoleAssignments, fetchResourceSubtypes, createResourceSubtype, roleAssignments, createRoleAssignment, createRole, fetchOrgChart } = useOperations()
 const { get, post, put, delete: del } = useApi()
 const { currentOrganizationId } = useOrganizations()
 
@@ -249,8 +249,8 @@ const handleAddPerson = async () => {
       }
     }
 
-    // Refresh the lists
-    await Promise.all([fetchPeople(), fetchRoleAssignments()])
+    // Refresh the lists (including org chart so the new person appears there too)
+    await Promise.all([fetchPeople(), fetchRoleAssignments(), fetchOrgChart()])
 
     // Reset form and close dialog
     newPerson.value = { name: '', roles: [], email: '' }
@@ -358,8 +358,8 @@ const handleEditPerson = async () => {
       }
     }
 
-    // Refresh the lists
-    await Promise.all([fetchPeople(), fetchRoleAssignments()])
+    // Refresh the lists (including org chart so changes appear there too)
+    await Promise.all([fetchPeople(), fetchRoleAssignments(), fetchOrgChart()])
 
     // Reset and close dialog
     editingPerson.value = null

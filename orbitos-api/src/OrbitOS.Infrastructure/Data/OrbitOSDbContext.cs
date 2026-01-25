@@ -59,6 +59,7 @@ public class OrbitOSDbContext : DbContext
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<ConversationParticipant> ConversationParticipants => Set<ConversationParticipant>();
     public DbSet<PendingAction> PendingActions => Set<PendingAction>();
+    public DbSet<AssistantChatMessage> AssistantChatMessages => Set<AssistantChatMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -351,6 +352,8 @@ public class OrbitOSDbContext : DbContext
             // Position fields for Vue Flow canvas
             entity.Property(e => e.PositionX).HasDefaultValue(0.0);
             entity.Property(e => e.PositionY).HasDefaultValue(0.0);
+            // Type-specific metadata stored as JSON string for IE symbol fields
+            entity.Property(e => e.MetadataJson).HasColumnType("nvarchar(max)");
         });
 
         // ActivityEdge configuration (Vue Flow connections)
@@ -604,7 +607,19 @@ public class OrbitOSDbContext : DbContext
             entity.Property(e => e.ModelId).HasMaxLength(100);
             entity.Property(e => e.ModelDisplayName).HasMaxLength(50);
             entity.Property(e => e.Temperature).HasPrecision(3, 2);
+
+            // A2A fields
+            entity.Property(e => e.AgentType).HasConversion<string>().HasMaxLength(20);
+            entity.Property(e => e.SpecialistKey).HasMaxLength(50);
+            entity.Property(e => e.ContextScopesJson).HasColumnType("text");
+            entity.Property(e => e.BasePrompt).HasColumnType("text");
+            entity.Property(e => e.CustomInstructions).HasColumnType("text");
+
             entity.HasIndex(e => new { e.OrganizationId, e.Name }).IsUnique();
+            entity.HasIndex(e => new { e.OrganizationId, e.AgentType }); // For filtering by type
+            entity.HasIndex(e => new { e.OrganizationId, e.SpecialistKey })
+                .HasFilter("[SpecialistKey] IS NOT NULL"); // For finding specialists
+
             entity.HasOne(e => e.Organization)
                 .WithMany(o => o.AiAgents)
                 .HasForeignKey(e => e.OrganizationId)
@@ -739,6 +754,23 @@ public class OrbitOSDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.ReviewedByUserId)
                 .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        // AssistantChatMessage configuration (floating AI assistant history)
+        modelBuilder.Entity<AssistantChatMessage>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Role).HasMaxLength(20);
+            entity.HasIndex(e => new { e.OrganizationId, e.UserId });
+            entity.HasIndex(e => new { e.OrganizationId, e.UserId, e.SequenceNumber });
+            entity.HasOne(e => e.Organization)
+                .WithMany()
+                .HasForeignKey(e => e.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         // Apply soft delete query filters to all entities

@@ -58,6 +58,9 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<Guid?>("LinkedProcessId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("MetadataJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -166,6 +169,11 @@ namespace OrbitOS.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("AgentType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
                     b.Property<bool>("AsksQuestions")
                         .HasColumnType("bit");
 
@@ -180,14 +188,29 @@ namespace OrbitOS.Infrastructure.Migrations
                         .HasMaxLength(2048)
                         .HasColumnType("nvarchar(2048)");
 
+                    b.Property<string>("BasePrompt")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("CanBeOrchestrated")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("CanCallBuiltInAgents")
+                        .HasColumnType("bit");
+
                     b.Property<int>("CommunicationStyle")
                         .HasColumnType("int");
+
+                    b.Property<string>("ContextScopesJson")
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CustomInstructions")
+                        .HasColumnType("text");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
@@ -199,6 +222,9 @@ namespace OrbitOS.Infrastructure.Migrations
                         .HasColumnType("bit");
 
                     b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsSystemProvided")
                         .HasColumnType("bit");
 
                     b.Property<int>("MaxTokensPerResponse")
@@ -239,6 +265,10 @@ namespace OrbitOS.Infrastructure.Migrations
                     b.Property<int>("SortOrder")
                         .HasColumnType("int");
 
+                    b.Property<string>("SpecialistKey")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<string>("SystemPrompt")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -255,10 +285,65 @@ namespace OrbitOS.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("OrganizationId", "AgentType");
+
                     b.HasIndex("OrganizationId", "Name")
                         .IsUnique();
 
+                    b.HasIndex("OrganizationId", "SpecialistKey")
+                        .HasFilter("[SpecialistKey] IS NOT NULL");
+
                     b.ToTable("AiAgents");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.AssistantChatMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("SequenceNumber")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("OrganizationId", "UserId");
+
+                    b.HasIndex("OrganizationId", "UserId", "SequenceNumber");
+
+                    b.ToTable("AssistantChatMessages");
                 });
 
             modelBuilder.Entity("OrbitOS.Domain.Entities.BlockReference", b =>
@@ -1041,6 +1126,15 @@ namespace OrbitOS.Infrastructure.Migrations
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("InnerDialogueJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("InnerDialogueType")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsInnerDialogue")
+                        .HasColumnType("bit");
 
                     b.Property<string>("MentionedAgentIdsJson")
                         .HasColumnType("nvarchar(max)");
@@ -2376,6 +2470,25 @@ namespace OrbitOS.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Organization");
+                });
+
+            modelBuilder.Entity("OrbitOS.Domain.Entities.AssistantChatMessage", b =>
+                {
+                    b.HasOne("OrbitOS.Domain.Entities.Organization", "Organization")
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OrbitOS.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Organization");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("OrbitOS.Domain.Entities.BlockReference", b =>

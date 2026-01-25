@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { AiAgent, CreateAiAgentRequest, UpdateAiAgentRequest, CommunicationStyle, ReactionTendency } from '~/composables/useAiAgents'
+import { AVAILABLE_CONTEXT_SCOPES } from '~/composables/useAiAgents'
 import type { CreateConversationRequest } from '~/composables/useConversations'
 import { useConversations } from '~/composables/useConversations'
 
@@ -28,9 +29,14 @@ const router = useRouter()
 
 const {
   agents,
+  builtInAgents,
+  customAgents,
+  activeAgents,
   availableModels,
   modelsByProvider,
   providerInfo,
+  specialistIcons,
+  getAgentIcon,
   isLoading,
   isLoadingModels,
   fetchAgents,
@@ -51,11 +57,34 @@ const {
 // Tab state
 const activeTab = ref<'agents' | 'conversations'>('agents')
 
+// Orchestrator state
+const orchestratorQuery = ref('')
+const isAskingOrchestrator = ref(false)
+const orchestratorResponse = ref<{
+  message: string
+  agentsConsulted: string[]
+  innerDialogue: Array<{
+    stepNumber: number
+    type: string
+    title: string
+    description?: string
+    agentName?: string
+    response?: string
+    tokensUsed?: number
+  }>
+  error?: string
+} | null>(null)
+
 // Dialog state
 const showAddDialog = ref(false)
 const showEditDialog = ref(false)
+const showEditBuiltInDialog = ref(false)
 const showNewConversationDialog = ref(false)
 const isSubmitting = ref(false)
+
+// Editing Built-in agent
+const editingBuiltInAgent = ref<AiAgent | null>(null)
+const builtInCustomInstructions = ref('')
 
 // Default system prompts for different roles
 const systemPromptTemplates: Record<string, string> = {
@@ -126,6 +155,40 @@ const newAgent = ref<CreateAiAgentRequest>({
 const showPersonalitySection = ref(false)
 const showEditPersonalitySection = ref(false)
 
+// Toggle for showing data access section
+const showDataAccessSection = ref(false)
+const showEditDataAccessSection = ref(false)
+
+// Available context scopes for UI
+const availableContextScopes = AVAILABLE_CONTEXT_SCOPES
+
+// Toggle context scope in newAgent
+const toggleContextScope = (scopeKey: string) => {
+  if (!newAgent.value.contextScopes) {
+    newAgent.value.contextScopes = []
+  }
+  const index = newAgent.value.contextScopes.indexOf(scopeKey)
+  if (index === -1) {
+    newAgent.value.contextScopes.push(scopeKey)
+  } else {
+    newAgent.value.contextScopes.splice(index, 1)
+  }
+}
+
+// Toggle context scope in editingAgent
+const toggleEditContextScope = (scopeKey: string) => {
+  if (!editingAgent.value) return
+  if (!editingAgent.value.contextScopes) {
+    editingAgent.value.contextScopes = []
+  }
+  const index = editingAgent.value.contextScopes.indexOf(scopeKey)
+  if (index === -1) {
+    editingAgent.value.contextScopes.push(scopeKey)
+  } else {
+    editingAgent.value.contextScopes.splice(index, 1)
+  }
+}
+
 // Editing agent
 const editingAgent = ref<AiAgent | null>(null)
 
@@ -143,6 +206,49 @@ const newConversation = ref<CreateConversationRequest>({
 onMounted(async () => {
   await Promise.all([fetchAgents(), fetchAvailableModels(), fetchConversations()])
 })
+
+// Use API for orchestrator
+const { post } = useApi()
+const { currentOrganization } = useOrganizations()
+
+// Ask the orchestrator
+const askOrchestrator = async () => {
+  if (!orchestratorQuery.value.trim() || !currentOrganization.value) return
+
+  isAskingOrchestrator.value = true
+  orchestratorResponse.value = null
+
+  try {
+    const response = await post<{
+      message: string
+      agentsConsulted: string[]
+      innerDialogue: Array<{
+        stepNumber: number
+        type: string
+        title: string
+        description?: string
+        agentName?: string
+        response?: string
+        tokensUsed?: number
+      }>
+      error?: string
+    }>(`/organizations/${currentOrganization.value.id}/ai/orchestrate`, {
+      message: orchestratorQuery.value
+    })
+
+    orchestratorResponse.value = response
+  } catch (e) {
+    console.error('Failed to ask orchestrator:', e)
+    orchestratorResponse.value = {
+      message: 'Failed to get a response. Please try again.',
+      agentsConsulted: [],
+      innerDialogue: [],
+      error: String(e)
+    }
+  } finally {
+    isAskingOrchestrator.value = false
+  }
+}
 
 // Watch for model selection to auto-update display name
 watch(() => newAgent.value.modelId, (modelId) => {
@@ -196,16 +302,44 @@ const resetNewAgentForm = () => {
     expertiseAreas: '',
     seniorityLevel: 3,
     asksQuestions: false,
-    givesBriefAcknowledgments: true
+    givesBriefAcknowledgments: true,
+    contextScopes: []
   }
   selectedTemplate.value = 'custom'
   showPersonalitySection.value = false
+  showDataAccessSection.value = false
 }
 
-// Open edit dialog
+// Open edit dialog (for Custom agents)
 const openEditDialog = (agent: AiAgent) => {
   editingAgent.value = { ...agent }
   showEditDialog.value = true
+}
+
+// Open edit dialog for Built-in agents
+const openEditBuiltInDialog = (agent: AiAgent) => {
+  editingBuiltInAgent.value = { ...agent }
+  builtInCustomInstructions.value = agent.customInstructions || ''
+  showEditBuiltInDialog.value = true
+}
+
+// Save Built-in agent changes
+const handleSaveBuiltInAgent = async () => {
+  if (!editingBuiltInAgent.value) return
+
+  isSubmitting.value = true
+  try {
+    await updateAgent(editingBuiltInAgent.value.id, {
+      customInstructions: builtInCustomInstructions.value || undefined,
+      isActive: editingBuiltInAgent.value.isActive
+    })
+    editingBuiltInAgent.value = null
+    showEditBuiltInDialog.value = false
+  } catch (e) {
+    console.error('Failed to update Built-in agent:', e)
+  } finally {
+    isSubmitting.value = false
+  }
 }
 
 // Edit agent
@@ -367,26 +501,22 @@ const formatRelativeTime = (dateStr: string | undefined) => {
       <!-- Stats -->
       <div class="grid gap-4 md:grid-cols-4">
         <div class="orbitos-card-static">
-          <div class="text-xs uppercase text-white/40">Total Agents</div>
-          <div class="mt-1 text-2xl font-semibold text-white">{{ agents.length }}</div>
+          <div class="text-xs uppercase text-white/40">Built-in</div>
+          <div class="mt-1 text-2xl font-semibold text-blue-300">{{ builtInAgents.length }}</div>
+        </div>
+        <div class="orbitos-card-static">
+          <div class="text-xs uppercase text-white/40">Custom</div>
+          <div class="mt-1 text-2xl font-semibold text-purple-300">{{ customAgents.length }}</div>
         </div>
         <div class="orbitos-card-static">
           <div class="text-xs uppercase text-white/40">Active</div>
           <div class="mt-1 text-2xl font-semibold text-emerald-300">
-            {{ agents.filter(a => a.isActive).length }}
+            {{ activeAgents.length }}
           </div>
         </div>
         <div class="orbitos-card-static">
-          <div class="text-xs uppercase text-white/40">Anthropic</div>
-          <div class="mt-1 text-2xl font-semibold text-orange-300">
-            {{ agents.filter(a => a.provider === 'anthropic').length }}
-          </div>
-        </div>
-        <div class="orbitos-card-static">
-          <div class="text-xs uppercase text-white/40">OpenAI / Google</div>
-          <div class="mt-1 text-2xl font-semibold text-blue-300">
-            {{ agents.filter(a => a.provider !== 'anthropic').length }}
-          </div>
+          <div class="text-xs uppercase text-white/40">Total</div>
+          <div class="mt-1 text-2xl font-semibold text-white">{{ agents.length }}</div>
         </div>
       </div>
 
@@ -395,144 +525,275 @@ const formatRelativeTime = (dateStr: string | undefined) => {
         <div class="orbitos-spinner orbitos-spinner-md"></div>
       </div>
 
-      <!-- Empty State -->
-      <div v-else-if="agents.length === 0" class="orbitos-card-static p-12 text-center">
-        <div class="mx-auto w-16 h-16 rounded-full bg-purple-500/20 flex items-center justify-center mb-4">
-          <svg class="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-          </svg>
-        </div>
-        <h3 class="text-lg font-medium text-white mb-2">No AI Agents Yet</h3>
-        <p class="orbitos-text max-w-md mx-auto">
-          Create AI agents with different models (Claude, GPT-4, Gemini) and roles to help with different tasks.
-        </p>
-        <button
-          type="button"
-          @click="showAddDialog = true"
-          class="mt-4 rounded-lg bg-purple-500/20 px-4 py-2 text-sm text-purple-300 hover:bg-purple-500/30 transition-colors"
-        >
-          Create your first agent
-        </button>
-      </div>
-
-      <!-- Agents Table -->
-      <div v-else class="orbitos-card overflow-hidden">
-        <table class="w-full">
-          <thead>
-            <tr class="border-b border-white/10">
-              <th class="w-12 px-4 py-3 text-left text-xs font-medium text-white/40 uppercase tracking-wider">#</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-white/40 uppercase tracking-wider">Agent</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-white/40 uppercase tracking-wider hidden md:table-cell">Model</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-white/40 uppercase tracking-wider hidden lg:table-cell">Tokens</th>
-              <th class="px-4 py-3 text-center text-xs font-medium text-white/40 uppercase tracking-wider">Status</th>
-              <th class="px-4 py-3 text-right text-xs font-medium text-white/40 uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-white/5">
-            <tr
-              v-for="(agent, index) in agents"
-              :key="agent.id"
-              class="group hover:bg-white/5 transition-colors"
-              :class="{ 'opacity-50': !agent.isActive }"
-            >
-              <!-- Index -->
-              <td class="px-4 py-4">
-                <span class="text-sm font-mono text-white/30">{{ index + 1 }}</span>
-              </td>
-
-              <!-- Agent Info -->
-              <td class="px-4 py-4">
-                <div class="flex items-center gap-3">
-                  <div
-                    class="w-10 h-10 rounded-xl flex items-center justify-center text-white font-semibold text-sm flex-shrink-0 shadow-lg"
-                    :style="{ backgroundColor: agent.avatarColor || '#8B5CF6' }"
-                  >
-                    {{ agent.name.charAt(0) }}
-                  </div>
-                  <div class="min-w-0">
-                    <div class="flex items-center gap-2">
-                      <span class="font-medium text-white truncate">{{ agent.name }}</span>
-                    </div>
-                    <p class="text-sm text-white/50 truncate">{{ agent.roleTitle }}</p>
-                    <!-- Mobile: Show model badge inline -->
-                    <div class="md:hidden mt-1">
-                      <span
-                        :class="['inline-flex rounded-full px-2 py-0.5 text-xs font-medium', getProviderBadge(agent.provider).bgColor, getProviderBadge(agent.provider).color]"
-                      >
-                        {{ agent.modelDisplayName }}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </td>
-
-              <!-- Model -->
-              <td class="px-4 py-4 hidden md:table-cell">
-                <span
-                  :class="['inline-flex rounded-full px-2.5 py-1 text-xs font-medium', getProviderBadge(agent.provider).bgColor, getProviderBadge(agent.provider).color]"
+      <template v-else>
+        <!-- ORCHESTRATOR QUICK ACCESS -->
+        <div class="orbitos-card p-4 bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-purple-500/30">
+          <div class="flex items-start gap-4">
+            <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-3xl shadow-lg">
+              🎯
+            </div>
+            <div class="flex-1">
+              <h2 class="text-lg font-semibold text-white mb-1">Ask OrbitOS</h2>
+              <p class="text-sm text-white/60 mb-3">
+                Ask any question and the orchestrator will automatically route it to the right specialist agents.
+                Watch the inner dialogue to see how agents collaborate to answer your question.
+              </p>
+              <div class="flex items-center gap-3">
+                <input
+                  v-model="orchestratorQuery"
+                  type="text"
+                  class="orbitos-input flex-1"
+                  placeholder="e.g., What's the bottleneck in our processes? Who's overloaded?"
+                  @keydown.enter="askOrchestrator"
+                  :disabled="isAskingOrchestrator"
+                />
+                <button
+                  type="button"
+                  class="orbitos-btn-primary px-4 py-2 text-sm"
+                  :disabled="!orchestratorQuery.trim() || isAskingOrchestrator"
+                  @click="askOrchestrator"
                 >
-                  {{ agent.modelDisplayName }}
-                </span>
-              </td>
+                  <svg v-if="isAskingOrchestrator" class="animate-spin -ml-1 mr-2 h-4 w-4 inline" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  {{ isAskingOrchestrator ? 'Thinking...' : 'Ask' }}
+                </button>
+              </div>
+            </div>
+          </div>
 
-              <!-- Max Tokens -->
-              <td class="px-4 py-4 hidden lg:table-cell">
-                <span class="text-sm text-white/60 font-mono">
-                  {{ agent.maxTokensPerResponse.toLocaleString() }}
-                </span>
-              </td>
+          <!-- Orchestrator Response -->
+          <div v-if="orchestratorResponse" class="mt-4 pt-4 border-t border-white/10">
+            <!-- Inner Dialogue Steps -->
+            <InnerDialogueDisplay
+              v-if="orchestratorResponse.innerDialogue?.length"
+              :steps="orchestratorResponse.innerDialogue"
+              :is-collapsible="true"
+              class="mb-4"
+            />
 
-              <!-- Status -->
-              <td class="px-4 py-4 text-center">
+            <!-- Response -->
+            <div class="bg-white/5 rounded-lg p-4">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-xs text-white/40">Response from:</span>
+                <span
+                  v-for="agent in orchestratorResponse.agentsConsulted"
+                  :key="agent"
+                  class="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300"
+                >
+                  {{ agent }}
+                </span>
+              </div>
+              <div class="text-white/90 whitespace-pre-wrap text-sm">{{ orchestratorResponse.message }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- BUILT-IN AGENTS SECTION -->
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-lg font-semibold text-white">Built-in</h2>
+              <p class="text-sm text-white/50">Pre-configured specialists with access to your organization data</p>
+            </div>
+          </div>
+
+          <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div
+              v-for="agent in builtInAgents"
+              :key="agent.id"
+              class="orbitos-card p-4 relative group"
+              :class="{ 'opacity-60': !agent.isActive }"
+            >
+              <!-- Icon & Name -->
+              <div class="flex items-center gap-3 mb-3">
+                <div
+                  class="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shadow-lg"
+                  :style="{ backgroundColor: agent.avatarColor || '#3B82F6' }"
+                >
+                  {{ specialistIcons[agent.specialistKey || ''] || '🤖' }}
+                </div>
+                <div class="flex-1 min-w-0">
+                  <h3 class="font-medium text-white truncate">{{ agent.name }}</h3>
+                  <p class="text-xs text-white/50 truncate">{{ agent.roleTitle }}</p>
+                </div>
+              </div>
+
+              <!-- Context Scopes -->
+              <div class="mb-3">
+                <div class="flex flex-wrap gap-1">
+                  <span
+                    v-for="scope in (agent.contextScopes || []).slice(0, 3)"
+                    :key="scope"
+                    class="text-xs px-2 py-0.5 rounded-full bg-white/10 text-white/60"
+                  >
+                    {{ scope }}
+                  </span>
+                  <span
+                    v-if="(agent.contextScopes || []).length > 3"
+                    class="text-xs px-2 py-0.5 rounded-full bg-white/10 text-white/40"
+                  >
+                    +{{ (agent.contextScopes || []).length - 3 }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Custom Instructions Indicator -->
+              <div v-if="agent.customInstructions" class="mb-3">
+                <span class="text-xs text-purple-400">
+                  <svg class="w-3 h-3 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                  </svg>
+                  Customized
+                </span>
+              </div>
+
+              <!-- Status & Actions -->
+              <div class="flex items-center justify-between mt-auto pt-2 border-t border-white/10">
                 <button
                   type="button"
                   @click="handleToggleActive(agent.id)"
                   :class="[
-                    'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-all',
+                    'text-xs px-2 py-1 rounded-full transition-all',
                     agent.isActive
                       ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
                       : 'bg-slate-500/20 text-slate-400 hover:bg-slate-500/30'
                   ]"
                 >
-                  <span
-                    :class="[
-                      'w-1.5 h-1.5 rounded-full',
-                      agent.isActive ? 'bg-emerald-400' : 'bg-slate-400'
-                    ]"
-                  />
                   {{ agent.isActive ? 'Active' : 'Inactive' }}
                 </button>
-              </td>
+                <button
+                  type="button"
+                  @click="openEditBuiltInDialog(agent)"
+                  class="text-xs text-white/50 hover:text-white transition-colors"
+                >
+                  Edit
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
 
-              <!-- Actions -->
-              <td class="px-4 py-4 text-right">
-                <div class="flex items-center justify-end gap-1">
+        <!-- CUSTOM AGENTS SECTION -->
+        <div class="space-y-3 mt-8">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-lg font-semibold text-white">Custom</h2>
+              <p class="text-sm text-white/50">AI personas you've created for conversations</p>
+            </div>
+          </div>
+
+          <!-- Empty State for Custom -->
+          <div v-if="customAgents.length === 0" class="orbitos-card-static p-8 text-center">
+            <div class="mx-auto w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center mb-3">
+              <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+            </div>
+            <h3 class="text-sm font-medium text-white mb-1">No custom agents yet</h3>
+            <p class="text-xs text-white/50 max-w-xs mx-auto mb-3">
+              Create custom AI personas with different personalities and expertise
+            </p>
+            <button
+              type="button"
+              @click="showAddDialog = true"
+              class="text-sm text-purple-400 hover:text-purple-300 transition-colors"
+            >
+              Create your first agent
+            </button>
+          </div>
+
+          <!-- Custom Agents Grid -->
+          <div v-else class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div
+              v-for="agent in customAgents"
+              :key="agent.id"
+              class="orbitos-card p-4 relative group"
+              :class="{ 'opacity-60': !agent.isActive }"
+            >
+              <!-- Icon & Name -->
+              <div class="flex items-center gap-3 mb-3">
+                <div
+                  class="w-12 h-12 rounded-xl flex items-center justify-center text-white font-semibold text-lg shadow-lg"
+                  :style="{ backgroundColor: agent.avatarColor || '#8B5CF6' }"
+                >
+                  {{ agent.name.charAt(0) }}
+                </div>
+                <div class="flex-1 min-w-0">
+                  <h3 class="font-medium text-white truncate">{{ agent.name }}</h3>
+                  <p class="text-xs text-white/50 truncate">{{ agent.roleTitle }}</p>
+                </div>
+              </div>
+
+              <!-- Model Badge -->
+              <div class="mb-3">
+                <span
+                  :class="['inline-flex rounded-full px-2 py-0.5 text-xs font-medium', getProviderBadge(agent.provider).bgColor, getProviderBadge(agent.provider).color]"
+                >
+                  {{ agent.modelDisplayName }}
+                </span>
+              </div>
+
+              <!-- Can Call Built-in Indicator -->
+              <div v-if="agent.canCallBuiltInAgents" class="mb-3">
+                <span class="text-xs text-blue-400">
+                  <svg class="w-3 h-3 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+                  </svg>
+                  Can consult specialists
+                </span>
+              </div>
+
+              <!-- Status & Actions -->
+              <div class="flex items-center justify-between mt-auto pt-2 border-t border-white/10">
+                <button
+                  type="button"
+                  @click="handleToggleActive(agent.id)"
+                  :class="[
+                    'text-xs px-2 py-1 rounded-full transition-all',
+                    agent.isActive
+                      ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
+                      : 'bg-slate-500/20 text-slate-400 hover:bg-slate-500/30'
+                  ]"
+                >
+                  {{ agent.isActive ? 'Active' : 'Inactive' }}
+                </button>
+                <div class="flex items-center gap-2">
                   <button
                     type="button"
                     @click="openEditDialog(agent)"
-                    class="p-2 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors"
-                    title="Edit agent"
+                    class="text-xs text-white/50 hover:text-white transition-colors"
                   >
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
+                    Edit
                   </button>
                   <button
                     type="button"
                     @click="handleDeleteAgent(agent.id)"
-                    class="p-2 rounded-lg text-white/50 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                    title="Delete agent"
+                    class="text-xs text-white/50 hover:text-red-400 transition-colors"
                   >
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
+                    Delete
                   </button>
                 </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+              </div>
+            </div>
+
+            <!-- Add Agent Card -->
+            <button
+              type="button"
+              @click="showAddDialog = true"
+              class="orbitos-card-static p-4 border-2 border-dashed border-white/20 hover:border-purple-500/50 hover:bg-purple-500/5 transition-all flex flex-col items-center justify-center min-h-[180px]"
+            >
+              <div class="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center mb-3">
+                <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+              </div>
+              <span class="text-sm text-white/60">Add Agent</span>
+            </button>
+          </div>
+        </div>
+      </template>
     </template>
 
     <!-- Conversations Tab Content -->
@@ -715,6 +976,57 @@ const formatRelativeTime = (dateStr: string | undefined) => {
                 :class="{ 'ring-2 ring-white ring-offset-2 ring-offset-slate-900 scale-110': newAgent.avatarColor === color }"
                 :style="{ backgroundColor: color }"
               />
+            </div>
+          </div>
+
+          <!-- Data Access Section -->
+          <div class="border-t border-white/10 pt-4">
+            <button
+              type="button"
+              @click="showDataAccessSection = !showDataAccessSection"
+              class="flex items-center gap-2 text-sm text-blue-300 hover:text-blue-200 transition-colors"
+            >
+              <svg
+                class="w-4 h-4 transition-transform"
+                :class="{ 'rotate-90': showDataAccessSection }"
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
+              Data Access (Context Scopes)
+            </button>
+
+            <div v-if="showDataAccessSection" class="mt-4 space-y-3 pl-4 border-l-2 border-blue-500/30">
+              <p class="text-xs text-white/50">
+                Select which organization data this agent can access. This determines what information is loaded into the agent's context when responding.
+              </p>
+
+              <div class="grid grid-cols-2 gap-2">
+                <label
+                  v-for="scope in availableContextScopes"
+                  :key="scope.key"
+                  class="flex items-start gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer transition-colors"
+                  :class="{ 'ring-1 ring-blue-500/50 bg-blue-500/10': (newAgent.contextScopes || []).includes(scope.key) }"
+                >
+                  <input
+                    type="checkbox"
+                    :checked="(newAgent.contextScopes || []).includes(scope.key)"
+                    @change="toggleContextScope(scope.key)"
+                    class="mt-0.5 w-4 h-4 rounded bg-white/10 border-white/20 accent-blue-500"
+                  />
+                  <div class="flex-1 min-w-0">
+                    <span class="text-sm text-white/90 block">{{ scope.label }}</span>
+                    <span class="text-xs text-white/40 block">{{ scope.description }}</span>
+                  </div>
+                </label>
+              </div>
+
+              <p v-if="(newAgent.contextScopes || []).length === 0" class="text-xs text-amber-400/70">
+                No data access selected. The agent won't have access to your organization data.
+              </p>
+              <p v-else class="text-xs text-blue-400/70">
+                {{ (newAgent.contextScopes || []).length }} scope{{ (newAgent.contextScopes || []).length === 1 ? '' : 's' }} selected
+              </p>
             </div>
           </div>
 
@@ -956,6 +1268,57 @@ const formatRelativeTime = (dateStr: string | undefined) => {
             <label for="isActive" class="orbitos-label mb-0">Agent is active</label>
           </div>
 
+          <!-- Data Access Section (Edit) -->
+          <div class="border-t border-white/10 pt-4">
+            <button
+              type="button"
+              @click="showEditDataAccessSection = !showEditDataAccessSection"
+              class="flex items-center gap-2 text-sm text-blue-300 hover:text-blue-200 transition-colors"
+            >
+              <svg
+                class="w-4 h-4 transition-transform"
+                :class="{ 'rotate-90': showEditDataAccessSection }"
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
+              Data Access (Context Scopes)
+            </button>
+
+            <div v-if="showEditDataAccessSection" class="mt-4 space-y-3 pl-4 border-l-2 border-blue-500/30">
+              <p class="text-xs text-white/50">
+                Select which organization data this agent can access.
+              </p>
+
+              <div class="grid grid-cols-2 gap-2">
+                <label
+                  v-for="scope in availableContextScopes"
+                  :key="scope.key"
+                  class="flex items-start gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer transition-colors"
+                  :class="{ 'ring-1 ring-blue-500/50 bg-blue-500/10': (editingAgent.contextScopes || []).includes(scope.key) }"
+                >
+                  <input
+                    type="checkbox"
+                    :checked="(editingAgent.contextScopes || []).includes(scope.key)"
+                    @change="toggleEditContextScope(scope.key)"
+                    class="mt-0.5 w-4 h-4 rounded bg-white/10 border-white/20 accent-blue-500"
+                  />
+                  <div class="flex-1 min-w-0">
+                    <span class="text-sm text-white/90 block">{{ scope.label }}</span>
+                    <span class="text-xs text-white/40 block">{{ scope.description }}</span>
+                  </div>
+                </label>
+              </div>
+
+              <p v-if="(editingAgent.contextScopes || []).length === 0" class="text-xs text-amber-400/70">
+                No data access selected.
+              </p>
+              <p v-else class="text-xs text-blue-400/70">
+                {{ (editingAgent.contextScopes || []).length }} scope{{ (editingAgent.contextScopes || []).length === 1 ? '' : 's' }} selected
+              </p>
+            </div>
+          </div>
+
           <!-- Personality & Meeting Behavior Section -->
           <div class="border-t border-white/10 pt-4">
             <button
@@ -1081,6 +1444,108 @@ const formatRelativeTime = (dateStr: string | undefined) => {
       </template>
     </BaseDialog>
 
+    <!-- Edit Built-in Agent Dialog -->
+    <BaseDialog
+      v-model="showEditBuiltInDialog"
+      size="lg"
+      title="Edit Built-in Agent"
+      :subtitle="editingBuiltInAgent?.roleTitle || ''"
+      @close="editingBuiltInAgent = null"
+      @submit="handleSaveBuiltInAgent"
+    >
+      <template v-if="editingBuiltInAgent">
+        <div class="space-y-4">
+          <!-- Agent Header -->
+          <div class="flex items-center gap-4 p-4 rounded-xl bg-white/5">
+            <div
+              class="w-14 h-14 rounded-xl flex items-center justify-center text-3xl shadow-lg"
+              :style="{ backgroundColor: editingBuiltInAgent.avatarColor || '#3B82F6' }"
+            >
+              {{ specialistIcons[editingBuiltInAgent.specialistKey || ''] || '🤖' }}
+            </div>
+            <div>
+              <h3 class="text-lg font-medium text-white">{{ editingBuiltInAgent.name }}</h3>
+              <p class="text-sm text-white/50">{{ editingBuiltInAgent.roleTitle }}</p>
+            </div>
+          </div>
+
+          <!-- Data Access (read-only) -->
+          <div>
+            <label class="orbitos-label">Data Access</label>
+            <div class="flex flex-wrap gap-2">
+              <span
+                v-for="scope in editingBuiltInAgent.contextScopes || []"
+                :key="scope"
+                class="px-3 py-1.5 rounded-lg bg-blue-500/20 text-blue-300 text-sm"
+              >
+                {{ scope }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Base Behavior (read-only, collapsible) -->
+          <div>
+            <label class="orbitos-label flex items-center gap-2">
+              Base Behavior
+              <span class="text-xs text-white/40 font-normal">(read-only)</span>
+            </label>
+            <div class="p-3 rounded-lg bg-white/5 border border-white/10 max-h-40 overflow-y-auto">
+              <pre class="text-xs text-white/60 whitespace-pre-wrap font-mono">{{ editingBuiltInAgent.basePrompt }}</pre>
+            </div>
+          </div>
+
+          <!-- Custom Instructions -->
+          <div>
+            <label class="orbitos-label">Custom Instructions</label>
+            <p class="text-xs text-white/40 mb-2">Add organization-specific context, preferences, or rules</p>
+            <textarea
+              v-model="builtInCustomInstructions"
+              rows="6"
+              class="orbitos-input font-mono text-sm"
+              placeholder="- Always consider our Q4 hiring freeze
+- Flag any team with span of control > 8
+- We prefer flat hierarchies"
+            ></textarea>
+          </div>
+
+          <!-- Status -->
+          <div class="flex items-center gap-3 p-3 rounded-lg bg-white/5">
+            <input
+              v-model="editingBuiltInAgent.isActive"
+              type="checkbox"
+              id="builtInIsActive"
+              class="w-4 h-4 rounded bg-white/10 border-white/20 accent-purple-500"
+            />
+            <label for="builtInIsActive" class="text-sm text-white">Agent is active</label>
+          </div>
+        </div>
+      </template>
+
+      <template #footer="{ close }">
+        <div class="flex gap-3">
+          <button
+            type="button"
+            @click="close"
+            class="flex-1 orbitos-btn-secondary"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            @click="handleSaveBuiltInAgent"
+            :disabled="isSubmitting"
+            class="flex-1 orbitos-btn-primary"
+          >
+            <span v-if="isSubmitting" class="flex items-center justify-center gap-2">
+              <div class="orbitos-spinner orbitos-spinner-sm"></div>
+              Saving...
+            </span>
+            <span v-else>Save Changes</span>
+          </button>
+        </div>
+      </template>
+    </BaseDialog>
+
     <!-- New Conversation Dialog -->
     <BaseDialog
       v-model="showNewConversationDialog"
@@ -1121,44 +1586,98 @@ const formatRelativeTime = (dateStr: string | undefined) => {
         <div>
           <label class="orbitos-label">Select AI Agents *</label>
           <p class="text-xs text-white/40 mb-2">Choose which AI agents will participate in this conversation.</p>
-          <div class="space-y-2 max-h-48 overflow-y-auto">
-            <button
-              v-for="agent in agents.filter(a => a.isActive)"
-              :key="agent.id"
-              type="button"
-              @click="toggleAgentSelection(agent.id)"
-              :class="[
-                'w-full flex items-center gap-3 p-3 rounded-xl border transition-colors text-left',
-                newConversation.aiAgentIds?.includes(agent.id)
-                  ? 'border-purple-500/50 bg-purple-500/10'
-                  : 'border-white/10 hover:border-white/20'
-              ]"
-            >
-              <div
-                class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium text-white"
-                :style="{ backgroundColor: agent.avatarColor || '#8B5CF6' }"
-              >
-                {{ agent.name.charAt(0) }}
+          <div class="space-y-4 max-h-64 overflow-y-auto">
+            <!-- Built-in Agents Section -->
+            <div v-if="builtInAgents.filter(a => a.isActive).length > 0">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-xs font-medium text-blue-400 uppercase tracking-wider">Built-in Specialists</span>
+                <div class="flex-1 h-px bg-blue-500/20"></div>
               </div>
-              <div class="flex-1">
-                <div class="text-white font-medium">{{ agent.name }}</div>
-                <div class="text-white/60 text-sm">{{ agent.roleTitle }}</div>
+              <div class="space-y-2">
+                <button
+                  v-for="agent in builtInAgents.filter(a => a.isActive)"
+                  :key="agent.id"
+                  type="button"
+                  @click="toggleAgentSelection(agent.id)"
+                  :class="[
+                    'w-full flex items-center gap-3 p-3 rounded-xl border transition-colors text-left',
+                    newConversation.aiAgentIds?.includes(agent.id)
+                      ? 'border-blue-500/50 bg-blue-500/10'
+                      : 'border-white/10 hover:border-white/20'
+                  ]"
+                >
+                  <div
+                    class="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                    :style="{ backgroundColor: agent.avatarColor || '#3B82F6' }"
+                  >
+                    {{ specialistIcons[agent.specialistKey || ''] || '🤖' }}
+                  </div>
+                  <div class="flex-1">
+                    <div class="text-white font-medium">{{ agent.name }}</div>
+                    <div class="text-white/60 text-sm">{{ agent.roleTitle }}</div>
+                  </div>
+                  <div
+                    :class="[
+                      'w-5 h-5 rounded border flex items-center justify-center',
+                      newConversation.aiAgentIds?.includes(agent.id)
+                        ? 'bg-blue-500 border-blue-500'
+                        : 'border-white/30'
+                    ]"
+                  >
+                    <svg v-if="newConversation.aiAgentIds?.includes(agent.id)" class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                </button>
               </div>
-              <div
-                :class="[
-                  'w-5 h-5 rounded border flex items-center justify-center',
-                  newConversation.aiAgentIds?.includes(agent.id)
-                    ? 'bg-purple-500 border-purple-500'
-                    : 'border-white/30'
-                ]"
-              >
-                <svg v-if="newConversation.aiAgentIds?.includes(agent.id)" class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
-                </svg>
+            </div>
+
+            <!-- Custom Agents Section -->
+            <div v-if="customAgents.filter(a => a.isActive).length > 0">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-xs font-medium text-purple-400 uppercase tracking-wider">Custom Agents</span>
+                <div class="flex-1 h-px bg-purple-500/20"></div>
               </div>
-            </button>
+              <div class="space-y-2">
+                <button
+                  v-for="agent in customAgents.filter(a => a.isActive)"
+                  :key="agent.id"
+                  type="button"
+                  @click="toggleAgentSelection(agent.id)"
+                  :class="[
+                    'w-full flex items-center gap-3 p-3 rounded-xl border transition-colors text-left',
+                    newConversation.aiAgentIds?.includes(agent.id)
+                      ? 'border-purple-500/50 bg-purple-500/10'
+                      : 'border-white/10 hover:border-white/20'
+                  ]"
+                >
+                  <div
+                    class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium text-white"
+                    :style="{ backgroundColor: agent.avatarColor || '#8B5CF6' }"
+                  >
+                    {{ agent.name.charAt(0) }}
+                  </div>
+                  <div class="flex-1">
+                    <div class="text-white font-medium">{{ agent.name }}</div>
+                    <div class="text-white/60 text-sm">{{ agent.roleTitle }}</div>
+                  </div>
+                  <div
+                    :class="[
+                      'w-5 h-5 rounded border flex items-center justify-center',
+                      newConversation.aiAgentIds?.includes(agent.id)
+                        ? 'bg-purple-500 border-purple-500'
+                        : 'border-white/30'
+                    ]"
+                  >
+                    <svg v-if="newConversation.aiAgentIds?.includes(agent.id)" class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                </button>
+              </div>
+            </div>
           </div>
-          <p v-if="agents.filter(a => a.isActive).length === 0" class="text-sm text-white/40 py-4 text-center">
+          <p v-if="activeAgents.length === 0" class="text-sm text-white/40 py-4 text-center">
             No active AI agents available. Create an agent first.
           </p>
         </div>

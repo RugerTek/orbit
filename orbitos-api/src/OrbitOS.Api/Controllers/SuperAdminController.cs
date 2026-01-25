@@ -143,7 +143,7 @@ public class AddMemberRequest
     public MembershipRole Role { get; set; } = MembershipRole.Member;
 }
 
-public class DashboardStatsDto
+public class SuperAdminDashboardStatsDto
 {
     public int TotalUsers { get; set; }
     public int TotalOrganizations { get; set; }
@@ -176,11 +176,11 @@ public class SuperAdminController : ControllerBase
 
     // Dashboard Stats
     [HttpGet("dashboard")]
-    public async Task<ActionResult<DashboardStatsDto>> GetDashboardStats()
+    public async Task<ActionResult<SuperAdminDashboardStatsDto>> GetDashboardStats()
     {
         var thirtyDaysAgo = DateTime.UtcNow.AddDays(-30);
 
-        var stats = new DashboardStatsDto
+        var stats = new SuperAdminDashboardStatsDto
         {
             TotalUsers = await _dbContext.Users.CountAsync(),
             TotalOrganizations = await _dbContext.Organizations.CountAsync(),

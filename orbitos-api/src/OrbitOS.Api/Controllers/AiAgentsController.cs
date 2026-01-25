@@ -1,6 +1,8 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using OrbitOS.Api.Services;
 using OrbitOS.Domain.Entities;
 using OrbitOS.Infrastructure.Data;
 
@@ -12,11 +14,16 @@ namespace OrbitOS.Api.Controllers;
 public class AiAgentsController : ControllerBase
 {
     private readonly OrbitOSDbContext _dbContext;
+    private readonly IBuiltInAgentService _builtInAgentService;
     private readonly ILogger<AiAgentsController> _logger;
 
-    public AiAgentsController(OrbitOSDbContext dbContext, ILogger<AiAgentsController> logger)
+    public AiAgentsController(
+        OrbitOSDbContext dbContext,
+        IBuiltInAgentService builtInAgentService,
+        ILogger<AiAgentsController> logger)
     {
         _dbContext = dbContext;
+        _builtInAgentService = builtInAgentService;
         _logger = logger;
     }
 
@@ -24,41 +31,34 @@ public class AiAgentsController : ControllerBase
     /// Get all AI agents for the organization
     /// </summary>
     [HttpGet]
-    public async Task<ActionResult<List<AiAgentDto>>> GetAgents(Guid organizationId, CancellationToken cancellationToken)
+    public async Task<ActionResult<List<AiAgentDto>>> GetAgents(
+        Guid organizationId,
+        [FromQuery] string? type,
+        CancellationToken cancellationToken)
     {
-        var agents = await _dbContext.AiAgents
-            .Where(a => a.OrganizationId == organizationId)
-            .OrderBy(a => a.SortOrder)
-            .ThenBy(a => a.Name)
-            .Select(a => new AiAgentDto
+        // Auto-seed Built-in agents if they don't exist
+        await _builtInAgentService.SeedBuiltInAgentsAsync(organizationId, cancellationToken);
+
+        var query = _dbContext.AiAgents
+            .Where(a => a.OrganizationId == organizationId);
+
+        // Filter by type if specified
+        if (!string.IsNullOrEmpty(type))
+        {
+            if (Enum.TryParse<AgentType>(type, true, out var agentType))
             {
-                Id = a.Id,
-                Name = a.Name,
-                RoleTitle = a.RoleTitle,
-                AvatarUrl = a.AvatarUrl,
-                AvatarColor = a.AvatarColor,
-                Provider = a.Provider.ToString().ToLower(),
-                ModelId = a.ModelId,
-                ModelDisplayName = a.ModelDisplayName,
-                SystemPrompt = a.SystemPrompt,
-                MaxTokensPerResponse = a.MaxTokensPerResponse,
-                Temperature = a.Temperature,
-                IsActive = a.IsActive,
-                SortOrder = a.SortOrder,
-                CreatedAt = a.CreatedAt,
-                UpdatedAt = a.UpdatedAt,
-                // Personality fields
-                Assertiveness = a.Assertiveness,
-                CommunicationStyle = a.CommunicationStyle.ToString(),
-                ReactionTendency = a.ReactionTendency.ToString(),
-                ExpertiseAreas = a.ExpertiseAreas,
-                SeniorityLevel = a.SeniorityLevel,
-                AsksQuestions = a.AsksQuestions,
-                GivesBriefAcknowledgments = a.GivesBriefAcknowledgments
-            })
+                query = query.Where(a => a.AgentType == agentType);
+            }
+        }
+
+        var agents = await query
+            .OrderByDescending(a => a.AgentType) // BuiltIn (1) before Custom (0)
+            .ThenBy(a => a.SortOrder)
+            .ThenBy(a => a.Name)
             .ToListAsync(cancellationToken);
 
-        return Ok(agents);
+        var result = agents.Select(a => MapToDto(a)).ToList();
+        return Ok(result);
     }
 
     /// <summary>
@@ -69,38 +69,12 @@ public class AiAgentsController : ControllerBase
     {
         var agent = await _dbContext.AiAgents
             .Where(a => a.OrganizationId == organizationId && a.Id == agentId)
-            .Select(a => new AiAgentDto
-            {
-                Id = a.Id,
-                Name = a.Name,
-                RoleTitle = a.RoleTitle,
-                AvatarUrl = a.AvatarUrl,
-                AvatarColor = a.AvatarColor,
-                Provider = a.Provider.ToString().ToLower(),
-                ModelId = a.ModelId,
-                ModelDisplayName = a.ModelDisplayName,
-                SystemPrompt = a.SystemPrompt,
-                MaxTokensPerResponse = a.MaxTokensPerResponse,
-                Temperature = a.Temperature,
-                IsActive = a.IsActive,
-                SortOrder = a.SortOrder,
-                CreatedAt = a.CreatedAt,
-                UpdatedAt = a.UpdatedAt,
-                // Personality fields
-                Assertiveness = a.Assertiveness,
-                CommunicationStyle = a.CommunicationStyle.ToString(),
-                ReactionTendency = a.ReactionTendency.ToString(),
-                ExpertiseAreas = a.ExpertiseAreas,
-                SeniorityLevel = a.SeniorityLevel,
-                AsksQuestions = a.AsksQuestions,
-                GivesBriefAcknowledgments = a.GivesBriefAcknowledgments
-            })
             .FirstOrDefaultAsync(cancellationToken);
 
         if (agent == null)
             return NotFound();
 
-        return Ok(agent);
+        return Ok(MapToDto(agent));
     }
 
     /// <summary>
@@ -163,7 +137,18 @@ public class AiAgentsController : ControllerBase
             ExpertiseAreas = request.ExpertiseAreas,
             SeniorityLevel = request.SeniorityLevel ?? 3,
             AsksQuestions = request.AsksQuestions ?? false,
-            GivesBriefAcknowledgments = request.GivesBriefAcknowledgments ?? true
+            GivesBriefAcknowledgments = request.GivesBriefAcknowledgments ?? true,
+            // A2A fields - Custom agents only through API
+            AgentType = AgentType.Custom,
+            SpecialistKey = null,
+            ContextScopesJson = request.ContextScopes != null && request.ContextScopes.Length > 0
+                ? JsonSerializer.Serialize(request.ContextScopes)
+                : null,
+            BasePrompt = null,
+            CustomInstructions = null,
+            CanCallBuiltInAgents = request.CanCallBuiltInAgents ?? false,
+            CanBeOrchestrated = false,
+            IsSystemProvided = false
         };
 
         _dbContext.AiAgents.Add(agent);
@@ -196,7 +181,18 @@ public class AiAgentsController : ControllerBase
             ExpertiseAreas = agent.ExpertiseAreas,
             SeniorityLevel = agent.SeniorityLevel,
             AsksQuestions = agent.AsksQuestions,
-            GivesBriefAcknowledgments = agent.GivesBriefAcknowledgments
+            GivesBriefAcknowledgments = agent.GivesBriefAcknowledgments,
+            // A2A fields
+            AgentType = agent.AgentType.ToString(),
+            SpecialistKey = agent.SpecialistKey,
+            ContextScopes = !string.IsNullOrEmpty(agent.ContextScopesJson)
+                ? JsonSerializer.Deserialize<string[]>(agent.ContextScopesJson)
+                : null,
+            BasePrompt = agent.BasePrompt,
+            CustomInstructions = agent.CustomInstructions,
+            CanCallBuiltInAgents = agent.CanCallBuiltInAgents,
+            CanBeOrchestrated = agent.CanBeOrchestrated,
+            IsSystemProvided = agent.IsSystemProvided
         });
     }
 
@@ -216,50 +212,73 @@ public class AiAgentsController : ControllerBase
         if (agent == null)
             return NotFound();
 
-        // Check for duplicate name if name is being changed
-        if (request.Name != null && request.Name != agent.Name)
+        // Built-in agents have restricted updates
+        if (agent.AgentType == AgentType.BuiltIn)
         {
-            var nameExists = await _dbContext.AiAgents
-                .AnyAsync(a => a.OrganizationId == organizationId && a.Name == request.Name && a.Id != agentId, cancellationToken);
-            if (nameExists)
-                return BadRequest("An agent with this name already exists");
+            // Only allow: customInstructions, isActive, name (display only)
+            if (request.CustomInstructions != null) agent.CustomInstructions = request.CustomInstructions;
+            if (request.IsActive != null) agent.IsActive = request.IsActive.Value;
+            if (request.Name != null) agent.Name = request.Name;
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            _logger.LogInformation("Updated Built-in agent {AgentId} for organization {OrgId}", agentId, organizationId);
         }
-
-        // Update fields
-        if (request.Name != null) agent.Name = request.Name;
-        if (request.RoleTitle != null) agent.RoleTitle = request.RoleTitle;
-        if (request.AvatarUrl != null) agent.AvatarUrl = request.AvatarUrl;
-        if (request.AvatarColor != null) agent.AvatarColor = request.AvatarColor;
-
-        if (request.Provider != null)
+        else
         {
-            if (!Enum.TryParse<AiProvider>(request.Provider, true, out var provider))
-                return BadRequest("Invalid provider");
-            agent.Provider = provider;
+            // Custom agents - full update allowed
+            // Check for duplicate name if name is being changed
+            if (request.Name != null && request.Name != agent.Name)
+            {
+                var nameExists = await _dbContext.AiAgents
+                    .AnyAsync(a => a.OrganizationId == organizationId && a.Name == request.Name && a.Id != agentId, cancellationToken);
+                if (nameExists)
+                    return BadRequest("An agent with this name already exists");
+            }
+
+            // Update fields
+            if (request.Name != null) agent.Name = request.Name;
+            if (request.RoleTitle != null) agent.RoleTitle = request.RoleTitle;
+            if (request.AvatarUrl != null) agent.AvatarUrl = request.AvatarUrl;
+            if (request.AvatarColor != null) agent.AvatarColor = request.AvatarColor;
+
+            if (request.Provider != null)
+            {
+                if (!Enum.TryParse<AiProvider>(request.Provider, true, out var provider))
+                    return BadRequest("Invalid provider");
+                agent.Provider = provider;
+            }
+
+            if (request.ModelId != null) agent.ModelId = request.ModelId;
+            if (request.ModelDisplayName != null) agent.ModelDisplayName = request.ModelDisplayName;
+            if (request.SystemPrompt != null) agent.SystemPrompt = request.SystemPrompt;
+            if (request.MaxTokensPerResponse != null) agent.MaxTokensPerResponse = request.MaxTokensPerResponse.Value;
+            if (request.Temperature != null) agent.Temperature = request.Temperature.Value;
+            if (request.IsActive != null) agent.IsActive = request.IsActive.Value;
+            if (request.SortOrder != null) agent.SortOrder = request.SortOrder.Value;
+
+            // Personality fields
+            if (request.Assertiveness != null) agent.Assertiveness = Math.Clamp(request.Assertiveness.Value, 0, 100);
+            if (request.CommunicationStyle != null && Enum.TryParse<CommunicationStyle>(request.CommunicationStyle, true, out var commStyle))
+                agent.CommunicationStyle = commStyle;
+            if (request.ReactionTendency != null && Enum.TryParse<ReactionTendency>(request.ReactionTendency, true, out var reactTendency))
+                agent.ReactionTendency = reactTendency;
+            if (request.ExpertiseAreas != null) agent.ExpertiseAreas = request.ExpertiseAreas;
+            if (request.SeniorityLevel != null) agent.SeniorityLevel = Math.Clamp(request.SeniorityLevel.Value, 1, 5);
+            if (request.AsksQuestions != null) agent.AsksQuestions = request.AsksQuestions.Value;
+            if (request.GivesBriefAcknowledgments != null) agent.GivesBriefAcknowledgments = request.GivesBriefAcknowledgments.Value;
+
+            // A2A fields for Custom agents
+            if (request.CanCallBuiltInAgents != null) agent.CanCallBuiltInAgents = request.CanCallBuiltInAgents.Value;
+            if (request.ContextScopes != null)
+            {
+                agent.ContextScopesJson = request.ContextScopes.Length > 0
+                    ? JsonSerializer.Serialize(request.ContextScopes)
+                    : null;
+            }
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            _logger.LogInformation("Updated Custom agent {AgentId} for organization {OrgId}", agentId, organizationId);
         }
-
-        if (request.ModelId != null) agent.ModelId = request.ModelId;
-        if (request.ModelDisplayName != null) agent.ModelDisplayName = request.ModelDisplayName;
-        if (request.SystemPrompt != null) agent.SystemPrompt = request.SystemPrompt;
-        if (request.MaxTokensPerResponse != null) agent.MaxTokensPerResponse = request.MaxTokensPerResponse.Value;
-        if (request.Temperature != null) agent.Temperature = request.Temperature.Value;
-        if (request.IsActive != null) agent.IsActive = request.IsActive.Value;
-        if (request.SortOrder != null) agent.SortOrder = request.SortOrder.Value;
-
-        // Personality fields
-        if (request.Assertiveness != null) agent.Assertiveness = Math.Clamp(request.Assertiveness.Value, 0, 100);
-        if (request.CommunicationStyle != null && Enum.TryParse<CommunicationStyle>(request.CommunicationStyle, true, out var commStyle))
-            agent.CommunicationStyle = commStyle;
-        if (request.ReactionTendency != null && Enum.TryParse<ReactionTendency>(request.ReactionTendency, true, out var reactTendency))
-            agent.ReactionTendency = reactTendency;
-        if (request.ExpertiseAreas != null) agent.ExpertiseAreas = request.ExpertiseAreas;
-        if (request.SeniorityLevel != null) agent.SeniorityLevel = Math.Clamp(request.SeniorityLevel.Value, 1, 5);
-        if (request.AsksQuestions != null) agent.AsksQuestions = request.AsksQuestions.Value;
-        if (request.GivesBriefAcknowledgments != null) agent.GivesBriefAcknowledgments = request.GivesBriefAcknowledgments.Value;
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        _logger.LogInformation("Updated AI agent {AgentId} for organization {OrgId}", agentId, organizationId);
 
         return Ok(new AiAgentDto
         {
@@ -285,7 +304,18 @@ public class AiAgentsController : ControllerBase
             ExpertiseAreas = agent.ExpertiseAreas,
             SeniorityLevel = agent.SeniorityLevel,
             AsksQuestions = agent.AsksQuestions,
-            GivesBriefAcknowledgments = agent.GivesBriefAcknowledgments
+            GivesBriefAcknowledgments = agent.GivesBriefAcknowledgments,
+            // A2A fields
+            AgentType = agent.AgentType.ToString(),
+            SpecialistKey = agent.SpecialistKey,
+            ContextScopes = !string.IsNullOrEmpty(agent.ContextScopesJson)
+                ? JsonSerializer.Deserialize<string[]>(agent.ContextScopesJson)
+                : null,
+            BasePrompt = agent.BasePrompt,
+            CustomInstructions = agent.CustomInstructions,
+            CanCallBuiltInAgents = agent.CanCallBuiltInAgents,
+            CanBeOrchestrated = agent.CanBeOrchestrated,
+            IsSystemProvided = agent.IsSystemProvided
         });
     }
 
@@ -301,13 +331,28 @@ public class AiAgentsController : ControllerBase
         if (agent == null)
             return NotFound();
 
+        // Built-in agents cannot be deleted, only disabled
+        if (agent.IsSystemProvided)
+            return BadRequest("Built-in agents cannot be deleted. Use the toggle to disable them instead.");
+
         // Soft delete - CLAUDE.md compliance
         agent.SoftDelete();
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Deleted AI agent {AgentId} for organization {OrgId}", agentId, organizationId);
+        _logger.LogInformation("Deleted Custom agent {AgentId} for organization {OrgId}", agentId, organizationId);
 
         return NoContent();
+    }
+
+    /// <summary>
+    /// Seed or reset Built-in agents for an organization
+    /// </summary>
+    [HttpPost("seed-builtin")]
+    public async Task<IActionResult> SeedBuiltInAgents(Guid organizationId, CancellationToken cancellationToken)
+    {
+        await _builtInAgentService.SeedBuiltInAgentsAsync(organizationId, cancellationToken);
+        _logger.LogInformation("Seeded Built-in agents for organization {OrgId}", organizationId);
+        return Ok(new { message = "Built-in agents seeded successfully" });
     }
 
     /// <summary>
@@ -338,6 +383,50 @@ public class AiAgentsController : ControllerBase
 
         return Ok(models);
     }
+
+    /// <summary>
+    /// Maps an AiAgent entity to a DTO, handling JSON deserialization
+    /// </summary>
+    private static AiAgentDto MapToDto(AiAgent a)
+    {
+        return new AiAgentDto
+        {
+            Id = a.Id,
+            Name = a.Name,
+            RoleTitle = a.RoleTitle,
+            AvatarUrl = a.AvatarUrl,
+            AvatarColor = a.AvatarColor,
+            Provider = a.Provider.ToString().ToLower(),
+            ModelId = a.ModelId,
+            ModelDisplayName = a.ModelDisplayName,
+            SystemPrompt = a.SystemPrompt,
+            MaxTokensPerResponse = a.MaxTokensPerResponse,
+            Temperature = a.Temperature,
+            IsActive = a.IsActive,
+            SortOrder = a.SortOrder,
+            CreatedAt = a.CreatedAt,
+            UpdatedAt = a.UpdatedAt,
+            // Personality fields
+            Assertiveness = a.Assertiveness,
+            CommunicationStyle = a.CommunicationStyle.ToString(),
+            ReactionTendency = a.ReactionTendency.ToString(),
+            ExpertiseAreas = a.ExpertiseAreas,
+            SeniorityLevel = a.SeniorityLevel,
+            AsksQuestions = a.AsksQuestions,
+            GivesBriefAcknowledgments = a.GivesBriefAcknowledgments,
+            // A2A fields
+            AgentType = a.AgentType.ToString(),
+            SpecialistKey = a.SpecialistKey,
+            ContextScopes = !string.IsNullOrEmpty(a.ContextScopesJson)
+                ? JsonSerializer.Deserialize<string[]>(a.ContextScopesJson)
+                : null,
+            BasePrompt = a.BasePrompt,
+            CustomInstructions = a.CustomInstructions,
+            CanCallBuiltInAgents = a.CanCallBuiltInAgents,
+            CanBeOrchestrated = a.CanBeOrchestrated,
+            IsSystemProvided = a.IsSystemProvided
+        };
+    }
 }
 
 // DTOs
@@ -367,6 +456,16 @@ public class AiAgentDto
     public int SeniorityLevel { get; set; } = 3;
     public bool AsksQuestions { get; set; } = false;
     public bool GivesBriefAcknowledgments { get; set; } = true;
+
+    // A2A (Agent-to-Agent) fields
+    public string AgentType { get; set; } = "Custom";
+    public string? SpecialistKey { get; set; }
+    public string[]? ContextScopes { get; set; }
+    public string? BasePrompt { get; set; }
+    public string? CustomInstructions { get; set; }
+    public bool CanCallBuiltInAgents { get; set; } = false;
+    public bool CanBeOrchestrated { get; set; } = false;
+    public bool IsSystemProvided { get; set; } = false;
 }
 
 public class CreateAiAgentRequest
@@ -392,6 +491,10 @@ public class CreateAiAgentRequest
     public int? SeniorityLevel { get; set; }
     public bool? AsksQuestions { get; set; }
     public bool? GivesBriefAcknowledgments { get; set; }
+
+    // A2A fields (Custom agents only - Built-in are created via seeding)
+    public bool? CanCallBuiltInAgents { get; set; }
+    public string[]? ContextScopes { get; set; }
 }
 
 public class UpdateAiAgentRequest
@@ -417,6 +520,11 @@ public class UpdateAiAgentRequest
     public int? SeniorityLevel { get; set; }
     public bool? AsksQuestions { get; set; }
     public bool? GivesBriefAcknowledgments { get; set; }
+
+    // A2A fields
+    public string? CustomInstructions { get; set; }
+    public bool? CanCallBuiltInAgents { get; set; }
+    public string[]? ContextScopes { get; set; }
 }
 
 public class AvailableModelDto

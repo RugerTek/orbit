@@ -54,7 +54,7 @@ const getInitials = (person: OrgChartResource) => {
                   {{ person.isVacant ? person.vacantPositionTitle : person.name }}
                 </div>
                 <div class="text-xs text-white/40">
-                  {{ person.description || person.resourceSubtypeName }}
+                  {{ person.description || person.roleNames || person.resourceSubtypeName }}
                 </div>
               </div>
             </div>

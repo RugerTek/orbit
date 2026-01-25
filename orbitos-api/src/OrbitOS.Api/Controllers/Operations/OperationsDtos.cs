@@ -191,6 +191,18 @@ public class ActivityDto
     // Vue Flow canvas position
     public double PositionX { get; set; }
     public double PositionY { get; set; }
+    /// <summary>
+    /// Type-specific metadata as JSON string. Contains IE symbol-specific fields:
+    /// - Inspection: { inspectionCriteria, passRate, defectTypes }
+    /// - Transport: { distance, distanceUnit, transportMode, origin, destination }
+    /// - Delay: { delayReason, averageWaitMinutes, maxWaitMinutes }
+    /// - Storage: { storageType, capacity, capacityUnit, location }
+    /// - Document: { documentType, templateUrl, requiredFields }
+    /// - Database: { systemName, operation, tables }
+    /// - ManualInput: { inputFields, validationRules }
+    /// - Display: { displayType, refreshRate }
+    /// </summary>
+    public string? MetadataJson { get; set; }
 }
 
 /// <summary>
@@ -220,6 +232,10 @@ public class CreateActivityRequest
     // Vue Flow canvas position
     public double PositionX { get; set; } = 0;
     public double PositionY { get; set; } = 0;
+    /// <summary>
+    /// Type-specific metadata as JSON string for IE symbols.
+    /// </summary>
+    public string? MetadataJson { get; set; }
 }
 
 public class UpdateActivityRequest
@@ -236,6 +252,10 @@ public class UpdateActivityRequest
     // Vue Flow canvas position
     public double PositionX { get; set; } = 0;
     public double PositionY { get; set; } = 0;
+    /// <summary>
+    /// Type-specific metadata as JSON string for IE symbols.
+    /// </summary>
+    public string? MetadataJson { get; set; }
 }
 
 public class ReorderActivitiesRequest
@@ -920,6 +940,10 @@ public class OrgChartResourceDto
     public int DirectReportsCount { get; set; }
     public int IndirectReportsCount { get; set; }
     public int ManagementDepth { get; set; }
+
+    // Role information
+    /// <summary>Comma-separated list of assigned role names for display</summary>
+    public string? RoleNames { get; set; }
 
     // Children for tree view (populated when building tree structure)
     public List<OrgChartResourceDto> DirectReports { get; set; } = new();

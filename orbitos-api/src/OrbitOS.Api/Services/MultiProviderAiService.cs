@@ -105,47 +105,76 @@ public class MultiProviderAiService : IMultiProviderAiService
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         });
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.anthropic.com/v1/messages");
-        request.Headers.Add("x-api-key", apiKey);
-        request.Headers.Add("anthropic-version", "2023-06-01");
-        request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+        // Retry logic with exponential backoff for rate limits
+        const int maxRetries = 3;
+        var baseDelayMs = 1000;
 
-        var response = await httpClient.SendAsync(request, cancellationToken);
-        var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
-
-        if (!response.IsSuccessStatusCode)
+        for (var attempt = 0; attempt <= maxRetries; attempt++)
         {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.anthropic.com/v1/messages");
+            request.Headers.Add("x-api-key", apiKey);
+            request.Headers.Add("anthropic-version", "2023-06-01");
+            request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await httpClient.SendAsync(request, cancellationToken);
+            var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            if (response.IsSuccessStatusCode)
+            {
+                using var doc = JsonDocument.Parse(responseJson);
+                var root = doc.RootElement;
+
+                var content = "";
+                if (root.TryGetProperty("content", out var contentArray))
+                {
+                    foreach (var item in contentArray.EnumerateArray())
+                    {
+                        if (item.TryGetProperty("type", out var typeElement) &&
+                            typeElement.GetString() == "text" &&
+                            item.TryGetProperty("text", out var textElement))
+                        {
+                            content = textElement.GetString() ?? "";
+                            break;
+                        }
+                    }
+                }
+
+                var tokensUsed = root.TryGetProperty("usage", out var usage)
+                    ? usage.GetProperty("input_tokens").GetInt32() + usage.GetProperty("output_tokens").GetInt32()
+                    : 0;
+
+                return new AiProviderResponse
+                {
+                    Content = content,
+                    TokensUsed = tokensUsed
+                };
+            }
+
+            // Handle rate limiting (429 TooManyRequests)
+            if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+            {
+                if (attempt < maxRetries)
+                {
+                    var retryAfter = response.Headers.RetryAfter?.Delta?.TotalMilliseconds
+                        ?? baseDelayMs * Math.Pow(2, attempt);
+
+                    _logger.LogWarning(
+                        "Rate limited by Anthropic API. Attempt {Attempt}/{MaxRetries}. Waiting {Delay}ms before retry.",
+                        attempt + 1, maxRetries, retryAfter);
+
+                    await Task.Delay((int)retryAfter, cancellationToken);
+                    continue;
+                }
+
+                _logger.LogError("Anthropic API rate limit exceeded after {MaxRetries} retries", maxRetries);
+                throw new Exception("Claude API error: TooManyRequests. Please try again later.");
+            }
+
             _logger.LogError("Anthropic API error: {StatusCode} - {Response}", response.StatusCode, responseJson);
             throw new Exception($"Anthropic API error: {response.StatusCode}");
         }
 
-        using var doc = JsonDocument.Parse(responseJson);
-        var root = doc.RootElement;
-
-        var content = "";
-        if (root.TryGetProperty("content", out var contentArray))
-        {
-            foreach (var item in contentArray.EnumerateArray())
-            {
-                if (item.TryGetProperty("type", out var typeElement) &&
-                    typeElement.GetString() == "text" &&
-                    item.TryGetProperty("text", out var textElement))
-                {
-                    content = textElement.GetString() ?? "";
-                    break;
-                }
-            }
-        }
-
-        var tokensUsed = root.TryGetProperty("usage", out var usage)
-            ? usage.GetProperty("input_tokens").GetInt32() + usage.GetProperty("output_tokens").GetInt32()
-            : 0;
-
-        return new AiProviderResponse
-        {
-            Content = content,
-            TokensUsed = tokensUsed
-        };
+        throw new Exception("Anthropic API error: Maximum retries exceeded");
     }
 
     private async Task<AiProviderResponse> SendToOpenAiAsync(
@@ -180,46 +209,75 @@ public class MultiProviderAiService : IMultiProviderAiService
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         });
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/chat/completions");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-        request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+        // Retry logic with exponential backoff for rate limits
+        const int maxRetries = 3;
+        var baseDelayMs = 1000;
 
-        var response = await httpClient.SendAsync(request, cancellationToken);
-        var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
-
-        if (!response.IsSuccessStatusCode)
+        for (var attempt = 0; attempt <= maxRetries; attempt++)
         {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/chat/completions");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+            request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await httpClient.SendAsync(request, cancellationToken);
+            var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            if (response.IsSuccessStatusCode)
+            {
+                using var doc = JsonDocument.Parse(responseJson);
+                var root = doc.RootElement;
+
+                var content = "";
+                if (root.TryGetProperty("choices", out var choices))
+                {
+                    foreach (var choice in choices.EnumerateArray())
+                    {
+                        if (choice.TryGetProperty("message", out var message) &&
+                            message.TryGetProperty("content", out var contentElement))
+                        {
+                            content = contentElement.GetString() ?? "";
+                            break;
+                        }
+                    }
+                }
+
+                var tokensUsed = root.TryGetProperty("usage", out var usage) &&
+                    usage.TryGetProperty("total_tokens", out var totalTokens)
+                    ? totalTokens.GetInt32()
+                    : 0;
+
+                return new AiProviderResponse
+                {
+                    Content = content,
+                    TokensUsed = tokensUsed
+                };
+            }
+
+            // Handle rate limiting (429 TooManyRequests)
+            if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+            {
+                if (attempt < maxRetries)
+                {
+                    var retryAfter = response.Headers.RetryAfter?.Delta?.TotalMilliseconds
+                        ?? baseDelayMs * Math.Pow(2, attempt);
+
+                    _logger.LogWarning(
+                        "Rate limited by OpenAI API. Attempt {Attempt}/{MaxRetries}. Waiting {Delay}ms before retry.",
+                        attempt + 1, maxRetries, retryAfter);
+
+                    await Task.Delay((int)retryAfter, cancellationToken);
+                    continue;
+                }
+
+                _logger.LogError("OpenAI API rate limit exceeded after {MaxRetries} retries", maxRetries);
+                throw new Exception("OpenAI API error: TooManyRequests. Please try again later.");
+            }
+
             _logger.LogError("OpenAI API error: {StatusCode} - {Response}", response.StatusCode, responseJson);
             throw new Exception($"OpenAI API error: {response.StatusCode}");
         }
 
-        using var doc = JsonDocument.Parse(responseJson);
-        var root = doc.RootElement;
-
-        var content = "";
-        if (root.TryGetProperty("choices", out var choices))
-        {
-            foreach (var choice in choices.EnumerateArray())
-            {
-                if (choice.TryGetProperty("message", out var message) &&
-                    message.TryGetProperty("content", out var contentElement))
-                {
-                    content = contentElement.GetString() ?? "";
-                    break;
-                }
-            }
-        }
-
-        var tokensUsed = root.TryGetProperty("usage", out var usage) &&
-            usage.TryGetProperty("total_tokens", out var totalTokens)
-            ? totalTokens.GetInt32()
-            : 0;
-
-        return new AiProviderResponse
-        {
-            Content = content,
-            TokensUsed = tokensUsed
-        };
+        throw new Exception("OpenAI API error: Maximum retries exceeded");
     }
 
     private async Task<AiProviderResponse> SendToGoogleAsync(
@@ -285,54 +343,83 @@ public class MultiProviderAiService : IMultiProviderAiService
         var modelId = agent.ModelId.StartsWith("gemini") ? agent.ModelId : $"gemini-{agent.ModelId}";
         var url = $"https://generativelanguage.googleapis.com/v1beta/models/{modelId}:generateContent?key={apiKey}";
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, url);
-        request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+        // Retry logic with exponential backoff for rate limits
+        const int maxRetries = 3;
+        var baseDelayMs = 1000;
 
-        var response = await httpClient.SendAsync(request, cancellationToken);
-        var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
-
-        if (!response.IsSuccessStatusCode)
+        for (var attempt = 0; attempt <= maxRetries; attempt++)
         {
+            using var request = new HttpRequestMessage(HttpMethod.Post, url);
+            request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await httpClient.SendAsync(request, cancellationToken);
+            var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            if (response.IsSuccessStatusCode)
+            {
+                using var doc = JsonDocument.Parse(responseJson);
+                var root = doc.RootElement;
+
+                var content = "";
+                if (root.TryGetProperty("candidates", out var candidates))
+                {
+                    foreach (var candidate in candidates.EnumerateArray())
+                    {
+                        if (candidate.TryGetProperty("content", out var candidateContent) &&
+                            candidateContent.TryGetProperty("parts", out var parts))
+                        {
+                            foreach (var part in parts.EnumerateArray())
+                            {
+                                if (part.TryGetProperty("text", out var textElement))
+                                {
+                                    content = textElement.GetString() ?? "";
+                                    break;
+                                }
+                            }
+                            if (!string.IsNullOrEmpty(content)) break;
+                        }
+                    }
+                }
+
+                // Gemini doesn't always return token count in the same way
+                var tokensUsed = 0;
+                if (root.TryGetProperty("usageMetadata", out var usage) &&
+                    usage.TryGetProperty("totalTokenCount", out var total))
+                {
+                    tokensUsed = total.GetInt32();
+                }
+
+                return new AiProviderResponse
+                {
+                    Content = content,
+                    TokensUsed = tokensUsed
+                };
+            }
+
+            // Handle rate limiting (429 TooManyRequests)
+            if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+            {
+                if (attempt < maxRetries)
+                {
+                    var retryAfter = response.Headers.RetryAfter?.Delta?.TotalMilliseconds
+                        ?? baseDelayMs * Math.Pow(2, attempt);
+
+                    _logger.LogWarning(
+                        "Rate limited by Google AI API. Attempt {Attempt}/{MaxRetries}. Waiting {Delay}ms before retry.",
+                        attempt + 1, maxRetries, retryAfter);
+
+                    await Task.Delay((int)retryAfter, cancellationToken);
+                    continue;
+                }
+
+                _logger.LogError("Google AI API rate limit exceeded after {MaxRetries} retries", maxRetries);
+                throw new Exception("Google AI API error: TooManyRequests. Please try again later.");
+            }
+
             _logger.LogError("Google AI API error: {StatusCode} - {Response}", response.StatusCode, responseJson);
             throw new Exception($"Google AI API error: {response.StatusCode}");
         }
 
-        using var doc = JsonDocument.Parse(responseJson);
-        var root = doc.RootElement;
-
-        var content = "";
-        if (root.TryGetProperty("candidates", out var candidates))
-        {
-            foreach (var candidate in candidates.EnumerateArray())
-            {
-                if (candidate.TryGetProperty("content", out var candidateContent) &&
-                    candidateContent.TryGetProperty("parts", out var parts))
-                {
-                    foreach (var part in parts.EnumerateArray())
-                    {
-                        if (part.TryGetProperty("text", out var textElement))
-                        {
-                            content = textElement.GetString() ?? "";
-                            break;
-                        }
-                    }
-                    if (!string.IsNullOrEmpty(content)) break;
-                }
-            }
-        }
-
-        // Gemini doesn't always return token count in the same way
-        var tokensUsed = 0;
-        if (root.TryGetProperty("usageMetadata", out var usage) &&
-            usage.TryGetProperty("totalTokenCount", out var total))
-        {
-            tokensUsed = total.GetInt32();
-        }
-
-        return new AiProviderResponse
-        {
-            Content = content,
-            TokensUsed = tokensUsed
-        };
+        throw new Exception("Google AI API error: Maximum retries exceeded");
     }
 }

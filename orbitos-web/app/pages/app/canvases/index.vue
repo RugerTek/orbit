@@ -180,15 +180,21 @@ const blockColors = {
         <h1 class="orbitos-heading-lg">Business Model Canvases</h1>
         <p class="orbitos-text">Strategic business model planning across your organization and products</p>
       </div>
-      <button
-        class="orbitos-btn-primary px-6 py-3 text-sm"
-        @click="showCreateModal = true"
-      >
-        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-        </svg>
-        New Canvas
-      </button>
+      <div class="flex items-center gap-3">
+        <KnowledgeBaseGuideButton
+          article-id="canvas/business-model-canvas"
+          label="Canvas Guide"
+        />
+        <button
+          class="orbitos-btn-primary px-6 py-3 text-sm"
+          @click="showCreateModal = true"
+        >
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+          New Canvas
+        </button>
+      </div>
     </div>
 
     <!-- Loading State -->

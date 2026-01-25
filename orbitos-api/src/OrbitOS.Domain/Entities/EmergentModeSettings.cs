@@ -67,18 +67,42 @@ public class EmergentModeSettings
     public int ResponseDelayMs { get; set; } = 500;
 
     /// <summary>
+    /// Whether to allow agents to respond multiple times in the same message thread
+    /// (if they have new insights after hearing others speak).
+    /// Default: true (for natural meeting-like behavior)
+    /// </summary>
+    public bool AllowMultipleResponses { get; set; } = true;
+
+    /// <summary>
+    /// Whether to show brief acknowledgments from agents who don't have substantive input
+    /// (e.g., "I don't have anything to add" or "Good points, nothing from my end").
+    /// Default: true (for natural meeting-like behavior)
+    /// </summary>
+    public bool ShowBriefAcknowledgments { get; set; } = true;
+
+    /// <summary>
+    /// Threshold below which agents will give brief acknowledgments instead of full responses.
+    /// Only applies when ShowBriefAcknowledgments is true.
+    /// Default: 40
+    /// </summary>
+    public int AcknowledgmentThreshold { get; set; } = 40;
+
+    /// <summary>
     /// Creates default settings for Emergent mode
     /// </summary>
     public static EmergentModeSettings Default => new()
     {
-        RelevanceThreshold = 40, // Lower threshold for more responsive agents
-        MaxRoundsPerMessage = 2,
-        MaxResponsesPerRound = 3,
+        RelevanceThreshold = 50, // Base threshold for substantive responses
+        MaxRoundsPerMessage = 3, // Allow more rounds for back-and-forth
+        MaxResponsesPerRound = 4, // Allow more agents per round
         UseCheapModelForScoring = true,
         ScoringModelId = "gemini-2.5-flash",
         ScoringModelProvider = "google",
         RequireUniqueInsight = true,
         ShowRelevanceScores = true,
-        ResponseDelayMs = 500
+        ResponseDelayMs = 500,
+        AllowMultipleResponses = true, // Let agents chime in again
+        ShowBriefAcknowledgments = true, // Show "nothing to add" responses
+        AcknowledgmentThreshold = 40
     };
 }

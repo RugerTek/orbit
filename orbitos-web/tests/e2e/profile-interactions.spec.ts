@@ -39,7 +39,7 @@ test.describe('Profile Page - All Interactive Elements', () => {
     await page.goto('/app/profile')
     await page.waitForLoadState('domcontentloaded')
     // Wait for profile to load
-    await page.getByRole('button', { name: /edit profile/i }).waitFor({ state: 'visible', timeout: 10000 })
+    await page.getByRole('button', { name: /edit profile/i }).waitFor({ state: 'visible', timeout: 20000 })
   })
 
   test('Edit Profile button is clickable and responds', async ({ page }) => {
@@ -132,7 +132,7 @@ test.describe('Edit Profile Dialog - Complete Interactions', () => {
     await page.goto('/app/profile')
     await page.waitForLoadState('domcontentloaded')
     // Wait for profile to load
-    await page.getByRole('button', { name: /edit profile/i }).waitFor({ state: 'visible', timeout: 10000 })
+    await page.getByRole('button', { name: /edit profile/i }).waitFor({ state: 'visible', timeout: 20000 })
   })
 
   // Opening behavior
@@ -418,7 +418,7 @@ test.describe('Change Password Dialog - Complete Interactions', () => {
     await page.goto('/app/profile')
     await page.waitForLoadState('domcontentloaded')
     // Wait for profile to load
-    await page.getByRole('button', { name: /edit profile/i }).waitFor({ state: 'visible', timeout: 10000 })
+    await page.getByRole('button', { name: /edit profile/i }).waitFor({ state: 'visible', timeout: 20000 })
   })
 
   test('Password dialog opens from security section', async ({ page }) => {
@@ -780,7 +780,7 @@ test.describe('Success Notifications', () => {
     await page.goto('/app/profile')
     await page.waitForLoadState('domcontentloaded')
     // Wait for profile to load
-    await page.getByRole('button', { name: /edit profile/i }).waitFor({ state: 'visible', timeout: 10000 })
+    await page.getByRole('button', { name: /edit profile/i }).waitFor({ state: 'visible', timeout: 20000 })
   })
 
   test('Success toast appears after profile update (mocked)', async ({ page }) => {

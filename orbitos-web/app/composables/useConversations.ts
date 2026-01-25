@@ -61,6 +61,18 @@ export interface Conversation {
   participants: Participant[]
 }
 
+export interface InnerDialogueStep {
+  stepNumber: number
+  type: 'Routing' | 'Consulting' | 'AgentToAgent' | 'Synthesis' | 'Reasoning'
+  title: string
+  description?: string
+  agentId?: string
+  agentName?: string
+  query?: string
+  response?: string
+  tokensUsed?: number
+}
+
 export interface Message {
   id: string
   conversationId: string
@@ -80,6 +92,10 @@ export interface Message {
   // Emergent mode fields
   relevanceScore?: number
   relevanceReasoning?: string
+  // A2A Inner dialogue fields
+  isInnerDialogue?: boolean
+  innerDialogueType?: string
+  innerDialogueSteps?: InnerDialogueStep[]
 }
 
 export interface EmergentSettings {

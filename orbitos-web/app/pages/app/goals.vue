@@ -473,6 +473,10 @@ const getOwnerName = (ownerId?: string): string | undefined => {
           />
         </div>
 
+        <KnowledgeBaseGuideButton
+          article-id="goals/okr-methodology"
+          label="OKR Guide"
+        />
         <button
           @click="showAddObjectiveDialog = true"
           class="rounded-xl bg-gradient-to-r from-purple-500 to-blue-600 px-4 py-2 text-sm font-semibold text-white hover:from-purple-600 hover:to-blue-700 transition-all"

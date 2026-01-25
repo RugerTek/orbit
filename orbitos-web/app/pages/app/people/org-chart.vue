@@ -97,6 +97,10 @@ const handleReportingUpdated = () => {
             {{ mode }}
           </button>
         </div>
+        <KnowledgeBaseGuideButton
+          article-id="org-design/span-of-control"
+          label="Org Design Guide"
+        />
         <button
           @click="showAddVacancyDialog = true"
           class="orbitos-btn-primary py-2 px-4 text-sm"

@@ -139,6 +139,21 @@ const colorClasses: Record<string, { bg: string; icon: string; text: string }> =
             </svg>
           </div>
         </NuxtLink>
+
+        <NuxtLink
+          to="/admin/usage"
+          class="group rounded-2xl bg-slate-800/50 border border-slate-700/50 p-6 hover:border-purple-500/50 transition-colors"
+        >
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-lg font-semibold text-white">AI Usage Analytics</h3>
+              <p class="mt-1 text-sm text-slate-400">Monitor global token usage and costs</p>
+            </div>
+            <svg class="h-5 w-5 text-slate-500 group-hover:text-purple-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        </NuxtLink>
       </div>
 
       <!-- Recent activity -->

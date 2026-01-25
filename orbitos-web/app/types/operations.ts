@@ -80,6 +80,7 @@ export interface OpsActivity {
   description?: string
   order: number
   activityType: 'manual' | 'automated' | 'hybrid' | 'decision' | 'handoff'
+    | 'operation' | 'inspection' | 'transport' | 'delay' | 'storage' | 'document' | 'database' | 'manualInput' | 'display'
   functionId?: string
   assignedResourceId?: string
   linkedProcessId?: string | null // Subprocess linking - drill down capability (null to clear)
@@ -88,6 +89,8 @@ export interface OpsActivity {
   // Vue Flow canvas position
   positionX: number
   positionY: number
+  // Type-specific metadata (JSON string) for IE symbols
+  metadataJson?: string
   createdAt: string
   updatedAt: string
 }
@@ -300,6 +303,8 @@ export interface OrgChartResource {
   directReportsCount: number
   indirectReportsCount: number
   managementDepth: number
+  // Role information
+  roleNames?: string
   // Children for tree view
   directReports?: OrgChartResource[]
 }
